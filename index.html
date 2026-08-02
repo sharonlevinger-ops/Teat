@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>לוח תכנון שבועי</title>
+  <style>
+    :root {
+      --bg-color: #f4f6f9;
+      --card-bg: #ffffff;
+      --primary: #2c3e50;
+      --accent: #3498db;
+      --text-color: #333;
+      --border-color: #e0e0e0;
+      --completed: #888;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 15px;
+      direction: rtl;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      margin: 0;
+      color: var(--primary);
+      font-size: 1.8rem;
+    }
+
+    .weekly-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .day-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      border-right: 6px solid var(--accent);
+    }
+
+    .day-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--bg-color);
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+    }
+
+    .day-title {
+      font-size: 1.3rem;
+      font-weight: bold;
+      color: var(--primary);
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .task-item {
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .task-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .task-checkbox {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+    }
+
+    .task-text {
+      flex: 1;
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .task-text.done {
+      text-decoration: line-through;
+      color: var(--completed);
+    }
+
+    .task-note {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      color: #666;
+      background: #fff;
+      border: 1px dashed #ccc;
+      border-radius: 4px;
+      padding: 6px;
+      outline: none;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #e74c3c;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    .add-task-container {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .add-task-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.95rem;
+    }
+
+    .add-task-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .fixed-tasks-card {
+      border-right-color: #27ae60;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📋 לוח תכנון שבועי</h1>
+  </header>
+
+  <div class="weekly-container" id="app">
+    <!-- תוכן הימים והמשימות ייווצר כאן באמצעות JavaScript -->
+  </div>
+
+  <script>
+    const daysData = [
+      { id: 'fixed', name: '📌 משימות קבועות' },
+      { id: 'sun', name: '📅 יום ראשון' },
+      { id: 'mon', name: '📅 יום שני' },
+      { id: 'tue', name: '📅 יום שלישי' },
+      { id: 'wed', name: '📅 יום רביעי' },
+      { id: 'thu', name: '📅 יום חמישי' },
+      { id: 'fri', name: '📅 יום שישי' },
+      { id: 'sat', name: '📅 יום שבת' }
+    ];
+
+    // טעינת משימות מ-LocalStorage או יצירת מבנה ריק
+    let tasks = JSON.parse(localStorage.getItem('myWeeklyTasks')) || {};
+
+    function saveTasks() {
+      localStorage.setItem('myWeeklyTasks', JSON.stringify(tasks));
+    }
+
+    function renderApp() {
+      const app = document.getElementById('app');
+      app.innerHTML = '';
+
+      daysData.forEach(day => {
+        const dayCard = document.createElement('div');
+        dayCard.className = `day-card ${day.id === 'fixed' ? 'fixed-tasks-card' : ''}`;
+
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'day-header';
+        dayHeader.innerHTML = `<span class="day-title">${day.name}</span>`;
+        dayCard.appendChild(dayHeader);
+
+        const taskList = document.createElement('div');
+        taskList.className = 'task-list';
+
+        const dayTasks = tasks[day.id] || [];
+
+        dayTasks.forEach((task, index) => {
+          const taskItem = document.createElement('div');
+          taskItem.className = 'task-item';
+
+          taskItem.innerHTML = `
+            <div class="task-main">
+              <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''} onchange="toggleTask('${day.id}', ${index})">
+              <span class="task-text ${task.completed ? 'done' : ''}">${task.title}</span>
+              <button class="delete-btn" onclick="deleteTask('${day.id}', ${index})">🗑️</button>
+            </div>
+            <textarea class="task-note" placeholder="הערות..." onchange="updateNote('${day.id}', ${index}, this.value)">${task.note || ''}</textarea>
+          `;
+          taskList.appendChild(taskItem);
+        });
+
+        dayCard.appendChild(taskList);
+
+        // שדה הוספת משימה
+        const addContainer = document.createElement('div');
+        addContainer.className = 'add-task-container';
+        addContainer.innerHTML = `
+          <input type="text" class="add-task-input" id="input-${day.id}" placeholder="הוסף משימה חדשה...">
+          <button class="add-task-btn" onclick="addTask('${day.id}')">+</button>
+        `;
+        dayCard.appendChild(addContainer);
+
+        app.appendChild(dayCard);
+      });
+    }
+
+    function addTask(dayId) {
+      const input = document.getElementById(`input-${dayId}`);
+      const title = input.value.trim();
+      if (!title) return;
+
+      if (!tasks[dayId]) tasks[dayId] = [];
+      tasks[dayId].push({ title: title, completed: false, note: '' });
+
+      input.value = '';
+      saveTasks();
+      renderApp();
+    }
+
+    function toggleTask(dayId, index) {
+      tasks[dayId][index].completed = !tasks[dayId][index].completed;
+      saveTasks();
+      renderApp();
+    }
+
+    function updateNote(dayId, index, noteText) {
+      tasks[dayId][index].note = noteText;
+      saveTasks();
+    }
+
+    function deleteTask(dayId, index) {
+      tasks[dayId].splice(index, 1);
+      saveTasks();
+      renderApp();
+    }
+
+    // הפעלה ראשונית
+    renderApp();
+  </script>
+</body>
+</html>
