@@ -410,24 +410,46 @@
     const dotX = (f) => xk(rel(f)) + (xk(rel(f) - 1) - xk(rel(f))) * 0.3;
 
     let svg = `<svg viewBox="0 0 800 ${bottom + 78}" role="img" aria-label="לוח צוואר גיטרה" class="${ex.dynamicFingers ? 'only-cur' : ''}">`;
-    svg += `<rect x="${L}" y="${top - 16}" width="${R - L}" height="${bottom - top + 32}" rx="6" fill="var(--wood)"/>`;
+    const bt = top - 16;
+    const bh = bottom - top + 32;
+    svg += `<defs><linearGradient id="bdRw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e1a11"/><stop offset=".5" stop-color="#442619"/><stop offset="1" stop-color="#2b170f"/></linearGradient>
+      <linearGradient id="bdBind" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6ecd0"/><stop offset="1" stop-color="#d9c9a0"/></linearGradient>
+      <linearGradient id="bdFret" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8f8f88"/><stop offset=".45" stop-color="#eeeee6"/><stop offset="1" stop-color="#9b9b94"/></linearGradient></defs>`;
+    svg += `<rect x="${L}" y="${bt}" width="${R - L}" height="${bh}" fill="url(#bdRw)"/>`;
+    // וריד העץ
+    for (let i = 0; i < 16; i++) {
+      const gy = bt + 4 + ((i * 37) % (bh - 8));
+      svg += `<line x1="${L}" x2="${R}" y1="${gy}" y2="${gy + ((i % 3) - 1) * 1.5}" stroke="${i % 2 ? '#6b4128' : '#000'}" stroke-width="${i % 4 === 0 ? 1.4 : .8}" opacity=".13"/>`;
+    }
+    // קצוות לבנים (binding)
+    svg += `<rect x="${L}" y="${bt - 6}" width="${R - L}" height="6" fill="url(#bdBind)"/><rect x="${L}" y="${bt + bh}" width="${R - L}" height="6" fill="url(#bdBind)"/>`;
+    // סימוני טרפז
+    const trap = (cx, cy, w) => `<polygon points="${cx - w / 2},${cy + 10} ${cx + w / 2},${cy + 10} ${cx + w / 2 - 3},${cy - 10} ${cx - w / 2 + 3},${cy - 10}" fill="#f1e6c8" stroke="#bda97a" stroke-width="1"/>`;
     for (const m of [3, 5, 7, 9, 12, 15, 17]) {
       if (m >= startFret && m < startFret + frets) {
-        const cx = (xk(rel(m) - 1) + xk(rel(m))) / 2;
-        svg += `<circle cx="${cx}" cy="${(top + bottom) / 2}" r="7" fill="var(--wood-dark)" opacity=".7"/>`;
+        const xa = xk(rel(m) - 1);
+        const xb = xk(rel(m));
+        const cx = (xa + xb) / 2;
+        const w = Math.max(10, Math.min(26, Math.abs(xa - xb) * 0.5));
+        if (m === 12) svg += trap(cx, top + (bottom - top) * 0.22, w) + trap(cx, top + (bottom - top) * 0.78, w);
+        else svg += trap(cx, (top + bottom) / 2, w);
       }
     }
     for (let k = 1; k <= frets; k++) {
-      svg += `<line x1="${xk(k)}" x2="${xk(k)}" y1="${top - 16}" y2="${bottom + 16}" stroke="var(--fret)" stroke-width="3"/>`;
+      svg += `<line x1="${xk(k)}" x2="${xk(k)}" y1="${bt}" y2="${bt + bh}" stroke="url(#bdFret)" stroke-width="3.6"/><line x1="${xk(k) - 1.6}" x2="${xk(k) - 1.6}" y1="${bt}" y2="${bt + bh}" stroke="#000" stroke-width="1" opacity=".3"/>`;
     }
     if (startFret === 1) {
-      const nutW = 9;
-      svg += `<rect x="${xk(0) - nutW / 2}" y="${top - 16}" width="${nutW}" height="${bottom - top + 32}" fill="var(--nut)"/>`;
+      const nutW = 10;
+      svg += `<rect x="${xk(0) - nutW / 2}" y="${bt - 6}" width="${nutW}" height="${bh + 12}" rx="2" fill="#efe6cf" stroke="#bda97a"/>`;
     } else {
-      svg += `<line x1="${xk(0)}" x2="${xk(0)}" y1="${top - 16}" y2="${bottom + 16}" stroke="var(--fret)" stroke-width="3"/>`;
+      svg += `<line x1="${xk(0)}" x2="${xk(0)}" y1="${bt}" y2="${bt + bh}" stroke="url(#bdFret)" stroke-width="3.6"/>`;
     }
     for (let s = 1; s <= 6; s++) {
-      svg += `<line x1="${L}" x2="${R}" y1="${yS(s)}" y2="${yS(s)}" stroke="var(--string)" stroke-width="${STRING_W[s]}"/>`;
+      const w = STRING_W[s];
+      const wound = s >= 4;
+      svg += `<line x1="${L}" x2="${R}" y1="${yS(s) + 2.5}" y2="${yS(s) + 2.5}" stroke="#000" stroke-width="${w}" opacity=".35"/>`;
+      svg += `<line x1="${L}" x2="${R}" y1="${yS(s)}" y2="${yS(s)}" stroke="${wound ? '#c99a5c' : '#e4e4de'}" stroke-width="${w}"/>`;
+      if (wound) svg += `<line x1="${L}" x2="${R}" y1="${yS(s)}" y2="${yS(s)}" stroke="#6b4a1f" stroke-width="${w}" stroke-dasharray="1 2.2" opacity=".55"/>`;
     }
     const lx = xk(0) + side * 46;
     for (let s = 1; s <= 6; s++) {
