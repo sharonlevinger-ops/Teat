@@ -5,6 +5,10 @@
   const SONGS = window.GUITAR_SONGS || [];
   const T = DATA.theory;
   const F = window.GUITAR_FUN;
+  const TUNER = window.GUITAR_TUNER;
+  const RHYTHM = window.GUITAR_RHYTHM;
+  const RIFFS = window.GUITAR_RIFFS.RIFFS;
+  const SYNC = window.GUITAR_SYNC;
   const app = document.getElementById('app');
   const tabsEl = document.getElementById('tabs');
   const handBtn = document.getElementById('hand');
@@ -18,12 +22,17 @@
       return d;
     }
   };
-  const save = (k, v) => {
+  const saveLocal = (k, v) => {
     try {
       localStorage.setItem('guitar:' + k, JSON.stringify(v));
     } catch (e) {
       /* מתעלמים */
     }
+  };
+  // שמירה מקומית, ואם הנתון משתתף בסנכרון: דחיפה לשרת בעוד כמה שניות
+  const save = (k, v) => {
+    saveLocal(k, v);
+    if (SYNC_KEYS.has(k)) schedulePush();
   };
   const S = {
     lefty: load('lefty', true),
@@ -35,7 +44,8 @@
     active: load('active', []),
     today: load('today', { date: '', done: [] }),
     jams: load('jams', 0),
-    quizBest: load('quizBest', 0),
+    customDeleted: load('customDeleted', []),
+    lvl: 0,
     query: '',
   };
 
@@ -44,6 +54,7 @@
     ...DATA.levels.flatMap((l) => l.exercises),
     ...DATA.penta.sections.flatMap((s) => s.exercises),
     ...DATA.chords.sections.flatMap((s) => s.exercises),
+    ...RIFFS,
   ];
   const findEx = (id) => {
     const fixed = allEx.find((e) => e.id === id);
@@ -84,6 +95,8 @@
       if (!this.ctx) {
         const AC = window.AudioContext || window.webkitAudioContext;
         this.ctx = new AC();
+        this.out = this.ctx.createGain();
+        this.out.connect(this.ctx.destination);
       }
       if (this.ctx.state === 'suspended') this.ctx.resume();
       return this.ctx;
@@ -95,7 +108,7 @@
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.5, t + 0.002);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-      o.connect(g).connect(this.ctx.destination);
+      o.connect(g).connect(this.out);
       o.start(t);
       o.stop(t + 0.08);
     },
@@ -128,12 +141,36 @@
         lfo.start(t);
         lfo.stop(t + dur + 0.05);
       }
+      const muted = note.t === 'm';
+      const end = muted ? Math.min(dur, 0.09) : dur;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(note.t === 'h' || note.t === 'p' ? 0.12 : 0.22, t + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g).connect(this.ctx.destination);
+      g.gain.exponentialRampToValueAtTime(note.t === 'h' || note.t === 'p' ? 0.12 : muted ? 0.3 : 0.22, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + end);
+      o.connect(g).connect(this.out);
       o.start(t);
-      o.stop(t + dur + 0.05);
+      o.stop(t + end + 0.05);
+    },
+    // פריטה של אקורד לפי שמו: dir 'D' למטה (מהבס לדק), 'U' למעלה (מהדק לבס, רק המיתרים העליונים), 'M' למטה מושתק
+    strumChord(sym, t, dir, vol) {
+      const ch = T.parseChord(sym);
+      if (!ch) return;
+      const muted = dir === 'M';
+      const notes = [36 + ch.root, ...ch.tones.map((pc) => 48 + (((pc - 48) % 12) + 12) % 12), ...ch.tones.map((pc) => 60 + (((pc - 60) % 12) + 12) % 12)];
+      const list = dir === 'U' ? notes.slice(-4).reverse() : notes;
+      list.forEach((m, k) => {
+        const o = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.value = midiFreq(m);
+        const st = t + k * 0.012;
+        const len = muted ? 0.1 : dir === 'U' ? 0.35 : 0.7;
+        g.gain.setValueAtTime(0.0001, st);
+        g.gain.exponentialRampToValueAtTime((dir === 'U' ? 0.07 : 0.1) * (vol || 1), st + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, st + len);
+        o.connect(g).connect(this.out);
+        o.start(st);
+        o.stop(st + len + 0.05);
+      });
     },
     strum(step, t) {
       if (step.rest) return;
@@ -157,14 +194,12 @@
       this.bpm = bpm;
       this.onTick = onTick;
       this.running = true;
-      this.counter = S.countIn ? -4 : 0;
+      this.counter = S.countIn ? -4 * (ex.sub || 1) : 0;
       this.next = ctx.currentTime + 0.12;
       this.timer = setInterval(() => this.schedule(), 25);
       const loop = () => {
         if (!this.running) return;
-        let last = null;
-        while (this.queue.length && this.queue[0].t <= ctx.currentTime) last = this.queue.shift();
-        if (last) this.onTick(last.c);
+        while (this.queue.length && this.queue[0].t <= ctx.currentTime) this.onTick(this.queue.shift().c);
         this.raf = requestAnimationFrame(loop);
       };
       this.raf = requestAnimationFrame(loop);
@@ -172,19 +207,24 @@
     schedule() {
       const ex = this.ex;
       const bps = bpsOf(ex);
+      const sub = ex.sub || 1;
       const ctx = Audio_.ctx;
       while (this.next < ctx.currentTime + 0.12) {
         const c = this.counter;
-        const accent = (((c % 4) + 4) % 4) === 0;
-        Audio_.click(this.next, accent);
-        if (c >= 0 && S.notesSound && c % bps === 0) {
+        const period = 60 / this.bpm / sub;
+        if (((c % sub) + sub) % sub === 0 && (c < 0 || ex.click !== false)) {
+          const beat = Math.floor(c / sub);
+          Audio_.click(this.next, ((beat % 4) + 4) % 4 === 0);
+        }
+        if (ex.sched) ex.sched(c, this.next, period);
+        else if (c >= 0 && S.notesSound && c % bps === 0) {
           const i = stepIndexOf(ex, c);
           const step = ex.steps[i];
           if (ex.mode === 'chords') Audio_.strum(step, this.next);
-          else Audio_.pluck(step, this.next, Math.min(0.9, (60 / this.bpm) * 0.95), ex.steps[(i + ex.steps.length - 1) % ex.steps.length]);
+          else if (!step.rest) Audio_.pluck(step, this.next, Math.min(0.9, period * 0.95), ex.steps[(i + ex.steps.length - 1) % ex.steps.length]);
         }
         this.queue.push({ c, t: this.next });
-        this.next += 60 / this.bpm;
+        this.next += period;
         this.counter++;
       }
     },
@@ -220,7 +260,7 @@
       g.gain.exponentialRampToValueAtTime(0.3, t + 0.05);
       g.gain.setValueAtTime(0.3, t + Math.max(0.1, dur - 0.4));
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-      o.connect(g).connect(ctx.destination);
+      o.connect(g).connect(Audio_.out);
       o.start(t);
       o.stop(t + dur + 0.05);
     },
@@ -231,7 +271,7 @@
       o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
       g.gain.setValueAtTime(0.9 * v, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
-      o.connect(g).connect(this.ctx.destination);
+      o.connect(g).connect(this.out);
       o.start(t);
       o.stop(t + 0.3);
     },
@@ -244,7 +284,7 @@
       f.frequency.value = freq;
       g.gain.setValueAtTime(gain, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-      src.connect(f).connect(g).connect(this.ctx.destination);
+      src.connect(f).connect(g).connect(this.out);
       src.start(t);
       src.stop(t + dur + 0.02);
     },
@@ -256,7 +296,7 @@
       o.frequency.value = 190;
       g.gain.setValueAtTime(0.2 * v, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-      o.connect(g).connect(this.ctx.destination);
+      o.connect(g).connect(this.out);
       o.start(t);
       o.stop(t + 0.12);
     },
@@ -336,7 +376,7 @@
         g.gain.exponentialRampToValueAtTime(gainV, t + delay + 0.02);
         g.gain.exponentialRampToValueAtTime(gainV * 0.6, t + dur * 0.7);
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-        o.connect(g).connect(ctx.destination);
+        o.connect(g).connect(Audio_.out);
         o.start(t + delay);
         o.stop(t + dur + 0.05);
       };
@@ -420,6 +460,7 @@
     } else {
       const seen = new Set();
       for (const n of ex.steps) {
+        if (n.rest) continue;
         const key = keyOf(n);
         if (seen.has(key)) continue;
         seen.add(key);
@@ -468,7 +509,7 @@
   const exItem = (e) => {
     const tags = [
       e.diff ? `<span class="tag d-${e.diff === 'קל' ? 1 : e.diff === 'בינוני' ? 2 : 3}">${e.diff}</span>` : '',
-      e.style ? '<span class="tag">בסגנון נגנים</span>' : '',
+      e.mode === 'riff' ? `<span class="tag">${e.styleName}</span>` : e.style ? '<span class="tag">בסגנון נגנים</span>' : '',
       e.mode === 'chords' ? '<span class="tag">אקורדים</span>' : '',
     ].join(' ');
     return `<li><a class="ex" href="#${e.id}" data-go="${e.id}"><b>${fx(e.title)} ${tags}</b><span>${fx(e.goal)}</span> ${summary(e.id)}</a></li>`;
@@ -492,7 +533,7 @@
     const days = allDays();
     const bests = {};
     for (const [id, rows] of Object.entries(S.log)) bests[id] = Math.max(...rows.map((r) => r.bpm));
-    return { totalDays: days.size, streak: F.computeStreak([...days], todayKey()), uniqueExercises: Object.keys(S.log).length, bests, jams: S.jams, quizBest: S.quizBest };
+    return { totalDays: days.size, streak: F.computeStreak([...days], todayKey()), uniqueExercises: Object.keys(S.log).length, bests, jams: S.jams, riffs: Object.keys(S.log).filter((k) => k.startsWith('riff-')).length, rhythms: Object.keys(S.log).filter((k) => k.startsWith('rh-')).length };
   }
 
   // ג׳אם: שם המפתח (עם במולים לפי סימן המפתח) ושיר-דמה שממנו נבנה העמוד
@@ -522,21 +563,23 @@
       save('today', S.today);
     }
     const seed = Math.floor(Date.parse(tk + 'T12:00:00Z') / 864e5);
-    const plan = F.dailyPlan(seed, DATA);
+    const plan = F.dailyPlan(seed, DATA, { riffs: RIFFS, rhythms: RHYTHM.PATTERNS });
     const jam = jamSong(plan.jam.preset.id, plan.jam.rootPc);
     const items = [
       { id: 'w1', kind: 'חימום', title: plan.warm[0].title, sub: plan.warm[0].goal, go: plan.warm[0].id },
       { id: 'w2', kind: 'חימום', title: plan.warm[1].title, sub: plan.warm[1].goal, go: plan.warm[1].id },
       { id: 'tech', kind: 'טכניקה או סולם', title: plan.tech.title, sub: plan.tech.goal, go: plan.tech.id },
+      plan.riff && { id: 'riff', kind: 'ריף', title: plan.riff.title, sub: plan.riff.goal, go: plan.riff.id },
+      plan.rhythm && { id: 'rhy', kind: 'קצב', title: plan.rhythm.name, sub: plan.rhythm.desc, go: 'rh-' + plan.rhythm.id },
       { id: 'jam', kind: 'ג׳אם', title: jam.title, sub: jam.desc, go: jam.id },
       { id: 'chal', kind: 'אתגר יצירתי', title: plan.challenge, sub: 'נסה אותו בזמן הג׳אם.', go: null },
-    ];
+    ].filter(Boolean);
     const done = new Set(S.today.done);
     const st = fullStats();
     const ach = F.ACHIEVEMENTS.map((a) => ({ ...a, ok: a.check(st) }));
     app.innerHTML = `
       <h1>האימון של היום</h1>
-      <p class="muted">חמש דקות לכל חלק, בערך חצי שעה בסך הכול. אפשר לעשות רק חלק מהם. כל סימון נחשב ליום תרגול.</p>
+      <p class="muted">חמש דקות לכל חלק, בערך 40 דקות בסך הכול. אפשר לעשות רק חלק מהם. כל סימון נחשב ליום תרגול.</p>
       <div class="welcome"><b>${st.streak ? `🔥 ${daysText(st.streak)} ברצף` : 'מתחילים רצף חדש היום'}</b>${st.totalDays ? ` · ${daysText(st.totalDays)} תרגול בסך הכול` : ''}<br>
         <span class="small">סימנת ${done.size} מתוך ${items.length}.</span></div>
       <ul class="ex-list today">${items
@@ -562,103 +605,475 @@
     });
   }
 
-  // ---------- כלים ומשחק: כוונון וחידון לוח הצוואר ----------
-  function renderTools() {
+  // ---------- כוונון עם מיקרופון ----------
+  let stopTuner = null;
+  const micConstraints = { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } };
+  const micError = (e) => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return 'הדפדפן לא מאפשר גישה למיקרופון בכתובת הזו. נדרשת כתובת מאובטחת (https) ודפדפן עדכני.';
+    if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) return 'הגישה למיקרופון נחסמה. אשר אותה בהגדרות הדפדפן (סמל המנעול ליד הכתובת) ונסה שוב.';
+    if (e && e.name === 'NotFoundError') return 'לא נמצא מיקרופון במכשיר.';
+    return 'לא הצלחתי להפעיל את המיקרופון.';
+  };
+
+  function renderTuner() {
     Met.stop();
     Backing.stop();
-    renderTabs('tools');
+    renderTabs('tuner');
     const tunId = load('tuning', 'standard');
     app.innerHTML = `
-      <h1>כלים ומשחק</h1>
-      <section class="card"><h3>כוונון: צליל התייחסות</h3>
-        <p class="muted small" style="margin-top:0">לחץ על מיתר כדי לשמוע את הצליל, וכוון את המיתר שלך אליו. הצליל מושמע כמה שניות. הרבה הקלטות מכוונות נמוך מהרגיל, ובחירה בכיוון המתאים עוזרת לנגן עם ההקלטה.</p>
-        <div class="form-row"><label>כיוון <select id="tunSel">${F.TUNINGS.map((t) => `<option value="${t.id}" ${t.id === tunId ? 'selected' : ''}>${t.name}</option>`).join('')}</select></label></div>
-        <div class="tuner" id="tuner"></div></section>
-      <section class="card"><h3>חידון: איזה תו זה?</h3>
-        <p class="muted small" style="margin-top:0">הנקודה על הלוח מסמנת תו. בחר את שמו. כך לומדים את הלוח בלי לחשוב.</p>
-        <div id="quizBoard" class="board-wrap"></div>
-        <div class="quiz-ans" id="quizAns">${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map((n, pc) => `<button class="qbtn" data-pc="${pc}">${n.length > 1 ? n + '/' + T.noteNameOf(pc, true) : n}</button>`).join('')}</div>
-        <p class="quiz-msg" id="quizMsg" aria-live="polite">&nbsp;</p>
-        <div class="opts"><label><input type="checkbox" id="quizNat" /> רק תווים טבעיים (בלי דיאז ובמול)</label><label><input type="checkbox" id="quizSound" /> השמע את התו</label></div>
-        <p class="muted small" id="quizScore"></p></section>`;
-
-    // כוונון
-    const tuner = document.getElementById('tuner');
-    const drawTuner = () => {
-      const id = document.getElementById('tunSel').value;
-      save('tuning', id);
-      const tun = F.TUNINGS.find((x) => x.id === id);
-      const flats = id === 'half';
-      tuner.innerHTML = tun.midi
-        .map((m, i) => `<button class="tbtn" data-midi="${m}"><span class="small muted">מיתר ${6 - i}</span><b>${T.noteNameOf(m, flats)}</b></button>`)
+      <h1>לכוונן גיטרה</h1>
+      <p class="muted">האתר מקשיב לגיטרה דרך המיקרופון ומראה אם המיתר גבוה או נמוך מדי. פורטים מיתר פתוח אחד בכל פעם, ומסובבים את הכפתור עד שהמחוג באמצע.</p>
+      <section class="card tuner-card">
+        <div class="form-row"><label>כיוון <select id="tunSel">${F.TUNINGS.map((t) => `<option value="${t.id}" ${t.id === tunId ? 'selected' : ''}>${t.name}</option>`).join('')}</select></label>
+          <button class="start" id="tunGo">🎤 הפעל מיקרופון</button></div>
+        <div class="tn-read"><div class="tn-note" id="tnNote">–</div><div class="tn-sub muted" id="tnSub">&nbsp;</div></div>
+        <div class="tn-meter" id="tnMeter" aria-hidden="true"><span class="tn-zone"></span><span class="tn-mid"></span><span class="tn-needle" id="tnNeedle"></span>
+          <span class="tn-l">נמוך ♭</span><span class="tn-r">♯ גבוה</span></div>
+        <p class="tn-msg" id="tnMsg" aria-live="polite">לחץ "הפעל מיקרופון" ופרוט מיתר.</p>
+        <div class="tn-strings" id="tnStrings"></div>
+        <p class="muted small">אפשר ללחוץ על מיתר כדי לכוון בדיוק אליו, גם כשהוא רחוק מהכיוון. לחיצה נוספת מבטלת. הכיוון נשמר בדפדפן.</p>
+      </section>
+      <section class="card"><h3>איך מכוונים</h3><ol>
+        <li>התחל מהמיתר העבה (6). פרוט אותו פתוח ותן לו להישמע.</li>
+        <li>אם המחוג שמאלה: המיתר נמוך מדי, מותחים אותו. ימינה: גבוה מדי, מרפים.</li>
+        <li>תמיד מגיעים לתו <b>מלמטה</b>: אם עברת אותו, הרפה מעט ומתח שוב. כך הכיוון יציב יותר.</li>
+        <li>אחרי שכיוונת את כל המיתרים, עבור עליהם שוב: כיוון של מיתר אחד משפיע קצת על האחרים.</li>
+        <li>ברעש רב, או עם גיטרה חשמלית ממוסכנת, קרב את הגיטרה למכשיר.</li></ol></section>`;
+    const sel = document.getElementById('tunSel');
+    const strBox = document.getElementById('tnStrings');
+    const noteEl = document.getElementById('tnNote');
+    const subEl = document.getElementById('tnSub');
+    const msgEl = document.getElementById('tnMsg');
+    const needle = document.getElementById('tnNeedle');
+    const goBtn = document.getElementById('tunGo');
+    let locked = -1;
+    const tuned = new Set();
+    const tuning = () => F.TUNINGS.find((t) => t.id === sel.value);
+    const flatsOn = () => sel.value === 'half';
+    const drawStrings = () => {
+      strBox.innerHTML = tuning().midi
+        .map((m, i) => `<button class="tbtn ${locked === i ? 'lock' : ''} ${tuned.has(i) ? 'ok' : ''}" data-i="${i}"><span class="small muted">מיתר ${6 - i}</span><b>${T.noteNameOf(m, flatsOn())}</b><span class="tk">${tuned.has(i) ? '✓' : '&nbsp;'}</span></button>`)
         .join('');
     };
-    document.getElementById('tunSel').onchange = drawTuner;
-    tuner.onclick = (e) => {
-      const b = e.target.closest('[data-midi]');
-      if (b) Audio_.tone(Number(b.dataset.midi), 3);
+    sel.onchange = () => {
+      save('tuning', sel.value);
+      tuned.clear();
+      locked = -1;
+      drawStrings();
     };
-    drawTuner();
+    strBox.onclick = (e) => {
+      const b = e.target.closest('[data-i]');
+      if (!b) return;
+      const i = Number(b.dataset.i);
+      locked = locked === i ? -1 : i;
+      drawStrings();
+    };
+    drawStrings();
 
-    // חידון
-    const qb = document.getElementById('quizBoard');
-    const msg = document.getElementById('quizMsg');
-    const score = document.getElementById('quizScore');
-    const NAT = new Set([0, 2, 4, 5, 7, 9, 11]);
-    let q = null;
-    let ok = 0;
-    let total = 0;
-    let streak = 0;
-    const showScore = () => {
-      score.textContent = `נכון ${ok} מתוך ${total} · רצף ${streak} · השיא שלך ${S.quizBest}`;
-    };
-    const drawQ = () => {
-      qb.innerHTML = boardSvg({ frets: 12, startFret: 1, steps: [{ s: q.s, f: q.f, fi: 5 }] }, S.lefty);
-    };
-    const nextQ = () => {
-      const natEl = document.getElementById('quizNat');
-      if (!natEl) return; // יצאנו מהמסך בזמן שהשאלה הבאה בהמתנה
-      const natOnly = natEl.checked;
-      let s;
-      let f;
-      do {
-        s = 1 + Math.floor(Math.random() * 6);
-        f = Math.floor(Math.random() * 13);
-      } while (natOnly && !NAT.has(F.noteAt(s, f)));
-      q = { s, f, pc: F.noteAt(s, f), done: false };
-      drawQ();
-      msg.innerHTML = '&nbsp;';
-      msg.className = 'quiz-msg';
-      if (document.getElementById('quizSound').checked) Audio_.tone(OPEN_MIDI[s] + f, 1.2);
-    };
-    document.getElementById('quizAns').onclick = (e) => {
-      const b = e.target.closest('[data-pc]');
-      if (!b || q.done) return;
-      q.done = true;
-      total++;
-      const right = Number(b.dataset.pc) === q.pc;
-      if (right) {
-        ok++;
-        streak++;
-        if (streak > S.quizBest) {
-          S.quizBest = streak;
-          save('quizBest', S.quizBest);
-        }
-        markActive();
-        msg.textContent = '✓ נכון!';
-        msg.className = 'quiz-msg good';
-      } else {
-        streak = 0;
-        msg.innerHTML = `✗ זה היה <b>${T.noteNameOf(q.pc, false)}${[1, 3, 6, 8, 10].includes(q.pc) ? ' / ' + T.noteNameOf(q.pc, true) : ''}</b>`;
-        msg.className = 'quiz-msg bad';
+    const show = (reading) => {
+      if (!reading) {
+        needle.style.left = '50%';
+        needle.className = 'tn-needle idle';
+        return;
       }
-      showScore();
-      setTimeout(nextQ, right ? 700 : 1600);
+      const { name, cents, i } = reading;
+      noteEl.textContent = name;
+      const clamped = Math.max(-50, Math.min(50, cents));
+      needle.style.left = 50 + clamped + '%';
+      const good = Math.abs(cents) <= 5;
+      needle.className = 'tn-needle' + (good ? ' good' : '');
+      noteEl.className = 'tn-note' + (good ? ' good' : '');
+      subEl.textContent = `${cents > 0 ? '+' : ''}${cents} סנט`;
+      if (good) {
+        msgEl.textContent = 'מכוון ✓';
+        if (!tuned.has(i)) {
+          tuned.add(i);
+          drawStrings();
+        }
+      } else if (Math.abs(cents) > 200) msgEl.textContent = locked >= 0 ? (cents > 0 ? 'גבוה בהרבה: הרפה את המיתר' : 'נמוך בהרבה: מתח את המיתר') : 'לא ברור לאיזה מיתר הכוונה. פרוט מיתר פתוח אחד, או לחץ על המיתר שאתה מכוון.';
+      else msgEl.textContent = cents > 0 ? 'גבוה מדי: הרפה את המיתר' : 'נמוך מדי: מתח את המיתר';
     };
-    document.getElementById('quizNat').onchange = nextQ;
-    renderExercise.redraw = drawQ;
-    nextQ();
-    showScore();
+
+    goBtn.onclick = async () => {
+      if (stopTuner) {
+        stopTuner();
+        return;
+      }
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(micConstraints);
+      } catch (e) {
+        msgEl.textContent = micError(e);
+        return;
+      }
+      const ctx = Audio_.ensure();
+      const src = ctx.createMediaStreamSource(stream);
+      const an = ctx.createAnalyser();
+      an.fftSize = 4096;
+      src.connect(an);
+      const buf = new Float32Array(an.fftSize);
+      const recent = [];
+      let lastGood = 0;
+      let timer = setInterval(() => {
+        an.getFloatTimeDomainData(buf);
+        const r = TUNER.detectPitch(buf, ctx.sampleRate, { minFreq: 55, maxFreq: 500 });
+        const now = performance.now();
+        if (r && r.clarity > 0.85) {
+          recent.push(r.freq);
+          if (recent.length > 5) recent.shift();
+          if (recent.length >= 3) {
+            const med = [...recent].sort((a, b) => a - b)[Math.floor(recent.length / 2)];
+            const tg = tuning().midi;
+            let i;
+            let cents;
+            if (locked >= 0) {
+              i = locked;
+              cents = Math.round((TUNER.midiOfFreq(med) - tg[i]) * 100);
+            } else {
+              const ns = TUNER.nearestString(med, tg);
+              i = ns.index;
+              cents = ns.cents;
+            }
+            show({ name: T.noteNameOf(tg[i], flatsOn()), cents, i });
+            lastGood = now;
+          }
+        } else {
+          recent.length = 0;
+          if (now - lastGood > 1500) {
+            show(null);
+            noteEl.textContent = '–';
+            noteEl.className = 'tn-note';
+            subEl.innerHTML = '&nbsp;';
+            msgEl.textContent = 'מקשיב… פרוט מיתר.';
+          }
+        }
+      }, 60);
+      stopTuner = () => {
+        clearInterval(timer);
+        stream.getTracks().forEach((t) => t.stop());
+        try {
+          src.disconnect();
+        } catch (e) { /* מתעלמים */ }
+        stopTuner = null;
+        const b = document.getElementById('tunGo');
+        if (b) {
+          b.textContent = '🎤 הפעל מיקרופון';
+          b.classList.remove('on');
+        }
+      };
+      goBtn.textContent = '■ עצור';
+      goBtn.classList.add('on');
+      msgEl.textContent = 'מקשיב… פרוט מיתר.';
+    };
+  }
+
+  // ---------- קצב וסטרומינג ----------
+  const PROGS = [
+    { id: 'Em', name: 'אקורד אחד: Em', chords: ['Em'] },
+    { id: 'Am', name: 'אקורד אחד: Am', chords: ['Am'] },
+    { id: 'D', name: 'אקורד אחד: D', chords: ['D'] },
+    { id: 'G', name: 'אקורד אחד: G', chords: ['G'] },
+    { id: 'pop', name: 'Am G C F', chords: ['Am', 'G', 'C', 'F'] },
+    { id: 'folk', name: 'G D Em C', chords: ['G', 'D', 'Em', 'C'] },
+    { id: 'rockm', name: 'Em C G D', chords: ['Em', 'C', 'G', 'D'] },
+  ];
+  const ARROW = { D: '↓', U: '↑', M: '↓', '-': '·' };
+
+  function renderRhythmList() {
+    const lv = ['', 'קל', 'בינוני', 'מתקדם'];
+    return `<h1>קצב וסטרומינג</h1>
+      <p class="muted">איך פורטים אקורדים בקצב: חיצים שזזים עם המטרונום מראים מתי היד יורדת (↓) ומתי עולה (↑). בחר תבנית והתחל לאט.</p>
+      <div class="welcome small">הכלל החשוב: <b>היד לא עוצרת</b>. היא נעה למטה ולמעלה כל הזמן, ופוגשת את המיתרים רק במקומות שמסומנים.</div>
+      <ul class="ex-list">${RHYTHM.PATTERNS.map((p) => `<li><a class="ex" href="#rh-${p.id}" data-go="rh-${p.id}"><b>${fx(p.name)} <span class="tag d-${p.level}">${lv[p.level]}</span></b><span>${fx(p.desc)}</span> <span class="pat-prev">${p.pattern.map((x) => ARROW[x]).join(' ')}</span> ${summary('rh-' + p.id)}</a></li>`).join('')}</ul>`;
+  }
+
+  function renderRhythm(id) {
+    Met.stop();
+    Backing.stop();
+    const pat = RHYTHM.PATTERNS.find((p) => p.id === id);
+    renderTabs('rhythm');
+    if (!pat) {
+      app.innerHTML = '<a class="back" href="#" data-go="">‹ חזרה</a><p class="empty">התבנית לא נמצאה.</p>';
+      return;
+    }
+    const logId = 'rh-' + pat.id;
+    let bpm = load('bpm:' + logId, pat.startBpm);
+    const sub = pat.sub;
+    const labels = { 1: ['1', '2', '3', '4'], 2: ['1', '&', '2', '&', '3', '&', '4', '&'], 3: ['1', 'la', 'li', '2', 'la', 'li', '3', 'la', 'li', '4', 'la', 'li'] }[sub];
+    const progId = load('rhprog', 'Em');
+    app.innerHTML = `
+      <a class="back" href="#" data-go="">‹ חזרה</a>
+      <h1 class="ex-title">${fx(pat.name)}</h1>
+      <p class="muted">${fx(pat.desc)}</p>
+      <div class="rhy-wrap"><div class="rhy" id="rhy" style="--cols:${pat.pattern.length}">${pat.pattern
+        .map((x, i) => `<div class="rc ${x === '-' ? 'skip' : x === 'U' ? 'up' : x === 'M' ? 'mute' : 'down'} ${i % sub === 0 ? 'beat' : ''}" data-i="${i}"><span class="rl">${labels[i]}</span><b>${ARROW[x]}</b>${x === 'M' ? '<i>מושתק</i>' : '<i>&nbsp;</i>'}</div>`)
+        .join('')}</div></div>
+      <div class="now" id="now">לחץ "התחל" והיד נעה עם החיצים.</div>
+      <div class="controls">
+        <div class="pulse" id="pulse">♩</div>
+        <div class="bpm"><button class="step" id="slower" aria-label="לאט יותר">−</button><input type="range" id="bpm" min="40" max="140" value="${bpm}" aria-label="מהירות" /><button class="step" id="faster" aria-label="מהר יותר">+</button><output id="bpmOut"></output></div>
+        <button class="start" id="start">▶ התחל</button>
+      </div>
+      <div class="form-row"><label>אקורדים <select id="rhProg">${PROGS.map((p) => `<option value="${p.id}" ${p.id === progId ? 'selected' : ''}>${p.name}</option>`).join('')}</select></label>
+        <label class="inl"><input type="checkbox" id="rhClick" checked /> מטרונום</label></div>
+      <section class="card"><h3>איך מתרגלים</h3><ol>
+        <li>${fx(pat.tip)}</li>
+        <li>התחל בלי אקורד: הנח את היד השמאלית קלות על כל המיתרים (כך הם מושתקים) ופרוט רק את הקצב.</li>
+        <li>אחר כך הוסף אקורד אחד. כשהקצב יציב, עבור לרצף של כמה אקורדים (בחירה למעלה): תיבה אחת לכל אקורד.</li>
+        <li>כשאתה מצליח שלוש פעמים ברצף בלי לעצור, העלה 5 BPM.</li></ol></section>
+      <section class="card"><h3>התקדמות</h3><button class="save" id="save">סיימתי, שמור</button><span class="saved" id="savedMsg"></span><div id="history"></div></section>`;
+    const cells = [...app.querySelectorAll('.rc')];
+    const now = document.getElementById('now');
+    const pulse = document.getElementById('pulse');
+    const startBtn = document.getElementById('start');
+    const bpmIn = document.getElementById('bpm');
+    const bpmOut = document.getElementById('bpmOut');
+    const prog = () => PROGS.find((p) => p.id === document.getElementById('rhProg').value);
+    const ex = {
+      id: logId, mode: 'rhythm', sub, steps: pat.pattern.map((x) => ({ x })), click: true,
+      sched(c, t, period) {
+        if (c < 0) return;
+        const slot = pat.pattern[c % pat.pattern.length];
+        if (slot === '-') return;
+        const bar = Math.floor(c / pat.pattern.length);
+        const chords = prog().chords;
+        Audio_.strumChord(chords[bar % chords.length], t, slot, c % pat.pattern.length === 0 ? 1.3 : 1);
+      },
+    };
+    const setBpm = (v) => {
+      bpm = Math.max(40, Math.min(140, v));
+      bpmIn.value = bpm;
+      bpmOut.textContent = bpm + ' BPM';
+      save('bpm:' + logId, bpm);
+      if (Met.running) Met.bpm = bpm;
+    };
+    const onTick = (c) => {
+      const si = ((c % sub) + sub) % sub;
+      if (c < 0) {
+        if (si !== 0) return;
+        pulse.className = 'pulse beat count';
+        pulse.textContent = -Math.floor(c / sub);
+        now.innerHTML = 'מתכוננים…';
+        return;
+      }
+      const slot = c % pat.pattern.length;
+      cells.forEach((el, i) => el.classList.toggle('cur', i === slot));
+      pulse.className = 'pulse beat' + (slot === 0 ? ' accent' : si ? ' off' : '');
+      pulse.textContent = si === 0 ? Math.floor(slot / sub) + 1 : labels[slot];
+      const bar = Math.floor(c / pat.pattern.length);
+      const chords = prog().chords;
+      const nx = chords[(bar + 1) % chords.length];
+      now.innerHTML = `אקורד <b class="big"><bdi dir="ltr">${chords[bar % chords.length]}</bdi></b> ${chords.length > 1 ? `<span class="muted">· הבא: <bdi dir="ltr">${nx}</bdi></span>` : ''}`;
+    };
+    const resetUi = () => {
+      cells.forEach((el) => el.classList.remove('cur'));
+      pulse.className = 'pulse';
+      pulse.textContent = '♩';
+      startBtn.textContent = '▶ התחל';
+      startBtn.classList.remove('on');
+    };
+    startBtn.onclick = () => {
+      if (Met.running) {
+        Met.stop();
+        resetUi();
+        now.textContent = 'נעצר.';
+      } else {
+        startBtn.textContent = '■ עצור';
+        startBtn.classList.add('on');
+        Met.start(ex, bpm, onTick);
+      }
+    };
+    document.getElementById('rhClick').onchange = (e) => (ex.click = e.target.checked);
+    document.getElementById('rhProg').onchange = (e) => save('rhprog', e.target.value);
+    document.getElementById('slower').onclick = () => setBpm(bpm - 5);
+    document.getElementById('faster').onclick = () => setBpm(bpm + 5);
+    bpmIn.oninput = () => setBpm(Number(bpmIn.value));
+    const history = () => {
+      const rows = S.log[logId] || [];
+      const el = document.getElementById('history');
+      if (!rows.length) return (el.innerHTML = '');
+      el.innerHTML = `<p style="margin-bottom:0">${times(rows.length)} · השיא שלך: <b>${Math.max(...rows.map((r) => r.bpm))} BPM</b></p>`;
+    };
+    document.getElementById('save').onclick = () => {
+      (S.log[logId] ||= []).push({ at: new Date().toISOString(), bpm });
+      save('log', S.log);
+      markActive();
+      document.getElementById('savedMsg').textContent = ' ' + CHEERS[Math.floor(Math.random() * CHEERS.length)];
+      history();
+    };
+    setBpm(bpm);
+    history();
+  }
+
+  function renderRiffList() {
+    const sorted = [...RIFFS].sort((a, b) => a.level - b.level);
+    return `<h1>ריפים בסגנונות</h1>
+      <p class="muted">ריפים קצרים שנכתבו לצורך תרגול, בסגנונות שונים, מהקל לקשה. כל ריף מחולק לתיבות ולפעימות, והצעדים זזים עם המטרונום.</p>
+      <div class="welcome small">אלה לא ציטוטים של שירים מסוימים אלא תבניות שמכירים מהסגנון. הספירה מוצגת על העיגול: למשל "1 &amp; 2 &amp;".</div>
+      ${exList(sorted)}`;
+  }
+
+  // ---------- סנכרון בין מכשירים ----------
+  const SYNC_KEYS = new Set(['log', 'active', 'jams', 'custom', 'customDeleted']);
+  const creds = () => load('sync', null);
+  let syncTimer = 0;
+  let syncState = { text: '', ok: null };
+  const setFoot = () => {
+    const el = document.getElementById('footMsg');
+    if (!el) return;
+    const c = creds();
+    el.textContent = c ? `מחובר כ-${c.user}. ${syncState.text || 'ההתקדמות נשמרת גם בשרת.'}` : 'ההתקדמות נשמרת בדפדפן הזה. כדי לראות אותה בכל מכשיר: לשונית "חשבון וסנכרון".';
+  };
+  async function syncNow(silent) {
+    const c = creds();
+    if (!c) return { ok: false, error: 'לא מחובר' };
+    try {
+      const r = await fetch('api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: c.user, pin: c.pin, data: SYNC.pick(S) }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw Object.assign(new Error(j.error || 'שגיאה'), { status: r.status });
+      const m = SYNC.merge(SYNC.pick(S), j.data);
+      S.log = m.log;
+      S.active = m.active;
+      S.jams = m.jams;
+      S.custom = m.custom;
+      S.customDeleted = m.customDeleted;
+      for (const k of SYNC_KEYS) saveLocal(k, S[k]);
+      syncState = { text: 'סונכרן ' + new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) + '.', ok: true };
+      setFoot();
+      return { ok: true, created: j.created, name: j.name };
+    } catch (e) {
+      syncState = { text: e.status ? e.message : 'אין חיבור לשרת. ההתקדמות נשמרת במכשיר ותסונכרן אחר כך.', ok: false };
+      setFoot();
+      if (!silent) return { ok: false, error: e.status ? e.message : 'אין שרת בכתובת הזו (למשל כשהאתר נפתח כקובץ או מאחסון סטטי).' };
+      return { ok: false };
+    }
+  }
+  const schedulePush = () => {
+    if (!creds()) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncNow(true), 4000);
+  };
+
+  function renderSync() {
+    Met.stop();
+    Backing.stop();
+    renderTabs('sync');
+    const c = creds();
+    app.innerHTML = `
+      <h1>חשבון וסנכרון</h1>
+      <p class="muted">שם וקוד סודי פשוטים, בלי אימייל ובלי סיסמה מורכבת. עם אותם פרטים בכל מכשיר, ההתקדמות, הרצף והשירים שלך נשמרים ומתמזגים.</p>
+      <section class="card" id="syncCard">${
+        c
+          ? `<h3>מחובר כ-${esc(c.user)}</h3><p class="muted small" id="syncInfo">${esc(syncState.text || '')}</p>
+             <button class="start" id="syncNow">סנכרן עכשיו</button> <button class="secondary" id="syncOut">התנתק</button>`
+          : `<h3>התחברות או יצירת פרופיל</h3>
+             <div class="form-row"><label>שם <input id="syUser" maxlength="30" autocomplete="username" /></label>
+             <label>קוד סודי (4 תווים לפחות) <input id="syPin" type="password" maxlength="64" autocomplete="current-password" /></label>
+             <button class="start" id="syGo">התחבר</button></div>
+             <p class="muted small">אם השם לא קיים עדיין, ייווצר פרופיל חדש. אחר כך אפשר להיכנס ממכשיר אחר עם אותם פרטים. שכחת את הקוד? אי אפשר לשחזר אותו.</p>`
+      }<p class="tn-msg" id="syMsg" aria-live="polite"></p></section>
+      <section class="card"><h3>העברה ידנית בין מכשירים</h3>
+        <p class="muted small" style="margin-top:0">עובד בכל מקום, גם בלי שרת. מעתיקים את הקוד ממכשיר אחד ומדביקים בשני. הנתונים מתמזגים ולא נמחקים.</p>
+        <label class="blk">הקוד שלי<textarea id="exCode" readonly rows="3"></textarea></label>
+        <button class="secondary" id="exCopy">העתק</button>
+        <label class="blk" style="margin-top:12px">להדביק קוד ממכשיר אחר<textarea id="imCode" rows="3"></textarea></label>
+        <button class="secondary" id="imGo">ייבא ומזג</button> <span class="muted small" id="imMsg"></span></section>`;
+    const msg = document.getElementById('syMsg');
+    document.getElementById('exCode').value = SYNC.toCode(S);
+    document.getElementById('exCopy').onclick = async () => {
+      const t = document.getElementById('exCode');
+      t.select();
+      try {
+        await navigator.clipboard.writeText(t.value);
+        document.getElementById('imMsg').textContent = 'הועתק.';
+      } catch (e) {
+        document.getElementById('imMsg').textContent = 'סימנתי את הקוד: העתק ידנית.';
+      }
+    };
+    document.getElementById('imGo').onclick = () => {
+      const out = document.getElementById('imMsg');
+      try {
+        const m = SYNC.merge(SYNC.pick(S), SYNC.fromCode(document.getElementById('imCode').value));
+        Object.assign(S, m);
+        for (const k of SYNC_KEYS) save(k, S[k]);
+        out.textContent = 'מוזג בהצלחה.';
+        document.getElementById('exCode').value = SYNC.toCode(S);
+      } catch (e) {
+        out.textContent = 'הקוד לא תקין.';
+      }
+    };
+    const go_ = document.getElementById('syGo');
+    if (go_) {
+      go_.onclick = async () => {
+        const user = document.getElementById('syUser').value.trim();
+        const pin = document.getElementById('syPin').value;
+        if (user.length < 2 || pin.length < 4) {
+          msg.textContent = 'שם של 2 תווים לפחות וקוד של 4 תווים לפחות.';
+          return;
+        }
+        save('sync', { user, pin });
+        msg.textContent = 'מתחבר…';
+        const r = await syncNow(false);
+        if (r.ok) {
+          renderSync();
+          document.getElementById('syMsg').textContent = r.created ? 'נוצר פרופיל חדש וההתקדמות נשמרה בו.' : 'מחובר. ההתקדמות מוזגה עם מה ששמור בשרת.';
+        } else {
+          save('sync', null);
+          msg.textContent = r.error;
+        }
+      };
+    } else {
+      document.getElementById('syncNow').onclick = async () => {
+        msg.textContent = 'מסנכרן…';
+        const r = await syncNow(false);
+        msg.textContent = r.ok ? 'הסנכרון הושלם.' : r.error;
+        if (r.ok) renderSync();
+      };
+      document.getElementById('syncOut').onclick = () => {
+        save('sync', null);
+        syncState = { text: '', ok: null };
+        setFoot();
+        renderSync();
+      };
+    }
+  }
+
+  // ---------- הקלטה: שומעים את האלתור יחד עם הרקע ----------
+  const Rec = { items: [], mr: null, stream: null, dest: null, src: null };
+  function recMime() {
+    if (typeof MediaRecorder === 'undefined') return null;
+    return ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+  }
+  async function recStart() {
+    const mime = recMime();
+    if (mime === null) throw Object.assign(new Error('הדפדפן לא תומך בהקלטה.'), { custom: true });
+    const stream = await navigator.mediaDevices.getUserMedia(micConstraints);
+    const ctx = Audio_.ensure();
+    const dest = ctx.createMediaStreamDestination();
+    const src = ctx.createMediaStreamSource(stream);
+    src.connect(dest);
+    Audio_.out.connect(dest);
+    const chunks = [];
+    const mr = new MediaRecorder(dest.stream, mime ? { mimeType: mime } : undefined);
+    mr.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+    const done = new Promise((resolve) => {
+      mr.onstop = () => resolve(new Blob(chunks, { type: mr.mimeType || mime || 'audio/webm' }));
+    });
+    mr.start();
+    Object.assign(Rec, { mr, stream, dest, src, done });
+  }
+  async function recStop() {
+    const { mr, stream, dest, src, done } = Rec;
+    if (!mr) return null;
+    mr.stop();
+    const blob = await done;
+    stream.getTracks().forEach((t) => t.stop());
+    try {
+      src.disconnect();
+      Audio_.out.disconnect(dest);
+    } catch (e) { /* מתעלמים */ }
+    Rec.mr = null;
+    return blob;
   }
 
   function renderTabView() {
@@ -668,7 +1083,16 @@
     renderTabs(tab.id);
     let html = '';
     if (tab.kind === 'today') return renderToday();
-    if (tab.kind === 'tools') return renderTools();
+    if (tab.kind === 'tuner') return renderTuner();
+    if (tab.kind === 'sync') return renderSync();
+    if (tab.kind === 'riffs') {
+      app.innerHTML = renderRiffList();
+      return;
+    }
+    if (tab.kind === 'rhythm') {
+      app.innerHTML = renderRhythmList();
+      return;
+    }
     if (tab.kind === 'improv') return renderImprov();
     if (tab.kind === 'level') {
       const lv = DATA.levels.find((l) => l.id === tab.level);
@@ -696,8 +1120,8 @@
   const CONF = { high: ['ודאות גבוהה', 'c-high'], medium: ['ודאות בינונית: בדוק באוזן', 'c-med'], user: ['נוסף על ידך', 'c-med'] };
   const TUNING_NOTE = {
     halfDown: '<b>כיוון חצי טון למטה.</b> ההקלטה מכוונת חצי טון נמוך, ולכן הצורות על הצוואר (כמו שכתוב כאן) נשמעות חצי טון נמוך מהשם. כדי לנגן עם ההקלטה, כוון את כל המיתרים חצי טון למטה.',
-    wholeDown: '<b>כיוון טון שלם למטה (D G C F A D).</b> ההקלטה מכוונת טון שלם נמוך, ולכן הצורות על הצוואר נשמעות טון נמוך מהשם. כדי לנגן עם ההקלטה, כוון את כל המיתרים טון שלם למטה. את הצלילים אפשר לשמוע בלשונית "כלים ומשחק".',
-    check: '<b>המקורות חלוקים בכיוון של ההקלטה.</b> ייתכן שהיא מכוונת נמוך מהרגיל. כוון לפי ההקלטה, ובלשונית "כלים ומשחק" אפשר לשמוע צלילי התייחסות לכיוונים נפוצים.',
+    wholeDown: '<b>כיוון טון שלם למטה (D G C F A D).</b> ההקלטה מכוונת טון שלם נמוך, ולכן הצורות על הצוואר נשמעות טון נמוך מהשם. כדי לנגן עם ההקלטה, כוון את כל המיתרים טון שלם למטה. את הכוונון אפשר לבדוק בלשונית "כוונון".',
+    check: '<b>המקורות חלוקים בכיוון של ההקלטה.</b> ייתכן שהיא מכוונת נמוך מהרגיל. כוון לפי ההקלטה, ובלשונית "כוונון" אפשר לבחור כיוון מתאים ולכוון איתו.',
   };
 
   const ROOT_OPTIONS = [['C', 0], ['C#', 1], ['Db', 1], ['D', 2], ['Eb', 3], ['E', 4], ['F', 5], ['F#', 6], ['G', 7], ['Ab', 8], ['A', 9], ['Bb', 10], ['B', 11]];
@@ -783,7 +1207,11 @@
         <div class="bk-now" id="bkNow">—</div>
         <div class="controls bk"><div class="bpm"><button class="step" id="bkSlower" aria-label="לאט יותר">−</button><input type="range" id="bkBpm" min="40" max="160" value="${load('bk:' + (song.presetId || song.id), song.bpm || 80)}" aria-label="מהירות" /><button class="step" id="bkFaster" aria-label="מהר יותר">+</button><output id="bkOut"></output></div>
         <button class="start" id="bkStart">▶ נגן רקע</button></div>
-        <div class="form-row"><label>קצב <select id="bkStyle">${[['rock', 'רוק'], ['shuffle', 'שאפל (בלוז)'], ['ballad', 'בלדה איטית'], ['click', 'מטרונום בלבד']].map(([v, n]) => `<option value="${v}" ${v === style ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div></section>` : ''}
+        <div class="form-row"><label>קצב <select id="bkStyle">${[['rock', 'רוק'], ['shuffle', 'שאפל (בלוז)'], ['ballad', 'בלדה איטית'], ['click', 'מטרונום בלבד']].map(([v, n]) => `<option value="${v}" ${v === style ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div></section>
+      <section class="card"><h3>🎙 הקלטה: שמע את האלתור שלך</h3>
+        <p class="muted small" style="margin-top:0">ההקלטה כוללת את הרקע ואת הגיטרה שנקלטת במיקרופון, ומתחילה יחד עם הרקע. כדי שהרקע לא יתערבב פעמיים, הכי טוב עם אוזניות. ההקלטות נשמרות רק עד שסוגרים את הדף: אפשר להוריד אותן.</p>
+        <button class="start rec" id="recGo">● התחל הקלטה</button> <span class="muted small" id="recMsg"></span>
+        <div id="recList"></div></section>` : ''}
       ${song.jam ? '' : `<section class="card"><h3>לשמוע ולהכיר</h3><p class="muted small" style="margin-top:0">שיעורים והקלטות של השיר, כדי לשמוע את הצליל ולבדוק מול ההקלטה.</p>${externalLinks((song.artist || '') + ' ' + song.title)}</section>`}
       <section class="card"><p class="muted small" style="margin:0">הסולמות הם המלצות לאלתור שמתאימות ${song.jam ? 'לרצף' : 'לשיר'}, ולא תמלול של הסולו המקורי. ${song.src ? 'מקורות: ' + fx(song.src) + ' ' : ''}${song.jam ? '' : 'קיימות גרסאות שונות של שירים, חלקן מכוונות נמוך מהרגיל, ולכן כדאי לוודא באוזן מול ההקלטה.'}</p></section>`;
   }
@@ -836,6 +1264,43 @@
         now.innerHTML = `<b class="big">${fx(song.chords[i])}</b> <span class="muted">· הבא: ${fx(next)}</span>`;
       });
     };
+
+    // הקלטה
+    const recBtn = document.getElementById('recGo');
+    const recMsg = document.getElementById('recMsg');
+    const recList = document.getElementById('recList');
+    const drawRecs = () => {
+      recList.innerHTML = Rec.items
+        .map((r, i) => `<div class="rec-item"><b>הקלטה ${i + 1}</b> <span class="muted small">${esc(r.label)}</span><audio controls src="${r.url}"></audio> <a class="chip" href="${r.url}" download="improv-${i + 1}.${r.ext}">הורד</a></div>`)
+        .join('');
+    };
+    drawRecs();
+    recBtn.onclick = async () => {
+      if (Rec.mr) {
+        const blob = await recStop();
+        if (Backing.running) startBtn.onclick();
+        recBtn.textContent = '● התחל הקלטה';
+        recBtn.classList.remove('on');
+        recMsg.textContent = '';
+        if (blob && blob.size) {
+          const ext = /mp4/.test(blob.type) ? 'm4a' : /ogg/.test(blob.type) ? 'ogg' : 'webm';
+          Rec.items.unshift({ url: URL.createObjectURL(blob), ext, label: song.title });
+          if (Rec.items.length > 5) URL.revokeObjectURL(Rec.items.pop().url);
+          drawRecs();
+        }
+        return;
+      }
+      try {
+        await recStart();
+      } catch (e) {
+        recMsg.textContent = e && e.custom ? e.message : micError(e);
+        return;
+      }
+      if (!Backing.running) startBtn.onclick();
+      recBtn.textContent = '■ עצור הקלטה';
+      recBtn.classList.add('on');
+      recMsg.textContent = 'מקליט…';
+    };
   }
 
   // מפתח שמופיע בשיר שהמשתמש הוסיף, או בכלי המפתחות
@@ -863,6 +1328,7 @@
       <h1>אלתור על שירים</h1>
       <p class="muted">כתוב שם של להקה, שיר או שניהם (למשל "pantera walk", בעברית או באנגלית) וקבל את המפתח, האקורדים והסולמות לאלתור, עם לוח ורקע.</p>
       <div class="searchbox"><input id="impQ" type="search" placeholder="למשל: pantera walk, Don't Cry, גאנז אנד רוזס, בלוז…" autocomplete="off" value="${esc(S.query)}" aria-label="חיפוש שיר או להקה" /></div>
+      <div class="chips lvl-chips" id="lvlChips">${[[0, 'כל הרמות'], [1, 'קל'], [2, 'בינוני'], [3, 'מתקדם']].map(([v, n]) => `<button class="chip lvl ${S.lvl === v ? 'on' : ''}" data-lvl="${v}">${n}</button>`).join('')}</div>
       <div id="impResults"></div>
       <section class="card jam-card"><h3>🎸 ג׳אם חופשי</h3>
         <p class="muted small" style="margin-top:0">בלי שיר מסוים: בחר סגנון ומפתח, וקבל רקע עם תופים ואת הסולמות שמתאימים. הדרך הכי כיפית להתחיל לאלתר.</p>
@@ -886,11 +1352,12 @@
     const q = document.getElementById('impQ');
     const ext = document.getElementById('impExt');
 
+    const LVL = ['', 'קל', 'בינוני', 'מתקדם'];
     const row = (s) =>
-      `<li><a class="ex" href="#song-${s.id}" data-go="song-${s.id}"><b>${fx(s.titleHe && s.titleHe !== s.title ? s.titleHe + ' · ' + s.title : s.title)} ${s.custom ? '<span class="tag">שלי</span>' : ''}</b>
+      `<li><a class="ex" href="#song-${s.id}" data-go="song-${s.id}"><b>${fx(s.titleHe && s.titleHe !== s.title ? s.titleHe + ' · ' + s.title : s.title)} ${s.custom ? '<span class="tag">שלי</span>' : `<span class="tag d-${s.level}">${LVL[s.level]}</span>`}</b>
         <span>${fx(s.artistHe && s.artistHe !== s.artist ? s.artistHe + ' · ' + s.artist : s.artist || '')} · ${fx(keyLabel(s.key))}</span></a>${s.custom ? `<button class="del" data-del="${s.id}" aria-label="מחיקת השיר">מחק</button>` : ''}</li>`;
     const draw = () => {
-      const list = searchSongs(S.query);
+      const list = searchSongs(S.query).filter((x) => !S.lvl || x.level === S.lvl);
       results.innerHTML = list.length
         ? `<p class="muted small">${list.length} ${S.query.trim() ? 'תוצאות' : 'שירים ברשימה'}</p><ul class="ex-list">${list.map(row).join('')}</ul>`
         : `<p class="empty">לא נמצא שיר כזה ברשימה. אפשר לחפש אותו בחוץ (למטה), או לבקש ממני להוסיף אותו.</p>`;
@@ -900,10 +1367,19 @@
       S.query = q.value;
       draw();
     };
+    document.getElementById('lvlChips').onclick = (e) => {
+      const b = e.target.closest('[data-lvl]');
+      if (!b) return;
+      S.lvl = Number(b.dataset.lvl);
+      document.querySelectorAll('#lvlChips .lvl').forEach((x) => x.classList.toggle('on', x === b));
+      draw();
+    };
     results.addEventListener('click', (e) => {
       const d = e.target.closest('[data-del]');
       if (!d) return;
       S.custom = S.custom.filter((c) => c.id !== d.dataset.del);
+      S.customDeleted = [...new Set([...S.customDeleted, d.dataset.del])];
+      save('customDeleted', S.customDeleted);
       save('custom', S.custom);
       draw();
     });
@@ -1060,6 +1536,7 @@
     const markCur = (step) => {
       const svg = board.querySelector('svg');
       svg.querySelectorAll('.dot.cur').forEach((d) => d.classList.remove('cur'));
+      if (step.rest) return null;
       const dot = svg.querySelector(`.dot[data-key="${keyOf(step)}"]`);
       if (dot) dot.classList.add('cur');
       return dot;
@@ -1108,6 +1585,7 @@
       r: 'שחרור: מחזירים את המיתר לאט למקומו',
       s: 'סלייד: מחליקים את האצבע לאורך המיתר, בלי להרים',
       v: 'ויברטו: מנדנדים את הלחיצה',
+      m: 'פאלם מיוט: כף היד נוגעת קלות במיתרים ליד הגשר',
     };
     const describe = (step, i, c) => {
       if (chords) {
@@ -1118,13 +1596,18 @@
         if (step.rest) return `<b>מנוחה</b>: הרם את האצבעות מהלוח ותן להן לנוח. הבא: ${nextName}${soon}`;
         return `אקורד <b class="big"><bdi dir="ltr">${step.name}</bdi></b> <span class="muted">· הבא: ${nextName} · עוד ${left} פעימות</span>${soon}`;
       }
+      const sub = ex.sub || 1;
+      const beat = Math.floor(c / sub);
+      const barNo = Math.floor(beat / 4) % (ex.barLabels ? ex.barLabels.length : 1);
+      const barTxt = ex.barLabels ? `<span class="barinfo">תיבה ${barNo + 1} מתוך ${ex.barLabels.length} · <bdi dir="ltr">${ex.barLabels[barNo]}</bdi> · פעימה ${(beat % 4) + 1}</span><br>` : '';
+      if (step.rest) return `${barTxt}<b>שקט</b> <span class="muted">· ${i + 1} מתוך ${n}. אל תפרוט</span>`;
       const hasTech = ex.steps.some((x) => x.t === 'h' || x.t === 'p');
       const tech = step.t ? ` <span class="tech">· ${TECH[step.t]}</span>` : hasTech ? ' <span class="tech">· פורטים</span>' : '';
       const blue = step.blue ? ' <span class="tech">· תו המתח (b5)</span>' : '';
       const where = step.f === 0
         ? `מיתר <b>${step.s}</b> (${STRING_NAMES[step.s]}) · <b>פתוח</b> (בלי ללחוץ)`
         : `מיתר <b>${step.s}</b> (${STRING_NAMES[step.s]}) · סריג <b>${step.f}</b> · אצבע <b>${step.fi}</b> (${fingerName(step.fi)})`;
-      return `${where} <span class="muted">· תו <bdi dir="ltr">${noteName(step.s, step.f, flats)}</bdi> · ${i + 1} מתוך ${n}</span>${tech}${blue}`;
+      return `${barTxt}${where} <span class="muted">· תו <bdi dir="ltr">${noteName(step.s, step.f, flats)}</bdi> · ${i + 1} מתוך ${n}</span>${tech}${blue}`;
     };
     const keepVisible = (el) => {
       const r = el.getBoundingClientRect();
@@ -1132,25 +1615,33 @@
       if (r.left < w.left + 12) board.scrollLeft -= w.left + 12 - r.left;
       else if (r.right > w.right - 12) board.scrollLeft += r.right - (w.right - 12);
     };
+    const subN = ex.sub || 1;
+    const SUBLBL = { 1: [''], 2: ['', '&'], 3: ['', 'la', 'li'], 4: ['', 'e', '&', 'a'] }[subN] || [''];
     const onTick = (c) => {
-      pulse.classList.remove('beat', 'accent', 'count');
-      void pulse.offsetWidth;
+      const si = ((c % subN) + subN) % subN;
       if (c < 0) {
-        pulse.textContent = -c;
+        if (si !== 0) return;
+        pulse.classList.remove('beat', 'accent', 'count', 'off');
+        void pulse.offsetWidth;
+        pulse.textContent = -Math.floor(c / subN);
         pulse.classList.add('beat', 'count');
         now.innerHTML = 'מתכוננים…';
         return;
       }
+      pulse.classList.remove('beat', 'accent', 'count', 'off');
+      void pulse.offsetWidth;
       if (ex.ramp && c > 0 && c % (ex.ramp.every || n) === 0 && bpm < ex.ramp.max) {
         setBpm(Math.min(ex.ramp.max, bpm + ex.ramp.step), { persist: false });
         peak = Math.max(peak, bpm);
       }
       const i = stepIndexOf(ex, c);
       const step = ex.steps[i];
-      const inBar = (c % 4) + 1;
-      pulse.textContent = inBar;
+      const beat = Math.floor(c / subN);
+      const inBar = (beat % 4) + 1;
+      pulse.textContent = si === 0 ? inBar : SUBLBL[si];
       pulse.classList.add('beat');
-      if (inBar === 1) pulse.classList.add('accent');
+      if (si !== 0) pulse.classList.add('off');
+      if (si === 0 && inBar === 1) pulse.classList.add('accent');
       board.querySelector('svg').classList.add('running');
       if (chords) showChord(i);
       else {
@@ -1224,7 +1715,10 @@
   });
   function route() {
     renderExercise.redraw = null;
-    if (current.startsWith('song-')) renderSong(current.slice(5));
+    if (stopTuner) stopTuner();
+    if (Rec.mr) recStop();
+    if (current.startsWith('rh-')) renderRhythm(current.slice(3));
+    else if (current.startsWith('song-')) renderSong(current.slice(5));
     else if (current.startsWith('jam-')) renderJam(current);
     else {
       const ex = current && findEx(current);
@@ -1236,4 +1730,11 @@
   window.addEventListener('hashchange', () => { current = location.hash.slice(1); route(); });
   updateHandBtn();
   route();
+  setFoot();
+  if (creds()) {
+    syncNow(true).then((r) => {
+      // רענון המסך רק אם אין כרגע מטרונום, רקע, כוונון או הקלטה פעילים
+      if (r.ok && !Met.running && !Backing.running && !stopTuner && !Rec.mr && !/^(song-|jam-|rh-|riff-|g-)/.test(current) && !findEx(current)) route();
+    });
+  }
 })();

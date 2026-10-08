@@ -339,7 +339,221 @@
       ],
       tips: ['אותו מבנה כמו בלוז באי, ארבע פעימות לתיבה. נסה אותו מהר ואיטי.'],
     },
+
+    // ---- שירים נוספים שרבים לומדים על גיטרה ----
+    {
+      id: 'stand-by-me', artist: 'Ben E. King', artistHe: 'בן אי קינג', title: 'Stand By Me', titleHe: 'סטנד ביי מי',
+      alias: ['stand by me'],
+      key: { root: 'A', mode: 'major' }, conf: 'high', chords: ['A', 'F#m', 'D', 'E'],
+      scales: [
+        S('majorPent', 'סולם בטוח ומתוק מעל כל ארבעת האקורדים.'),
+        S('major', 'כולל את כל האקורדים, כולל F#m.'),
+      ],
+      tips: ['הלחן פשוט ומדורג: נסה לנגן אותו באוזן על מיתר אחד לפני שאתה מאלתר.'],
+      src: 'מבנה אקורדים נפוץ ומוכר (I vi IV V). בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'three-little-birds', artist: 'Bob Marley', artistHe: 'בוב מארלי', title: 'Three Little Birds', titleHe: 'שלוש ציפורים קטנות',
+      alias: ['marley', 'bob marley', 'רגאיי', 'reggae'],
+      key: { root: 'A', mode: 'major' }, conf: 'high', chords: ['A', 'D', 'A', 'E'],
+      scales: [
+        S('majorPent', 'צליל רגוע ושמח. משפטים קצרים עם הרבה שקט ביניהם.'),
+        S('mixolydian', 'נותן טעם רגאיי-בלוזי קל.'),
+      ],
+      tips: ['ברגאיי הקצב נמצא בפעימות 2 ו-4. נסה להתחיל משפטים אחרי הפעימה, ולא עליה.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'wild-thing', artist: 'The Troggs', artistHe: 'הטרוגס', title: 'Wild Thing', titleHe: 'ויילד ת׳ינג',
+      alias: ['troggs'],
+      key: { root: 'A', mode: 'major' }, conf: 'high', chords: ['A', 'D', 'E', 'D'],
+      scales: [
+        S('minorPent', 'רוק-גראז׳ קלאסי: פנטטוני לה מינור מעל אקורדים מז׳וריים.'),
+        S('majorPent', 'הגרסה המתוקה יותר.'),
+      ],
+      tips: ['שלושה אקורדים בלבד. מושלם לתרגל מעבר מהיר בין A, D ו-E.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'louie-louie', artist: 'The Kingsmen', artistHe: 'קינגסמן', title: 'Louie Louie', titleHe: 'לואי לואי',
+      alias: ['kingsmen', 'louie'],
+      key: { root: 'A', mode: 'major' }, conf: 'high', chords: ['A', 'D', 'Em', 'D'],
+      scales: [
+        S('majorPent', 'מכיל את התווים של A ו-D, ועובד היטב מעל Em.'),
+        S('mixolydian', 'הסול הטבעי (b7) מתאים לאקורד Em.'),
+      ],
+      tips: ['אחד הריפים הכי פשוטים ללמוד, ומושלם להתחיל לאלתר מעליו.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'twist-and-shout', artist: 'The Beatles', artistHe: 'הביטלס', title: 'Twist and Shout', titleHe: 'טוויסט אנד שאוט',
+      alias: ['beatles', 'ביטלס', 'isley brothers'],
+      key: { root: 'D', mode: 'major' }, conf: 'high', chords: ['D', 'G', 'A', 'G'],
+      scales: [
+        S('majorPent', 'סולם בטוח מעל D, G ו-A.'),
+        S('mixolydian', 'נותן צליל רוקנרול קלאסי.'),
+      ],
+      tips: ['שלושה אקורדים, קצב מהיר: מתרגלים פריטה כלפי מטה-למעלה רציפה.'],
+      src: 'מבנה אקורדים נפוץ ומוכר (I IV V). בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'la-bamba', artist: 'Ritchie Valens', artistHe: "ריצ'י ולנס", title: 'La Bamba', titleHe: 'לה במבה',
+      alias: ['ritchie valens', 'bamba'],
+      key: { root: 'C', mode: 'major' }, conf: 'high', chords: ['C', 'F', 'G', 'F'],
+      scales: [
+        S('majorPent', 'הסולם הבטוח.'),
+        S('mixolydian', 'מוסיף את התו הדומיננטי לצליל עממי.'),
+      ],
+      tips: ['הרצף C F G חוזר שוב ושוב: בסיס מצוין לתרגל החלפות אקורד בקצב קבוע.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'brown-eyed-girl', artist: 'Van Morrison', artistHe: 'ואן מוריסון', title: 'Brown Eyed Girl', titleHe: 'בראון איד גירל',
+      alias: ['van morrison'],
+      key: { root: 'G', mode: 'major' }, conf: 'high', chords: ['G', 'C', 'G', 'D'],
+      scales: [
+        S('majorPent', 'מתאים לכל האקורדים.'),
+        S('major', 'כולל גם את אקורד Em של הפזמון.'),
+      ],
+      tips: ['נסה לנגן את הלחן הקצר של הפתיחה, ואז לשנות אותו קצת בכל פעם.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'let-it-be', artist: 'The Beatles', artistHe: 'הביטלס', title: 'Let It Be', titleHe: 'לט איט בי',
+      alias: ['beatles', 'ביטלס'],
+      key: { root: 'C', mode: 'major' }, conf: 'high', chords: ['C', 'G', 'Am', 'F'],
+      scales: [
+        S('majorPent', 'הסולם הבטוח למשפטים רכים.'),
+        S('major', 'כולל את כל האקורדים.'),
+      ],
+      tips: ['אותו רצף כמו ברוב שירי הפופ (I V vi IV): אפשר לאלתר מעליו גם בג׳אם הפופ.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'ring-of-fire', artist: 'Johnny Cash', artistHe: "ג'וני קאש", title: 'Ring of Fire', titleHe: 'רינג אוף פייר',
+      alias: ['cash', 'johnny cash', 'קאש'],
+      key: { root: 'G', mode: 'major' }, conf: 'high', chords: ['G', 'C', 'G', 'D'],
+      scales: [
+        S('majorPent', 'צליל קאנטרי קלאסי.'),
+        S('mixolydian', 'מתאים לאקורד D הדומיננטי.'),
+      ],
+      tips: ['נסה משפטים קצרים עם תנועה בעיקר בין תווי האקורד.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'blowin-in-the-wind', artist: 'Bob Dylan', artistHe: 'בוב דילן', title: "Blowin' in the Wind", titleHe: 'בלואינג אין דה ווינד',
+      alias: ['dylan', 'דילן', 'blowing in the wind'],
+      key: { root: 'D', mode: 'major' }, conf: 'high', chords: ['D', 'G', 'D', 'A'],
+      scales: [
+        S('majorPent', 'מתאים למלודיה העממית.'),
+        S('major', 'כולל את כל האקורדים.'),
+      ],
+      tips: ['שיר פשוט שמתאים לפריטת אצבעות איטית על האקורדים.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'hallelujah', artist: 'Leonard Cohen', artistHe: 'לאונרד כהן', title: 'Hallelujah', titleHe: 'הללויה',
+      alias: ['cohen', 'כהן', 'jeff buckley'],
+      key: { root: 'C', mode: 'major' }, conf: 'high', chords: ['C', 'Am', 'C', 'Am', 'F', 'G', 'C', 'G'],
+      scales: [
+        S('majorPent', 'מלודי ובטוח.'),
+        S('major', 'כולל את כל האקורדים. האקורד E7 בגשר מוסיף סול דיאז.'),
+      ],
+      tips: ['מקצב 6/8: נסה לנגן שני תווים בכל פעימה ולתת לתווים הארוכים לנשום.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'watchtower', artist: 'Bob Dylan / Jimi Hendrix', artistHe: 'דילן / הנדריקס', title: 'All Along the Watchtower', titleHe: 'אול אלונג דה וואצ׳טאוור',
+      alias: ['dylan', 'hendrix', 'watchtower', 'הנדריקס', 'דילן'],
+      key: { root: 'A', mode: 'minor' }, conf: 'high', chords: ['Am', 'G', 'F', 'G'],
+      scales: [
+        S('minorPent', 'הסולם הקלאסי לסולואים בגרסת הנדריקס.'),
+        S('naturalMinor', 'כולל את F, שאינו בפנטטוני.'),
+      ],
+      tips: ['ארבעה אקורדים בלבד, ואותו רצף מסתובב כל השיר. זה בדיוק מה שצריך כדי להתמקד באלתור.'],
+      src: 'מבנה אקורדים נפוץ ומוכר (i bVII bVI bVII).',
+    },
+    {
+      id: 'zombie', artist: 'The Cranberries', artistHe: 'הקרנברייז', title: 'Zombie', titleHe: 'זומבי',
+      alias: ['cranberries'],
+      key: { root: 'E', mode: 'minor' }, conf: 'high', chords: ['Em', 'C', 'G', 'D'],
+      scales: [
+        S('minorPent', 'הסולם הבטוח.'),
+        S('naturalMinor', 'כולל גם את C, שאינו בפנטטוני.'),
+      ],
+      tips: ['נסה לנגן בעוצמה כשהפזמון מגיע ולהשתיק כשהבית חוזר. הדינמיקה עושה חצי מהעבודה.'],
+      src: 'מבנה אקורדים נפוץ ומוכר (i VI III VII).',
+    },
+    {
+      id: 'wonderful-tonight', artist: 'Eric Clapton', artistHe: 'אריק קלפטון', title: 'Wonderful Tonight', titleHe: 'וונדרפול טונייט',
+      alias: ['clapton', 'קלפטון'],
+      key: { root: 'G', mode: 'major' }, conf: 'high', chords: ['G', 'D', 'C', 'D'],
+      scales: [
+        S('majorPent', 'מתאים למשפטים איטיים ורכים.'),
+        S('major', 'כולל את כל האקורדים.'),
+      ],
+      tips: ['בלדה איטית: תן לכל תו זמן, והוסף ויברטו על תווים ארוכים.'],
+      src: 'מבנה אקורדים נפוץ ומוכר. בדוק באוזן מול ההקלטה.',
+    },
+    {
+      id: 'radiohead-creep', artist: 'Radiohead', artistHe: 'רדיוהד', title: 'Creep', titleHe: 'קריפ',
+      alias: ['radiohead'],
+      key: { root: 'G', mode: 'major' }, conf: 'medium', chords: ['G', 'B', 'C', 'Cm'],
+      scales: [
+        S('majorPent', 'צליל פתוח מעל האקורדים המז׳וריים.'),
+        S('major', 'כולל את G, C ו-B כשורשים.'),
+        S('minorPent', 'האקורד Cm שאול ממינור: הסולם של סול מינור פנטטוני מתאים מעליו.'),
+      ],
+      tips: ['האקורד Cm נותן את הרגע העצוב: נסה לנחות על המי במול (Eb) כשהוא מגיע.'],
+      src: 'MusicRadar ואתרי אקורדים: המקורות מסכימים על G, B, C, Cm אבל חלוקים בשימוש בקאפו. בדוק באוזן.',
+    },
+    {
+      id: 'wmggw', artist: 'The Beatles', artistHe: 'הביטלס', title: 'While My Guitar Gently Weeps', titleHe: 'וואיל מיי גיטאר ג׳נטלי ויפס',
+      alias: ['beatles', 'ביטלס', 'clapton', 'harrison'],
+      key: { root: 'A', mode: 'minor' }, conf: 'medium', chords: ['Am', 'G', 'D', 'E'],
+      scales: [
+        S('minorPent', 'התווים שרוב הנגנים משתמשים בהם בסגנון הסולו. השלישית הקטנה (דו) מגדירה את הצליל.'),
+        S('blues', 'תו המתח לצבע בלוזי.'),
+        S('naturalMinor', 'כולל את כל התווים מחוץ לפנטטוני.'),
+      ],
+      tips: ['הסולם נבחר כהמלצה לאלתור, לא כתמלול. אנליזות מצביעות על לה מינור עם יציאות ללה מז׳ור בפזמון.'],
+      src: 'MusicRadar ואנליזה אקדמית: לה מינור, עם D שלא שייך למפתח. המקורות אינם מפרטים את סולם הסולו.',
+    },
+    {
+      id: 'crazy-train', artist: 'Ozzy Osbourne', artistHe: 'אוזי אוסבורן', title: 'Crazy Train', titleHe: 'קרייזי טריין',
+      alias: ['ozzy', 'אוזי', 'randy rhoads', 'ראנדי רודס'],
+      key: { root: 'F#', mode: 'minor' }, conf: 'medium', chords: [],
+      scales: [
+        S('minorPent', 'משפטים הבסיס של הסולו, לפי Lick Library.'),
+        S('naturalMinor', 'הסולם שעליו נבנית התחלת הסולו.'),
+        S('harmonicMinor', 'רמזים של הרמוני מינור לצבע דרמטי.'),
+      ],
+      tips: ['המפתח פה מינור לא רגיל לרוק כבד. התנוחות נוחות להתחיל מסריג 2.'],
+      src: 'Lick Library: פה דיאז מינור. מקור אחד אחר טוען לה מינור, ולכן ודאות בינונית. הכיוון של ההקלטה לא אומת: בדוק באוזן.',
+    },
+    {
+      id: 'srv-pride-joy', artist: 'Stevie Ray Vaughan', artistHe: 'סטיבי ריי ווהן', title: 'Pride and Joy', titleHe: 'פרייד אנד ג׳וי',
+      alias: ['srv', 'stevie ray', 'ווהן', 'texas shuffle'],
+      key: { root: 'E', mode: 'major' }, tuning: 'halfDown', conf: 'high', drums: 'shuffle', bpm: 100,
+      chords: ['E7', 'E7', 'E7', 'E7', 'A7', 'A7', 'E7', 'E7', 'B7', 'A7', 'E7', 'B7'],
+      scales: [
+        S('minorPent', 'משפטי הלידים מבוססים על מי מינור פנטטוני.'),
+        S('blues', 'עם תו המתח לצליל בלוזי.'),
+        S('majorPent', 'לצליל מתוק יותר מעל E7.'),
+      ],
+      tips: ['שאפל טקסני: הקצב מבוסס על צירופים של אקורד קצר ואקורד פתוח, בפעימות החלשות.'],
+      src: 'Guitar World ו-Guitar Player: בלוז 12 תיבות במי, מכוון חצי טון למטה. הצורות על הצוואר נשארות כמו שכתוב.',
+    },
   ];
+
+  // רמת קושי: 1 קל (שלושה אקורדים פשוטים), 2 בינוני, 3 מתקדם
+  const LEVEL = {
+    1: ['dylan-knock','acdc-hth','dp-smoke','ws-sna','blues-12-e','blues-12-a','lynyrd-sha','rhcp-calif','stand-by-me','three-little-birds','wild-thing','louie-louie','twist-and-shout','la-bamba','brown-eyed-girl','let-it-be','ring-of-fire','blowin-in-the-wind','hallelujah'],
+    2: ['gnr-dont-cry','gnr-sweet-child','acdc-bib','animals-rising','hendrix-haze','hendrix-heyjoe','nirvana-slts','pf-wywh','met-nem','bb-thrill','chuck-johnny','lz-whole-lotta','aero-walk-this-way','aero-sweet-emotion','met-sandman','pantera-cfh','watchtower','zombie','wonderful-tonight','radiohead-creep','santana-bmw'],
+    3: ['met-puppets','pantera-walk','lz-stairway','pf-numb','clapton-layla','ds-sultans','eagles-hotel','wmggw','crazy-train','srv-pride-joy'],
+  };
+  for (const [lv, ids] of Object.entries(LEVEL)) for (const id of ids) { const sg = SONGS.find((x) => x.id === id); if (sg) sg.level = Number(lv); }
+  SONGS.sort((a, b) => a.level - b.level);
 
   // חיפוש לפי שם שיר או להקה, בעברית ובאנגלית. כל מילה בשאילתה צריכה להופיע בפרטי השיר.
   const norm = (t) => String(t).toLowerCase().replace(/[׳'’`"״.,!?()_/\\&-]/g, ' ').replace(/\s+/g, ' ').trim();

@@ -143,3 +143,11 @@ test('Pantera Walk: כיוון טון שלם למטה וסולם בלוז, בל�
   assert.equal(s.conf, 'medium');
   assert.match(s.src, /לא קובעים/);
 });
+
+test('רמות קושי: לכל שיר רמה 1 עד 3, הרשימה ממוינת מהקל לקשה, וכל רמה מיוצגת', () => {
+  for (const s of SONGS) assert.ok([1, 2, 3].includes(s.level), s.id);
+  const levels = SONGS.map((s) => s.level);
+  assert.deepEqual(levels, [...levels].sort((a, b) => a - b));
+  for (const l of [1, 2, 3]) assert.ok(SONGS.filter((s) => s.level === l).length >= 8, 'רמה ' + l);
+  assert.ok(SONGS.length >= 45);
+});

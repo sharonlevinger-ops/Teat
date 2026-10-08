@@ -1,0 +1,19 @@
+# הגדרה ל-Render (render.com). דיסק קבוע דרוש כדי שהתקדמות המשתמשים לא תימחק בכל הפעלה מחדש.
+services:
+  - type: web
+    name: guitar
+    runtime: node
+    rootDir: guitar
+    plan: starter
+    buildCommand: echo "no build"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATA_DIR
+        value: /var/data
+      - key: SITE_PASSWORD
+        sync: false   # אופציונלי: מגדירים בלוח הבקרה, רק מי שיודע אותה נכנס לאתר
+    disk:
+      name: guitar-data
+      mountPath: /var/data
+      sizeGB: 1

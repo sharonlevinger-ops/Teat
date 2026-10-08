@@ -956,8 +956,11 @@
     { id: 'l4', label: 'שלב 4', kind: 'level', level: 4 },
     { id: 'penta', label: 'פנטטוני', kind: 'sections', ref: 'penta' },
     { id: 'chords', label: 'אקורדים', kind: 'sections', ref: 'chords' },
+    { id: 'riffs', label: 'ריפים', kind: 'riffs' },
+    { id: 'rhythm', label: 'קצב', kind: 'rhythm' },
     { id: 'improv', label: 'אלתור', kind: 'improv' },
-    { id: 'tools', label: 'כלים ומשחק', kind: 'tools' },
+    { id: 'tuner', label: 'כוונון', kind: 'tuner' },
+    { id: 'sync', label: 'חשבון וסנכרון', kind: 'sync' },
   ];
   DATA.theory = {
     SHARP, FLAT, ROOT_PC, noteNameOf, useFlats, SCALE_IV, SCALE_HE, SCALE_CHAR, POSITIONS,

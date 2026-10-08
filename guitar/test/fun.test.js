@@ -33,7 +33,7 @@ test('ג׳אם: בלוז 12 תיבות באי = E7 x4, A7 x2, E7 x2, B7, A7, E7,
   assert.deepEqual(F.jamChords(F.JAM.find((p) => p.id === 'blues'), 10, true).slice(0, 5), ['Bb7', 'Bb7', 'Bb7', 'Bb7', 'Eb7']);
 });
 
-test('חידון: התו בכל מיתר וסריג נכון', () => {
+test('תו לפי מיתר וסריג: התו בכל מיתר וסריג נכון', () => {
   assert.equal(F.noteAt(6, 0), 4); // E
   assert.equal(F.noteAt(5, 3), 0); // C
   assert.equal(F.noteAt(2, 1), 0); // C
@@ -79,9 +79,9 @@ test('תכנון אימון יומי: דטרמיניסטי, קיים ותקין,
 });
 
 test('הישגים: מתעוררים לפי תנאים', () => {
-  const st = { totalDays: 0, streak: 0, uniqueExercises: 0, bests: {}, jams: 0, quizBest: 0 };
+  const st = { totalDays: 0, streak: 0, uniqueExercises: 0, bests: {}, jams: 0, riffs: 0, rhythms: 0 };
   assert.deepEqual(F.ACHIEVEMENTS.filter((a) => a.check(st)).map((a) => a.id), []);
-  const rich = { totalDays: 12, streak: 7, uniqueExercises: 25, bests: { '1-2': 100 }, jams: 2, quizBest: 10 };
+  const rich = { totalDays: 12, streak: 7, uniqueExercises: 25, bests: { '1-2': 100 }, jams: 2, riffs: 1, rhythms: 1 };
   assert.equal(F.ACHIEVEMENTS.filter((a) => a.check(rich)).length, F.ACHIEVEMENTS.length);
   assert.equal(new Set(F.ACHIEVEMENTS.map((a) => a.id)).size, F.ACHIEVEMENTS.length);
 });

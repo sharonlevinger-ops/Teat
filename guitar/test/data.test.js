@@ -28,7 +28,7 @@ test('ארבע רמות, ושמה של הראשונה הוא חימום אצבע
 });
 
 test('תשע לשוניות: היום, שלבים 1-4, פנטטוני, אקורדים, אלתור וכלים', () => {
-  assert.deepEqual(DATA.tabs.map((t) => t.id), ['today', 'l1', 'l2', 'l3', 'l4', 'penta', 'chords', 'improv', 'tools']);
+  assert.deepEqual(DATA.tabs.map((t) => t.id), ['today', 'l1', 'l2', 'l3', 'l4', 'penta', 'chords', 'riffs', 'rhythm', 'improv', 'tuner', 'sync']);
 });
 
 test('רמה 3 כוללת טכניקות חדשות (ליגטו, סלייד, ויברטו) ובלי סולמות פנטטוניים', () => {

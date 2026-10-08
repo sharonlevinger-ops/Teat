@@ -131,7 +131,7 @@
   }
 
   // תכנון אימון יומי דטרמיניסטי לפי מספר היום
-  function dailyPlan(seed, data) {
+  function dailyPlan(seed, data, extras) {
     const pick = (list, k) => list[((seed * 7 + k) % list.length + list.length) % list.length];
     const l1 = data.levels[0].exercises;
     const l2 = data.levels[1].exercises;
@@ -141,6 +141,8 @@
       tech: pick(tech, 5),
       jam: { preset: pick(JAM, 1), rootPc: (seed * 5) % 12 },
       challenge: pick(CHALLENGES, 2),
+      riff: extras && extras.riffs && extras.riffs.length ? pick(extras.riffs, 4) : null,
+      rhythm: extras && extras.rhythms && extras.rhythms.length ? pick(extras.rhythms, 6) : null,
     };
   }
 
@@ -154,7 +156,8 @@
     { id: 'ex20', icon: '🧭', name: 'עשרים תרגילים שונים', desc: 'שמרת עשרים תרגילים שונים', check: (st) => st.uniqueExercises >= 20 },
     { id: 'spider100', icon: '🕷️', name: 'ספיידר ב-100', desc: 'ספיידר פשוט במהירות 100 BPM או יותר', check: (st) => st.bests['1-2'] >= 100 },
     { id: 'jam', icon: '🎸', name: 'ג׳אם ראשון', desc: 'ניגנת מעל רקע של ג׳אם או שיר', check: (st) => st.jams >= 1 },
-    { id: 'quiz10', icon: '🧠', name: 'חידון: עשרה ברצף', desc: 'עשר תשובות נכונות ברצף בחידון הלוח', check: (st) => st.quizBest >= 10 },
+    { id: 'riff1', icon: '⚡', name: 'ריף ראשון', desc: 'שמרת תרגול של ריף', check: (st) => st.riffs >= 1 },
+    { id: 'rhythm1', icon: '🥁', name: 'יד קצבית', desc: 'שמרת תרגול של תבנית סטרומינג', check: (st) => st.rhythms >= 1 },
   ];
 
   const API = { JAM, CHALLENGES, TUNINGS, ACHIEVEMENTS, noteAt, jamChords, computeStreak, dailyPlan, nameOf };
