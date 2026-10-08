@@ -64,7 +64,7 @@
       o.type = 'triangle';
       o.frequency.value = freq;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.28, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(note.t ? 0.12 : 0.28, t + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t + Math.min(0.9, (60 / this.bpm) * 0.95));
       o.connect(g).connect(this.ctx.destination);
       o.start(t);
@@ -293,7 +293,8 @@
       svg.querySelectorAll('.dot.cur').forEach((d) => d.classList.remove('cur'));
       const dot = svg.querySelector(`.dot[data-key="${keyOf(step)}"]`);
       if (dot) dot.classList.add('cur');
-      now.innerHTML = `מיתר <b>${step.s}</b> (${STRING_NAMES[step.s]}) · סריג <b>${step.f}</b> · אצבע <b>${step.fi}</b> (${fingerName(step.fi)}) <span class="muted">· תו ${i + 1} מתוך ${n}</span>`;
+      const tech = step.t === 'h' ? ' <span class="tech">· Hammer-on: מטיחים בלי לפרוט</span>' : step.t === 'p' ? ' <span class="tech">· Pull-off: מושכים הצידה בלי לפרוט</span>' : step.t === undefined && ex.steps.some((x) => x.t) ? ' <span class="tech">· פורטים</span>' : '';
+      now.innerHTML = `מיתר <b>${step.s}</b> (${STRING_NAMES[step.s]}) · סריג <b>${step.f}</b> · אצבע <b>${step.fi}</b> (${fingerName(step.fi)}) <span class="muted">· תו ${i + 1} מתוך ${n}</span>${tech}`;
     };
 
     startBtn.onclick = () => {

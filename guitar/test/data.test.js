@@ -36,3 +36,35 @@ test('כל תרגיל כולל הוראות, מטרה וקצב התחלתי סב
     assert.ok(ex.startBpm >= 30 && ex.startBpm <= 80, ex.id);
   }
 });
+
+test('ספיידר עם דפוסים: מכסה את כל המיתרים והסריגים, בלי תו כפול ברצף', () => {
+  for (const id of ['2-1', '2-2']) {
+    const ex = all.find((e) => e.id === id);
+    const keys = new Set(ex.steps.map((x) => `${x.s}-${x.f}`));
+    assert.equal(keys.size, 24, id);
+    for (let i = 0; i < ex.steps.length; i++) {
+      const a = ex.steps[i], b = ex.steps[(i + 1) % ex.steps.length];
+      assert.ok(!(a.s === b.s && a.f === b.f), `${id} חזרה ברצף בצעד ${i}`);
+    }
+  }
+});
+
+test('Hammer-on/Pull-off: כל קבוצה מתחילה בפריטה, ואחריה h ואז p באותו מיתר', () => {
+  for (const id of ['2-3', '2-4']) {
+    const ex = all.find((e) => e.id === id);
+    assert.equal(ex.steps.length % 3, 0, id);
+    for (let i = 0; i < ex.steps.length; i += 3) {
+      const [a, b, c] = ex.steps.slice(i, i + 3);
+      assert.equal(a.t, undefined);
+      assert.equal(b.t, 'h');
+      assert.equal(c.t, 'p');
+      assert.ok(a.s === b.s && b.s === c.s);
+      assert.ok(b.f > a.f && c.f === a.f);
+    }
+  }
+});
+
+test('מזהי תרגילים ייחודיים ורמה 2 קיימת', () => {
+  assert.equal(new Set(all.map((e) => e.id)).size, all.length);
+  assert.ok(all.filter((e) => e.id.startsWith('2-')).length >= 6);
+});

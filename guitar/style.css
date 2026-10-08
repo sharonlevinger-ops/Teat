@@ -88,3 +88,4 @@ svg.running .dot.cur { opacity: 1; }
   .start { width: 100%; }
 }
 bdi { white-space: nowrap; }
+.tech { color: var(--accent); font-weight: 700; }
