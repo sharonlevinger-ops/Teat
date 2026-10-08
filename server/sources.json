@@ -1,0 +1,10 @@
+{
+  "_comment": "הגדרות המקורות. base_url=null פירושו שהכתובת עוד לא אומתה – המקור לא ייאסף. tos_status חייב להיות 'allowed' (אחרי קריאה ידנית של תנאי השימוש) כדי לאסוף. search_url_template משתמש ב-{q} לשם הזן.",
+  "sources": [
+    { "id": "cannapedia",      "name": "קנאפדיה",       "base_url": null, "tos_url": null, "tos_status": "unreviewed", "search_url_template": null, "strain_url_pattern": null, "seed_urls": [] },
+    { "id": "cannabisplus",    "name": "קנאביס פלוס",   "base_url": null, "tos_url": null, "tos_status": "unreviewed", "search_url_template": null, "strain_url_pattern": null, "seed_urls": [] },
+    { "id": "cannabismonitor", "name": "קנאביס מוניטור", "base_url": null, "tos_url": null, "tos_status": "unreviewed", "search_url_template": null, "strain_url_pattern": null, "seed_urls": [] },
+    { "id": "hydroshop",       "name": "Hydroshop",     "base_url": null, "tos_url": null, "tos_status": "unreviewed", "search_url_template": null, "strain_url_pattern": null, "seed_urls": [] },
+    { "id": "rollup",          "name": "רולאפ",         "base_url": null, "tos_url": null, "tos_status": "unreviewed", "search_url_template": null, "strain_url_pattern": null, "seed_urls": [] }
+  ]
+}

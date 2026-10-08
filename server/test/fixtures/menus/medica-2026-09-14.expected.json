@@ -1,0 +1,1733 @@
+[
+ {
+  "name": "מיני חמניה צהובה",
+  "producer": "טוגדר",
+  "price_ils": 80,
+  "original_price_ils": 159,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ננו 14",
+  "producer": "מיניבאז",
+  "price_ils": 90,
+  "original_price_ils": 139,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ווינדס אטזיה סאט",
+  "producer": "ווינדס",
+  "price_ils": 99,
+  "original_price_ils": 159,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ויק מיני",
+  "producer": "שיח",
+  "price_ils": 99,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיסט מיני",
+  "producer": "אילבן",
+  "price_ils": 100,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דה ג'י.אס.סי",
+  "producer": "טוגדר",
+  "price_ils": 100,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיני טוליפ כתום",
+  "producer": "טוגדר",
+  "price_ils": 100,
+  "original_price_ils": 159,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בנגקוק",
+  "producer": "טרו ג'נטיקס",
+  "price_ils": 100,
+  "original_price_ils": 231,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "נימזו",
+  "producer": "גרינמד",
+  "price_ils": 109,
+  "original_price_ils": 479,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פון",
+  "producer": "גרינמד",
+  "price_ils": 109,
+  "original_price_ils": 479,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פונו",
+  "producer": "טה-מוקו",
+  "price_ils": 109,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "זיו סמול",
+  "producer": "טוגדר",
+  "price_ils": 110,
+  "original_price_ils": 159,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ונוס",
+  "producer": "טוגדר",
+  "price_ils": 110,
+  "original_price_ils": 229,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'יי אם סי",
+  "producer": "נובה קנביס",
+  "price_ils": 110,
+  "original_price_ils": 198,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'י.או.ג'י",
+  "producer": "טוגדר",
+  "price_ils": 119,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "חמניה צהובה",
+  "producer": "טוגדר",
+  "price_ils": 119,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "זיו",
+  "producer": "טוגדר",
+  "price_ils": 129,
+  "original_price_ils": 219,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ליט מיהבי",
+  "producer": "קרונוס",
+  "price_ils": 129,
+  "original_price_ils": 149,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ברצלונה",
+  "producer": "ג'י אייץ'",
+  "price_ils": 139,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קאלי מיסט",
+  "producer": "ג'י אייץ'",
+  "price_ils": 139,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "נוביה מיני",
+  "producer": "מיניז",
+  "price_ils": 139,
+  "original_price_ils": 169,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אם.אר.סי",
+  "producer": "נובה קנביס",
+  "price_ils": 139,
+  "original_price_ils": 249,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אלמה",
+  "producer": "שיח",
+  "price_ils": 169,
+  "original_price_ils": 229,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "הייזל",
+  "producer": "שיח",
+  "price_ils": 169,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קי ליימז פאנץ",
+  "producer": "פיס נטורלס",
+  "price_ils": 170,
+  "original_price_ils": 249,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דה קאלי",
+  "producer": "גרינמד",
+  "price_ils": 179,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אינדור פרפל צ'אנג סמול",
+  "producer": "ג'נטיקס",
+  "price_ils": 189,
+  "original_price_ils": 279,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ניירובי",
+  "producer": "שיח",
+  "price_ils": 189.05,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אייצ' בי",
+  "producer": "CLOUD 9",
+  "price_ils": 199,
+  "original_price_ils": 231,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סיימון",
+  "producer": "גרינמד",
+  "price_ils": 199,
+  "original_price_ils": 359,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'י קיי",
+  "producer": "מדיקן איקס",
+  "price_ils": 199,
+  "original_price_ils": 322,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דארק שאמפה",
+  "producer": "מדיקן איקס",
+  "price_ils": 199,
+  "original_price_ils": 314,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בלו תאי",
+  "producer": "פיס נטורלס",
+  "price_ils": 209,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אורלן בי",
+  "producer": "גרינמד",
+  "price_ils": 239,
+  "original_price_ils": 375,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "תפרחת תכלת",
+  "producer": "שיח",
+  "price_ils": 249,
+  "original_price_ils": 285,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "או ג'י סי",
+  "producer": "פיס נטורלס",
+  "price_ils": 254.15,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אלגרו",
+  "producer": "SEVEN",
+  "price_ils": 269,
+  "original_price_ils": 307,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מ.ר.מ.ל",
+  "producer": "שיח",
+  "price_ils": 269,
+  "original_price_ils": 309,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בלדינום",
+  "producer": "CLOUD 9",
+  "price_ils": 284.05,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דיינסטי 18",
+  "producer": "דיינסטי",
+  "price_ils": 284.05,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ולריאן",
+  "producer": "מדיקן איקס",
+  "price_ils": 284.05,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אל אף מיני",
+  "producer": "פלאנטק מדיקל",
+  "price_ils": 284.05,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'יי-ג'י וואי",
+  "producer": "טוגדר",
+  "price_ils": 289,
+  "original_price_ils": 419,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פאט יו",
+  "producer": "שיח",
+  "price_ils": 290,
+  "original_price_ils": 329,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אינדור בלאק מאק",
+  "producer": "ג'נטיקס",
+  "price_ils": 299,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "רוג1",
+  "producer": "טוגדר",
+  "price_ils": 299,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "לקוטה מיניז",
+  "producer": "טוטם",
+  "price_ils": 303.05,
+  "original_price_ils": 319,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אסטרו מינטו",
+  "producer": "טוגדר",
+  "price_ils": 340,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טיסי פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 341,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מדיין",
+  "producer": "קוקיז",
+  "price_ils": 359.1,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טארון",
+  "producer": "שיח",
+  "price_ils": 360.05,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אינדור ג'לטיקס",
+  "producer": "ג'נטיקס",
+  "price_ils": 370,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סולו הינו",
+  "producer": "SOLO",
+  "price_ils": 386.1,
+  "original_price_ils": 429,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ריין בו פי",
+  "producer": "IMC",
+  "price_ils": 398.05,
+  "original_price_ils": 419,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קויה",
+  "producer": "טוטם",
+  "price_ils": 404.1,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טי.אר.פי.אר",
+  "producer": "טוגדר",
+  "price_ils": 420,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "גואיוסה",
+  "producer": "טוטם",
+  "price_ils": 426.55,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "די-601",
+  "producer": "שיח",
+  "price_ils": 426.55,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אקספלורר מיניז",
+  "producer": "טוגדר",
+  "price_ils": 85,
+  "original_price_ils": 179,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טימו.טי מיני",
+  "producer": "אילבן",
+  "price_ils": 95,
+  "original_price_ils": 185,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ביירון",
+  "producer": "אוזארה",
+  "price_ils": 99,
+  "original_price_ils": 169,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ראסט",
+  "producer": "אוזארה",
+  "price_ils": 99,
+  "original_price_ils": 169,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אנטונוב",
+  "producer": "אילבן",
+  "price_ils": 99,
+  "original_price_ils": 189,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אודין מיני",
+  "producer": "אילבן",
+  "price_ils": 99,
+  "original_price_ils": 169,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אנביל מיני",
+  "producer": "גרינמד",
+  "price_ils": 99,
+  "original_price_ils": 149,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "נאיה מיני",
+  "producer": "שיח",
+  "price_ils": 99,
+  "original_price_ils": 129,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סאן.די",
+  "producer": "אילבן",
+  "price_ils": 100,
+  "original_price_ils": 189,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טארה",
+  "producer": "טה-מוקו",
+  "price_ils": 100,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קופ",
+  "producer": "גרינמד",
+  "price_ils": 109,
+  "original_price_ils": 479,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "וואנקה",
+  "producer": "טה-מוקו",
+  "price_ils": 109,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קאטה",
+  "producer": "טוגדר",
+  "price_ils": 109,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אייס גושרס",
+  "producer": "טוגדר",
+  "price_ils": 109,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דליה אדומה מיני",
+  "name_raw": "דליה אדומה מיני T22C4",
+  "producer": "טוגדר",
+  "price_ils": 109,
+  "original_price_ils": 159,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ים",
+  "producer": "טוגדר",
+  "price_ils": 109,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אור סמול",
+  "producer": "טוגדר",
+  "price_ils": 109,
+  "original_price_ils": 159,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "רנג'י",
+  "producer": "טה-מוקו",
+  "price_ils": 110,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טי ג'י אי זיץ ג'י",
+  "producer": "טרו ג'נטיקס",
+  "price_ils": 110,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בראון או ג'י מיני",
+  "producer": "LIT",
+  "price_ils": 119,
+  "original_price_ils": 139,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סנו לוטוס",
+  "producer": "LIT",
+  "price_ils": 119,
+  "original_price_ils": 149,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "הייץ.או.ג'י",
+  "producer": "טוגדר",
+  "price_ils": 119,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ליט בי1 או ג'י מיני",
+  "producer": "קרונוס",
+  "price_ils": 119,
+  "original_price_ils": 139,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פרפל סנו",
+  "producer": "ג'י אייץ'",
+  "price_ils": 139,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אמסטרדם",
+  "producer": "ג'י אייץ'",
+  "price_ils": 139,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טי.אר.קיי",
+  "producer": "נובה קנביס",
+  "price_ils": 139,
+  "original_price_ils": 198,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דליה אדומה",
+  "name_raw": "דליה אדומהT22C4",
+  "producer": "טוגדר",
+  "price_ils": 140,
+  "original_price_ils": 209,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אור",
+  "producer": "טוגדר",
+  "price_ils": 149,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פי.איי.אס מיני",
+  "producer": "נובה קנביס",
+  "price_ils": 149,
+  "original_price_ils": 162,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אירה",
+  "producer": "שיח",
+  "price_ils": 159,
+  "original_price_ils": 169,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קורי",
+  "producer": "שיח",
+  "price_ils": 169,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אסטרו אף.סי.די",
+  "producer": "טוגדר",
+  "price_ils": 169.15,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פינק שרב",
+  "producer": "פיס נטורלס",
+  "price_ils": 175,
+  "original_price_ils": 251,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "לנון סמול",
+  "producer": "טוגדר",
+  "price_ils": 179,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טנג'י קוש",
+  "producer": "פיס נטורלס",
+  "price_ils": 179,
+  "original_price_ils": 251,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'י ג'י 4",
+  "producer": "פיס נטורלס",
+  "price_ils": 185,
+  "original_price_ils": 231,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אסטרו בי.אר",
+  "producer": "טוגדר",
+  "price_ils": 189,
+  "original_price_ils": 229,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיני ג'י.פי.איי.אי",
+  "producer": "טוגדר",
+  "price_ils": 189,
+  "original_price_ils": 329,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיני סלאק",
+  "producer": "טוגדר",
+  "price_ils": 189,
+  "original_price_ils": 329,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'.ו.נ.י 3#",
+  "producer": "תום דקל",
+  "price_ils": 189.05,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ס.גנדי",
+  "producer": "גרינמד",
+  "price_ils": 199,
+  "original_price_ils": 300,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פי.קיי סמול",
+  "producer": "טוגדר",
+  "price_ils": 199,
+  "original_price_ils": 269,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פי.אן.קיי.טי",
+  "producer": "טוגדר",
+  "price_ils": 199,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אס.אף.וי ריין סמול",
+  "producer": "טוגדר",
+  "price_ils": 199,
+  "original_price_ils": 289,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אסטרו בראון",
+  "producer": "טוגדר",
+  "price_ils": 199,
+  "original_price_ils": 329,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "וויט קוש",
+  "producer": "פיס נטורלס",
+  "price_ils": 199,
+  "original_price_ils": 229,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פרפל קוש",
+  "producer": "פיס נטורלס",
+  "price_ils": 199,
+  "original_price_ils": 289,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'י אם או",
+  "producer": "פיס נטורלס",
+  "price_ils": 199,
+  "original_price_ils": 292,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "רפאל",
+  "producer": "פיס נטורלס",
+  "price_ils": 210,
+  "original_price_ils": 302,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בלאק",
+  "producer": "שיח",
+  "price_ils": 219,
+  "original_price_ils": 251,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אבלון",
+  "producer": "גרינמד",
+  "price_ils": 249,
+  "original_price_ils": 459,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "הולנדי",
+  "producer": "שיח",
+  "price_ils": 249,
+  "original_price_ils": 291,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "רומא",
+  "producer": "IMC",
+  "price_ils": 255.55,
+  "original_price_ils": 269,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "איקס טי",
+  "producer": "CLOUD 9",
+  "price_ils": 265.05,
+  "original_price_ils": 279,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "עמר 2",
+  "producer": "גרינמד",
+  "price_ils": 269,
+  "original_price_ils": 350,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "איי פי מיני",
+  "producer": "פלאנטק מדיקל",
+  "price_ils": 269,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "או קיו מיני",
+  "producer": "פלאנטק מדיקל",
+  "price_ils": 269,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בראון",
+  "producer": "שיח",
+  "price_ils": 269,
+  "original_price_ils": 309,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טריפל סי מיני",
+  "producer": "TRICHOME INDO",
+  "price_ils": 269.1,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בראון",
+  "producer": "שיח",
+  "price_ils": 270,
+  "original_price_ils": 309,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דיינסטי 72",
+  "producer": "דיינסטי",
+  "price_ils": 275,
+  "original_price_ils": 289,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'ורגיה פי מיניז",
+  "producer": "פרפל פארם",
+  "price_ils": 293.55,
+  "original_price_ils": 309,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "זנגריה",
+  "producer": "IMC",
+  "price_ils": 299,
+  "original_price_ils": 419,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "י.יו.סי גאסקט מיני",
+  "producer": "TRICHOME IN",
+  "price_ils": 299,
+  "original_price_ils": 319,
+  "category": "T22/C4",
+  "type": "indica",
+  "producer_truncated": true,
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טיקי אס.אן.דאבליו",
+  "producer": "טוגדר",
+  "price_ils": 299,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'י.פי.איי.אי",
+  "producer": "טוגדר",
+  "price_ils": 299,
+  "original_price_ils": 419,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טיקי ג'י.או סי",
+  "producer": "טוגדר",
+  "price_ils": 299,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סי.אל.אקס",
+  "producer": "טוגדר",
+  "price_ils": 299,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "גארי מיניז",
+  "producer": "קוקיז",
+  "price_ils": 299,
+  "original_price_ils": 319,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קיוטיוה מיניז",
+  "producer": "טוטם",
+  "price_ils": 303.05,
+  "original_price_ils": 319,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "זיירה",
+  "producer": "שיח",
+  "price_ils": 314.1,
+  "original_price_ils": 349,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סולו שארד",
+  "producer": "SOLO",
+  "price_ils": 339,
+  "original_price_ils": 429,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קארבו פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 341.1,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סי ג'יי פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 341.1,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בוקה פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 341.1,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סוויפ פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 350.1,
+  "original_price_ils": 389,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טאי קיי",
+  "producer": "שיח",
+  "price_ils": 360.05,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בלק קאבר",
+  "producer": "IMC",
+  "price_ils": 398.05,
+  "original_price_ils": 419,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מרקר פחית",
+  "producer": "BUC",
+  "price_ils": 399,
+  "original_price_ils": 420,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סולו יוקי",
+  "producer": "SOLO",
+  "price_ils": 399,
+  "original_price_ils": 429,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "זוני",
+  "producer": "טוטם",
+  "price_ils": 399,
+  "original_price_ils": 420,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טמלז",
+  "producer": "טוטם",
+  "price_ils": 399,
+  "original_price_ils": 420,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'ונס צ'אמפה",
+  "producer": "לורד ג'ונס",
+  "price_ils": 399,
+  "original_price_ils": 479,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'י.אף.איי",
+  "producer": "בינסק",
+  "price_ils": 426.55,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "יאמאנה",
+  "producer": "טוטם",
+  "price_ils": 426.55,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "יונגה",
+  "producer": "טוטם",
+  "price_ils": 426.55,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "די-621",
+  "producer": "שיח",
+  "price_ils": 426.55,
+  "original_price_ils": 449,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'ירו",
+  "producer": "טוגדר",
+  "price_ils": 464.55,
+  "original_price_ils": 489,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "האנזו",
+  "producer": "טוגדר",
+  "price_ils": 464.55,
+  "original_price_ils": 489,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אקירה",
+  "producer": "טוגדר",
+  "price_ils": 464.55,
+  "original_price_ils": 489,
+  "category": "T22/C4",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אר&אם מיני",
+  "producer": "אילבן",
+  "price_ils": 100,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "וייט סקאוט מיני",
+  "producer": "LIT",
+  "price_ils": 119,
+  "original_price_ils": 139,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ספייס סי קיי",
+  "producer": "פיס נטורלס",
+  "price_ils": 170,
+  "original_price_ils": 239,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אסטרו לאשיז",
+  "producer": "טוגדר",
+  "price_ils": 189.05,
+  "original_price_ils": 199,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ג'וליאן",
+  "producer": "גרינמד",
+  "price_ils": 199,
+  "original_price_ils": 359,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "בוני",
+  "producer": "גרינמד",
+  "price_ils": 199,
+  "original_price_ils": 300,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "וודינג סי קיי",
+  "producer": "פיס נטורלס",
+  "price_ils": 200,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "זד.אס",
+  "producer": "נובה קנביס",
+  "price_ils": 219,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דו סי דו",
+  "producer": "פיס נטורלס",
+  "price_ils": 220,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קודה",
+  "producer": "גרינמד",
+  "price_ils": 249,
+  "original_price_ils": 479,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "וי אן מיני",
+  "producer": "פלאנטק מדיקל",
+  "price_ils": 249,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פי או מיני",
+  "producer": "פלאנטק מדיקל",
+  "price_ils": 249,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ניל",
+  "producer": "פיס נטורלס",
+  "price_ils": 269.1,
+  "original_price_ils": 299,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "וודינג #33",
+  "producer": "טוגדר",
+  "price_ils": 299,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דבליו קווסט",
+  "producer": "לורד ג'ונס",
+  "price_ils": 319,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מ.מאק",
+  "producer": "שיח",
+  "price_ils": 325,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קמירו",
+  "producer": "TRICHOME INDO",
+  "price_ils": 341.1,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "איי & אף פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 341.1,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אמ.וי-קיי",
+  "producer": "שיח",
+  "price_ils": 360.05,
+  "original_price_ils": 379,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "צ'י פחית",
+  "producer": "TRICHOME INDO",
+  "price_ils": 377.1,
+  "original_price_ils": 419,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אינדור רינץ' איקס",
+  "producer": "ג'נטיקס",
+  "price_ils": 379.05,
+  "original_price_ils": 399,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סולו לומן",
+  "producer": "SOLO",
+  "price_ils": 386.1,
+  "original_price_ils": 429,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טמסקל",
+  "producer": "טוטם",
+  "price_ils": 399,
+  "original_price_ils": 420,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אטלס",
+  "producer": "SOLO",
+  "price_ils": 407.55,
+  "original_price_ils": 429,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "הלקיט",
+  "producer": "BLKMKT",
+  "price_ils": 475,
+  "original_price_ils": 500,
+  "category": "T22/C4",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פלואוז וולט",
+  "producer": "פלואוז",
+  "price_ils": 227.05,
+  "original_price_ils": 239,
+  "category": "T18/C3",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אור",
+  "producer": "טוגדר",
+  "price_ils": 170,
+  "original_price_ils": 209,
+  "category": "T15/C3",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דליה אדומה",
+  "producer": "טוגדר",
+  "price_ils": 170.05,
+  "original_price_ils": 179,
+  "category": "T15/C3",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קורל",
+  "producer": "פלואוז",
+  "price_ils": 217.55,
+  "original_price_ils": 229,
+  "category": "T15/C3",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "צור",
+  "producer": "פלואוז",
+  "price_ils": 215.65,
+  "original_price_ils": 227,
+  "category": "T10/C2",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "רד דליה",
+  "producer": "טוגדר",
+  "price_ils": 160.55,
+  "original_price_ils": 169,
+  "category": "T10/C2",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "שוהם",
+  "producer": "פלואוז",
+  "price_ils": 213.75,
+  "original_price_ils": 225,
+  "category": "T10/C2",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיני וולטר זי",
+  "producer": "CLOUD 9",
+  "price_ils": 219.45,
+  "original_price_ils": 231,
+  "category": "T10/C10",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "סיטרה הייז באלאנס",
+  "producer": "פיס נטורלס",
+  "price_ils": 236.55,
+  "original_price_ils": 249,
+  "category": "T10/C10",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "דואט",
+  "producer": "SEVEN",
+  "price_ils": 263.15,
+  "original_price_ils": 277,
+  "category": "T10/C10",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיני מובה",
+  "producer": "CLOUD 9",
+  "price_ils": 219,
+  "original_price_ils": 221,
+  "category": "T10/C10",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מייב",
+  "producer": "שיח",
+  "price_ils": 280,
+  "original_price_ils": 299,
+  "category": "T10/C10",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "מיני טוטל פי",
+  "producer": "CLOUD 9",
+  "price_ils": 209.95,
+  "original_price_ils": 221,
+  "category": "T10/C10",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ספייס סי קיי מאוזן",
+  "producer": "פיס נטורלס",
+  "price_ils": 224.1,
+  "original_price_ils": 249,
+  "category": "T10/C10",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "ארי",
+  "producer": "טוגדר",
+  "price_ils": 179,
+  "original_price_ils": 229,
+  "category": "T3/C15",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "פרפל מגנוליה",
+  "producer": "טוגדר",
+  "price_ils": 189.05,
+  "original_price_ils": 199,
+  "category": "T3/C15",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "קנטארה",
+  "producer": "SEVEN",
+  "price_ils": 244.15,
+  "original_price_ils": 257,
+  "category": "T3/C15",
+  "type": "sativa",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "אבידקל",
+  "producer": "תיקון עולם",
+  "price_ils": 265.05,
+  "original_price_ils": 279,
+  "category": "T3/C15",
+  "type": "indica",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ },
+ {
+  "name": "טרנקילה",
+  "producer": "CLOUD 9",
+  "price_ils": 265.05,
+  "original_price_ils": 279,
+  "category": "T1/C22",
+  "type": "hybrid",
+  "source": "מדיקה ראש העין, תפריט 14/09/2026"
+ }
+]
