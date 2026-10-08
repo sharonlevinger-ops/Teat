@@ -1,6 +1,7 @@
 :root {
   --bg: #f6f4ef; --surface: #ffffff; --text: #1f2326; --muted: #6a7075; --line: #e4e0d6;
   --accent: #b5481f; --accent-soft: #f7e6dd;
+  --f5: #d4308a;
   --f1: #1f6fd1; --f2: #1e8449; --f3: #c2570c; --f4: #8e44ad;
   --wood: #b98a5b; --wood-dark: #9c6f44; --string: #e9e9e9; --fret: #8f8f8f; --nut: #f4efe4;
   font-family: system-ui, 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif;
@@ -147,3 +148,27 @@ details.mysong summary { cursor: pointer; color: var(--accent); }
 @media (max-width: 560px) { .bk.controls { grid-template-columns: 1fr; } }
 .secondary { background: var(--surface); border: 1px solid var(--line); color: var(--text); padding: 7px 16px; border-radius: 999px; }
 .secondary:hover { border-color: var(--accent); }
+
+/* היום, כלים ומשחק */
+.today { margin-top: 12px; }
+.today li { border-top: 1px solid var(--line); }
+.today li.is-done .td-body { opacity: .55; }
+.td { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; cursor: pointer; }
+.td input { width: 22px; height: 22px; margin-top: 4px; accent-color: var(--accent); flex: 0 0 auto; }
+.td-body a { color: var(--text); text-decoration: none; }
+.ach { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.ach-i { display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--bg); opacity: .6; }
+.ach-i.ok { opacity: 1; border-color: var(--accent); background: var(--accent-soft); }
+.ach-ic { font-size: 1.5rem; }
+.tuner { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 8px; }
+.tbtn { display: grid; gap: 2px; place-items: center; padding: 10px 4px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); }
+.tbtn b { font-size: 1.4rem; direction: ltr; }
+.tbtn:hover { border-color: var(--accent); }
+.quiz-ans { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 10px; direction: ltr; }
+.qbtn { padding: 10px 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font-weight: 600; font-size: .9rem; }
+.qbtn:hover { border-color: var(--accent); }
+.quiz-msg { min-height: 1.6em; font-size: 1.1rem; margin: 10px 0 4px; }
+.quiz-msg.good { color: #1e8449; font-weight: 700; }
+.quiz-msg.bad { color: var(--danger, #b03a2e); font-weight: 700; }
+.jam-card { border-inline-start: 4px solid var(--accent); }
+@media (max-width: 560px) { .tuner, .quiz-ans { grid-template-columns: repeat(3, 1fr); } }

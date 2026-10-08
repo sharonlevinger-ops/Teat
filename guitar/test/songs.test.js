@@ -128,3 +128,18 @@ test('מאגר השירים כולל את הדוגמה של המשתמש: Don\'t
   assert.equal(s.key.root, 'A');
   assert.equal(s.scales[0].scale, 'naturalMinor');
 });
+
+test('חיפוש "להקה + שיר": pantera walk מחזיר רק את Walk של Pantera; "פנטרה" מחזיר את כל שירי הלהקה', () => {
+  assert.deepEqual(SONGS.search(SONGS, 'pantera walk').map((s) => s.id), ['pantera-walk']);
+  assert.deepEqual(SONGS.search(SONGS, 'Pantera - Walk').map((s) => s.id), ['pantera-walk']);
+  assert.equal(SONGS.search(SONGS, 'פנטרה').length, 2);
+  assert.ok(SONGS.search(SONGS, 'walk').length >= 2);
+});
+
+test('Pantera Walk: כיוון טון שלם למטה וסולם בלוז, בלי להתיימר לוודאות גבוהה', () => {
+  const s = SONGS.find((x) => x.id === 'pantera-walk');
+  assert.equal(s.tuning, 'wholeDown');
+  assert.equal(s.scales[0].scale, 'blues');
+  assert.equal(s.conf, 'medium');
+  assert.match(s.src, /לא קובעים/);
+});

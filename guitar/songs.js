@@ -64,6 +64,67 @@
       src: 'TotallyGuitars.',
     },
     {
+      id: 'pantera-walk', artist: 'Pantera', artistHe: 'פנטרה', title: 'Walk', titleHe: 'ווק',
+      alias: ['dimebag', 'dimebag darrell', 'דיימבאג', 'מטאל', 'vulgar display of power'],
+      key: { root: 'E', mode: 'minor' }, tuning: 'wholeDown', conf: 'medium', chords: [],
+      scales: [
+        S('blues', 'לפי Lick Library, הסולו משתמש בסולם הבלוז: בנדים איטיים וריצות מהירות עם פיקינג מתחלף.'),
+        S('minorPent', 'הבסיס הפשוט: פנטטוני מי מינור.'),
+        S('naturalMinor', 'מוסיף תווי צבע לריצות מלודיות.'),
+      ],
+      tips: [
+        'הריף בנוי סביב מיתר פתוח ורק סריג אחד. התחל ממנו ובנה סביבו תבניות קצרות.',
+        'כדי לנגן עם ההקלטה כוון את כל המיתרים טון שלם למטה: D G C F A D. הצורות כאן נשארות כמו שכתוב.',
+      ],
+      src: 'Lick Library ואתרי תווים. המקורות לא קובעים בבירור את המפתח (כאן הוא מוצג לפי הצורות על הצוואר) והם חלוקים בגובה הכיוון המדויק.',
+    },
+    {
+      id: 'pantera-cfh', artist: 'Pantera', artistHe: 'פנטרה', title: 'Cowboys from Hell', titleHe: 'קאובויז פרום הל',
+      alias: ['dimebag', 'dimebag darrell', 'דיימבאג', 'מטאל'],
+      key: { root: 'E', mode: 'minor' }, tuning: 'check', conf: 'medium', chords: ['E5', 'G5', 'A5'],
+      scales: [
+        S('minorPent', 'לפי Lick Library, הסולואים מבוססים על פנטטוני מי מינור עם בנדים.'),
+        S('blues', 'לפי Guitar World, הריף והליק הפותח מבוססים על סולם הבלוז המינורי.'),
+        S('dorian', 'ניתוח אחד מזהה בשיר את מי דורי (עם דו דיאז). אופציה למשפטים מלודיים יותר.'),
+      ],
+      tips: ['הריף בנוי על אקורדי פאוור E5, G5 ו-A5. נסה אחר כך לאלתר מעל אותם אקורדים.'],
+      src: 'Guitar World ו-Lick Library. המקורות חלוקים בכיוון המדויק: בדוק מול ההקלטה.',
+    },
+    {
+      id: 'met-puppets', artist: 'Metallica', artistHe: 'מטאליקה', title: 'Master of Puppets', titleHe: 'מאסטר אוף פאפטס',
+      alias: ['metallica', 'kirk hammett', 'מטאל'],
+      key: { root: 'E', mode: 'minor' }, conf: 'medium', chords: [],
+      scales: [
+        S('naturalMinor', 'השיר ממוקם במי מינור, והסולו מבוסס על הסולם המינורי הטבעי.'),
+        S('minorPent', 'הגרסה הפשוטה לתחילת אלתור.'),
+      ],
+      tips: ['הריף מנוגן בפיקינג מתחלף ובפאלם מיוט. נסה אותו באיטיות לפני שאתה מאלתר.'],
+      src: 'Lick Library ואתרי לימוד.',
+    },
+    {
+      id: 'met-sandman', artist: 'Metallica', artistHe: 'מטאליקה', title: 'Enter Sandman', titleHe: 'אנטר סנדמן',
+      alias: ['metallica', 'kirk hammett', 'מטאל', 'black album'],
+      key: { root: 'E', mode: 'minor' }, conf: 'medium', chords: [],
+      scales: [
+        S('minorPent', 'הסולו כולל חלקים פנטטוניים.'),
+        S('blues', 'הריף הראשי משתמש בתו המתח של סולם הבלוז.'),
+      ],
+      tips: ['הריף מנוגן על מיתר 6 ו-5 בפאלם מיוט. התחל ממנו ואחר כך עבור לסולו.'],
+      src: 'אתרי לימוד. המפתח (מי מינור) מוסכם בכל המקורות שבדקתי.',
+    },
+    {
+      id: 'santana-bmw', artist: 'Santana', artistHe: 'סנטנה', title: 'Black Magic Woman', titleHe: "בלאק מג'יק וומן",
+      alias: ['carlos santana', 'קרלוס סנטנה', 'peter green'],
+      key: { root: 'D', mode: 'minor' }, conf: 'medium', chords: ['Dm', 'Gm', 'A7'],
+      scales: [
+        S('minorPent', 'לפי Guitar Alliance, הסולו הראשון של סנטנה מבוסס על פנטטוני רה מינור.'),
+        S('naturalMinor', 'כולל את סי במול שמופיע מעל האקורד Gm.'),
+        S('dorian', 'מופיע מדי פעם: מוסיף את סי טבעי ואת מי.'),
+      ],
+      tips: ['מעל A7 נסה לנחות על דו דיאז, ואז לפתור לרה.'],
+      src: 'Guitar Alliance ושיעורי גיטרה. המקורות חלוקים בין מינורי לדורי.',
+    },
+    {
       id: 'dp-smoke', artist: 'Deep Purple', artistHe: 'דיפ פרפל', title: 'Smoke on the Water', titleHe: 'סמוק און דה ווטר',
       alias: ['deep purple', 'blackmore'],
       key: { root: 'G', mode: 'minor' }, conf: 'high', chords: ['G5', 'Bb5', 'C5', 'G5'],

@@ -4,6 +4,7 @@
   const DATA = window.GUITAR_DATA;
   const SONGS = window.GUITAR_SONGS || [];
   const T = DATA.theory;
+  const F = window.GUITAR_FUN;
   const app = document.getElementById('app');
   const tabsEl = document.getElementById('tabs');
   const handBtn = document.getElementById('hand');
@@ -29,8 +30,12 @@
     notesSound: load('notesSound', false),
     countIn: load('countIn', true),
     log: load('log', {}),
-    tab: load('tab', 'l1'),
+    tab: load('tab', 'today'),
     custom: load('custom', []),
+    active: load('active', []),
+    today: load('today', { date: '', done: [] }),
+    jams: load('jams', 0),
+    quizBest: load('quizBest', 0),
     query: '',
   };
 
@@ -191,16 +196,85 @@
     },
   };
 
-  // רקע הרמוני פשוט לאלתור (לא ההקלטה של השיר)
+  // סינתזה: תופים וצליל התייחסות
+  Object.assign(Audio_, {
+    noiseBuf: null,
+    noise() {
+      if (!this.noiseBuf) {
+        const c = this.ctx;
+        const b = c.createBuffer(1, Math.floor(c.sampleRate * 0.5), c.sampleRate);
+        const d = b.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        this.noiseBuf = b;
+      }
+      return this.noiseBuf;
+    },
+    tone(midi, dur) {
+      const ctx = this.ensure();
+      const t = ctx.currentTime;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = 'sine';
+      o.frequency.value = midiFreq(midi);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.05);
+      g.gain.setValueAtTime(0.3, t + Math.max(0.1, dur - 0.4));
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g).connect(ctx.destination);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    },
+    kick(t, v = 1) {
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.frequency.setValueAtTime(150, t);
+      o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+      g.gain.setValueAtTime(0.9 * v, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.25);
+      o.connect(g).connect(this.ctx.destination);
+      o.start(t);
+      o.stop(t + 0.3);
+    },
+    noiseHit(t, freq, gain, dur) {
+      const src = this.ctx.createBufferSource();
+      const f = this.ctx.createBiquadFilter();
+      const g = this.ctx.createGain();
+      src.buffer = this.noise();
+      f.type = 'highpass';
+      f.frequency.value = freq;
+      g.gain.setValueAtTime(gain, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      src.connect(f).connect(g).connect(this.ctx.destination);
+      src.start(t);
+      src.stop(t + dur + 0.02);
+    },
+    snare(t, v = 1) {
+      this.noiseHit(t, 1500, 0.35 * v, 0.16);
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = 'triangle';
+      o.frequency.value = 190;
+      g.gain.setValueAtTime(0.2 * v, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      o.connect(g).connect(this.ctx.destination);
+      o.start(t);
+      o.stop(t + 0.12);
+    },
+    hat(t, v = 1) {
+      this.noiseHit(t, 7000, 0.12 * v, 0.05);
+    },
+  });
+
+  // רקע הרמוני פשוט לאלתור (לא ההקלטה של השיר), עם סגנון תופים
   const Backing = {
-    running: false, bpm: 80, timer: null, raf: 0, next: 0, counter: 0, queue: [], chords: [], bpc: 4, click: true, onChord: null,
-    start(chords, bpm, bpc, click, onChord) {
+    running: false, bpm: 80, timer: null, raf: 0, next: 0, counter: 0, queue: [], chords: [], bpc: 4, style: 'click', onChord: null,
+    start(chords, bpm, bpc, style, onChord) {
       this.stop();
       const ctx = Audio_.ensure();
       this.chords = chords.map((c) => T.parseChord(c));
       this.bpm = bpm;
       this.bpc = bpc;
-      this.click = click;
+      this.style = style;
       this.onChord = onChord;
       this.running = true;
       this.counter = 0;
@@ -220,11 +294,34 @@
       while (this.next < ctx.currentTime + 0.12) {
         const c = this.counter;
         const i = Math.floor(c / this.bpc) % this.chords.length;
-        if (c % this.bpc === 0) this.chord(this.chords[i], this.next, (60 / this.bpm) * this.bpc);
-        if (this.click) Audio_.click(this.next, c % this.bpc === 0);
-        this.queue.push({ i, c, t: this.next });
-        this.next += 60 / this.bpm;
+        const t = this.next;
+        const h = 60 / this.bpm;
+        if (c % this.bpc === 0) this.chord(this.chords[i], t, h * this.bpc);
+        this.drum(t, c % 4, h);
+        this.queue.push({ i, c, t });
+        this.next += h;
         this.counter++;
+      }
+    },
+    drum(t, beat, h) {
+      const st = this.style;
+      if (st === 'rock') {
+        if (beat === 0 || beat === 2) Audio_.kick(t);
+        if (beat === 1 || beat === 3) Audio_.snare(t);
+        Audio_.hat(t, 0.8);
+        Audio_.hat(t + h / 2, 0.5);
+        if (beat === 2) Audio_.kick(t + h / 2, 0.7);
+      } else if (st === 'shuffle') {
+        if (beat === 0 || beat === 2) Audio_.kick(t);
+        if (beat === 1 || beat === 3) Audio_.snare(t, 0.9);
+        Audio_.hat(t, 0.8);
+        Audio_.hat(t + (h * 2) / 3, 0.5);
+      } else if (st === 'ballad') {
+        if (beat === 0) Audio_.kick(t);
+        if (beat === 2) Audio_.snare(t, 0.8);
+        Audio_.hat(t, 0.5);
+      } else {
+        Audio_.click(t, beat === 0);
       }
     },
     chord(ch, t, dur) {
@@ -308,7 +405,7 @@
       }
       const cx = dotX(n.f);
       const blue = n.blue ? ' stroke="var(--text)" stroke-width="3" stroke-dasharray="4 3"' : '';
-      return `<g class="dot" data-key="${keyOf(n)}"><circle cx="${cx}" cy="${yS(n.s)}" r="12" fill="var(--f${n.fi})"${blue}/><text x="${cx}" y="${yS(n.s)}">${n.fi}</text></g>`;
+      return `<g class="dot" data-key="${keyOf(n)}"><circle cx="${cx}" cy="${yS(n.s)}" r="12" fill="var(--f${n.fi})"${blue}/><text x="${cx}" y="${yS(n.s)}">${n.fi === 5 ? '?' : n.fi}</text></g>`;
     };
     if (chords) {
       ex.steps.forEach((st, i) => {
@@ -334,12 +431,6 @@
 
   // ---------- סטטיסטיקה ועידוד ----------
   const dayKey = (iso) => new Date(iso).toLocaleDateString('en-CA');
-  function stats() {
-    const days = new Set();
-    Object.values(S.log).forEach((rows) => rows.forEach((r) => days.add(dayKey(r.at))));
-    const week = [...days].filter((d) => Date.now() - Date.parse(d) < 7 * 864e5).length;
-    return { total: days.size, week };
-  }
   const CHEERS = [
     'כל הכבוד! עוד סבב אחד ביומן.',
     'יפה מאוד. עקביות יום אחרי יום שווה יותר מכל אימון ארוך.',
@@ -357,7 +448,8 @@
   }
 
   // ---------- לשוניות ----------
-  let lastSong = null; // השיר שממנו נפתח תרגיל (לכפתור החזרה)
+  let lastRoute = null; // המסך שממנו נפתח תרגיל שנוצר (שיר או ג׳אם), לכפתור החזרה
+  const todayKey = () => new Date().toLocaleDateString('en-CA');
 
   function renderTabs(active) {
     tabsEl.innerHTML = DATA.tabs
@@ -369,7 +461,7 @@
     if (!b) return;
     S.tab = b.dataset.tab;
     save('tab', S.tab);
-    lastSong = null;
+    lastRoute = null;
     go('');
   });
 
@@ -383,9 +475,190 @@
   };
   const exList = (list) => `<ul class="ex-list">${list.map(exItem).join('')}</ul>`;
 
-  function statLine() {
-    const st = stats();
-    return st.total ? `תרגלת ${daysText(st.total)} בסך הכול (${st.week} בשבוע האחרון).` : 'עוד לא תרגלת. תתחיל מחימום קצר.';
+  // ---------- ימי תרגול, רצף והישגים ----------
+  function markActive() {
+    const k = todayKey();
+    if (!S.active.includes(k)) {
+      S.active.push(k);
+      save('active', S.active);
+    }
+  }
+  function allDays() {
+    const days = new Set(S.active);
+    Object.values(S.log).forEach((rows) => rows.forEach((r) => days.add(dayKey(r.at))));
+    return days;
+  }
+  function fullStats() {
+    const days = allDays();
+    const bests = {};
+    for (const [id, rows] of Object.entries(S.log)) bests[id] = Math.max(...rows.map((r) => r.bpm));
+    return { totalDays: days.size, streak: F.computeStreak([...days], todayKey()), uniqueExercises: Object.keys(S.log).length, bests, jams: S.jams, quizBest: S.quizBest };
+  }
+
+  // ג׳אם: שם המפתח (עם במולים לפי סימן המפתח) ושיר-דמה שממנו נבנה העמוד
+  const MAJOR_FLAT_KEYS = new Set([5, 10, 3, 8, 1]);
+  const MINOR_FLAT_KEYS = new Set([2, 7, 0, 5, 10, 3]);
+  const jamFlats = (preset, rootPc) => (preset.mode === 'major' ? MAJOR_FLAT_KEYS : MINOR_FLAT_KEYS).has(rootPc);
+  function jamSong(presetId, rootPc) {
+    const preset = F.JAM.find((p) => p.id === presetId);
+    if (!preset) return null;
+    const flats = jamFlats(preset, rootPc);
+    const rootName = T.noteNameOf(rootPc, flats);
+    return {
+      id: `jam-${preset.id}-${rootPc}`, jam: true, presetId: preset.id, rootPc,
+      title: `${preset.name} ב-${rootName}`, artist: 'ג׳אם חופשי', key: { root: rootName, mode: preset.mode },
+      chords: F.jamChords(preset, rootPc, flats), conf: 'high', drums: preset.drums, bpm: preset.bpm,
+      scales: preset.scales.map(([scale, why]) => ({ scale, root: rootName, why })), tips: preset.tips, desc: preset.desc,
+    };
+  }
+
+  function renderToday() {
+    Met.stop();
+    Backing.stop();
+    renderTabs('today');
+    const tk = todayKey();
+    if (S.today.date !== tk) {
+      S.today = { date: tk, done: [] };
+      save('today', S.today);
+    }
+    const seed = Math.floor(Date.parse(tk + 'T12:00:00Z') / 864e5);
+    const plan = F.dailyPlan(seed, DATA);
+    const jam = jamSong(plan.jam.preset.id, plan.jam.rootPc);
+    const items = [
+      { id: 'w1', kind: 'חימום', title: plan.warm[0].title, sub: plan.warm[0].goal, go: plan.warm[0].id },
+      { id: 'w2', kind: 'חימום', title: plan.warm[1].title, sub: plan.warm[1].goal, go: plan.warm[1].id },
+      { id: 'tech', kind: 'טכניקה או סולם', title: plan.tech.title, sub: plan.tech.goal, go: plan.tech.id },
+      { id: 'jam', kind: 'ג׳אם', title: jam.title, sub: jam.desc, go: jam.id },
+      { id: 'chal', kind: 'אתגר יצירתי', title: plan.challenge, sub: 'נסה אותו בזמן הג׳אם.', go: null },
+    ];
+    const done = new Set(S.today.done);
+    const st = fullStats();
+    const ach = F.ACHIEVEMENTS.map((a) => ({ ...a, ok: a.check(st) }));
+    app.innerHTML = `
+      <h1>האימון של היום</h1>
+      <p class="muted">חמש דקות לכל חלק, בערך חצי שעה בסך הכול. אפשר לעשות רק חלק מהם. כל סימון נחשב ליום תרגול.</p>
+      <div class="welcome"><b>${st.streak ? `🔥 ${daysText(st.streak)} ברצף` : 'מתחילים רצף חדש היום'}</b>${st.totalDays ? ` · ${daysText(st.totalDays)} תרגול בסך הכול` : ''}<br>
+        <span class="small">סימנת ${done.size} מתוך ${items.length}.</span></div>
+      <ul class="ex-list today">${items
+        .map(
+          (it) => `<li class="${done.has(it.id) ? 'is-done' : ''}"><label class="td"><input type="checkbox" data-td="${it.id}" ${done.has(it.id) ? 'checked' : ''} aria-label="עשיתי: ${esc(it.title)}" />
+            <span class="td-body"><span class="muted small">${it.kind}</span><br>${it.go ? `<a href="#${it.go}" data-go="${it.go}"><b>${fx(it.title)}</b></a>` : `<b>${fx(it.title)}</b>`}<br><span class="small muted">${fx(it.sub)}</span></span></label></li>`
+        )
+        .join('')}</ul>
+      <section class="card"><h3>הישגים</h3><div class="ach">${ach
+        .map((a) => `<div class="ach-i ${a.ok ? 'ok' : ''}" title="${esc(a.desc)}"><span class="ach-ic">${a.ok ? a.icon : '🔒'}</span><b>${esc(a.name)}</b><span class="small muted">${esc(a.desc)}</span></div>`)
+        .join('')}</div></section>`;
+    app.querySelectorAll('[data-td]').forEach((cb) => {
+      cb.onchange = () => {
+        const id = cb.dataset.td;
+        const set = new Set(S.today.done);
+        if (cb.checked) set.add(id);
+        else set.delete(id);
+        S.today.done = [...set];
+        save('today', S.today);
+        if (cb.checked) markActive();
+        renderToday();
+      };
+    });
+  }
+
+  // ---------- כלים ומשחק: כוונון וחידון לוח הצוואר ----------
+  function renderTools() {
+    Met.stop();
+    Backing.stop();
+    renderTabs('tools');
+    const tunId = load('tuning', 'standard');
+    app.innerHTML = `
+      <h1>כלים ומשחק</h1>
+      <section class="card"><h3>כוונון: צליל התייחסות</h3>
+        <p class="muted small" style="margin-top:0">לחץ על מיתר כדי לשמוע את הצליל, וכוון את המיתר שלך אליו. הצליל מושמע כמה שניות. הרבה הקלטות מכוונות נמוך מהרגיל, ובחירה בכיוון המתאים עוזרת לנגן עם ההקלטה.</p>
+        <div class="form-row"><label>כיוון <select id="tunSel">${F.TUNINGS.map((t) => `<option value="${t.id}" ${t.id === tunId ? 'selected' : ''}>${t.name}</option>`).join('')}</select></label></div>
+        <div class="tuner" id="tuner"></div></section>
+      <section class="card"><h3>חידון: איזה תו זה?</h3>
+        <p class="muted small" style="margin-top:0">הנקודה על הלוח מסמנת תו. בחר את שמו. כך לומדים את הלוח בלי לחשוב.</p>
+        <div id="quizBoard" class="board-wrap"></div>
+        <div class="quiz-ans" id="quizAns">${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map((n, pc) => `<button class="qbtn" data-pc="${pc}">${n.length > 1 ? n + '/' + T.noteNameOf(pc, true) : n}</button>`).join('')}</div>
+        <p class="quiz-msg" id="quizMsg" aria-live="polite">&nbsp;</p>
+        <div class="opts"><label><input type="checkbox" id="quizNat" /> רק תווים טבעיים (בלי דיאז ובמול)</label><label><input type="checkbox" id="quizSound" /> השמע את התו</label></div>
+        <p class="muted small" id="quizScore"></p></section>`;
+
+    // כוונון
+    const tuner = document.getElementById('tuner');
+    const drawTuner = () => {
+      const id = document.getElementById('tunSel').value;
+      save('tuning', id);
+      const tun = F.TUNINGS.find((x) => x.id === id);
+      const flats = id === 'half';
+      tuner.innerHTML = tun.midi
+        .map((m, i) => `<button class="tbtn" data-midi="${m}"><span class="small muted">מיתר ${6 - i}</span><b>${T.noteNameOf(m, flats)}</b></button>`)
+        .join('');
+    };
+    document.getElementById('tunSel').onchange = drawTuner;
+    tuner.onclick = (e) => {
+      const b = e.target.closest('[data-midi]');
+      if (b) Audio_.tone(Number(b.dataset.midi), 3);
+    };
+    drawTuner();
+
+    // חידון
+    const qb = document.getElementById('quizBoard');
+    const msg = document.getElementById('quizMsg');
+    const score = document.getElementById('quizScore');
+    const NAT = new Set([0, 2, 4, 5, 7, 9, 11]);
+    let q = null;
+    let ok = 0;
+    let total = 0;
+    let streak = 0;
+    const showScore = () => {
+      score.textContent = `נכון ${ok} מתוך ${total} · רצף ${streak} · השיא שלך ${S.quizBest}`;
+    };
+    const drawQ = () => {
+      qb.innerHTML = boardSvg({ frets: 12, startFret: 1, steps: [{ s: q.s, f: q.f, fi: 5 }] }, S.lefty);
+    };
+    const nextQ = () => {
+      const natEl = document.getElementById('quizNat');
+      if (!natEl) return; // יצאנו מהמסך בזמן שהשאלה הבאה בהמתנה
+      const natOnly = natEl.checked;
+      let s;
+      let f;
+      do {
+        s = 1 + Math.floor(Math.random() * 6);
+        f = Math.floor(Math.random() * 13);
+      } while (natOnly && !NAT.has(F.noteAt(s, f)));
+      q = { s, f, pc: F.noteAt(s, f), done: false };
+      drawQ();
+      msg.innerHTML = '&nbsp;';
+      msg.className = 'quiz-msg';
+      if (document.getElementById('quizSound').checked) Audio_.tone(OPEN_MIDI[s] + f, 1.2);
+    };
+    document.getElementById('quizAns').onclick = (e) => {
+      const b = e.target.closest('[data-pc]');
+      if (!b || q.done) return;
+      q.done = true;
+      total++;
+      const right = Number(b.dataset.pc) === q.pc;
+      if (right) {
+        ok++;
+        streak++;
+        if (streak > S.quizBest) {
+          S.quizBest = streak;
+          save('quizBest', S.quizBest);
+        }
+        markActive();
+        msg.textContent = '✓ נכון!';
+        msg.className = 'quiz-msg good';
+      } else {
+        streak = 0;
+        msg.innerHTML = `✗ זה היה <b>${T.noteNameOf(q.pc, false)}${[1, 3, 6, 8, 10].includes(q.pc) ? ' / ' + T.noteNameOf(q.pc, true) : ''}</b>`;
+        msg.className = 'quiz-msg bad';
+      }
+      showScore();
+      setTimeout(nextQ, right ? 700 : 1600);
+    };
+    document.getElementById('quizNat').onchange = nextQ;
+    renderExercise.redraw = drawQ;
+    nextQ();
+    showScore();
   }
 
   function renderTabView() {
@@ -394,22 +667,26 @@
     const tab = DATA.tabs.find((t) => t.id === S.tab) || DATA.tabs[0];
     renderTabs(tab.id);
     let html = '';
+    if (tab.kind === 'today') return renderToday();
+    if (tab.kind === 'tools') return renderTools();
+    if (tab.kind === 'improv') return renderImprov();
     if (tab.kind === 'level') {
       const lv = DATA.levels.find((l) => l.id === tab.level);
       html = `<h1>${fx(lv.name)}</h1><p class="muted">${fx(lv.desc)}</p>${exList(lv.exercises)}`;
-    } else if (tab.kind === 'sections') {
+    } else {
       const d = DATA[tab.ref];
       html =
         `<h1>${fx(d.title)}</h1><p class="muted">${fx(d.desc)}</p>` +
         d.sections.map((sec) => `<section class="level"><h2>${fx(sec.title)}</h2><p>${fx(sec.desc)}</p>${exList(sec.exercises)}</section>`).join('');
-    } else {
-      renderImprov();
-      return;
     }
     app.innerHTML = `<div class="welcome small"><b>${statLine()}</b> התחל כל תרגיל לאט. אם הוא נשמע נקי שלוש פעמים ברצף, העלה 5 BPM.</div>${html}`;
   }
+  function statLine() {
+    const st = fullStats();
+    return st.totalDays ? `תרגלת ${daysText(st.totalDays)} בסך הכול${st.streak > 1 ? `, ${st.streak} ברצף` : ''}.` : 'עוד לא תרגלת. תתחיל מחימום קצר.';
+  }
 
-  // ---------- אלתור: חיפוש שיר, מפתח וסולמות ----------
+  // ---------- אלתור: חיפוש שיר, מפתח, ג׳אם וסולמות ----------
   const MINOR_SCALES = ['minorPent', 'blues', 'naturalMinor', 'dorian', 'harmonicMinor', 'phrygianDominant'];
   const allSongs = () => [...SONGS, ...S.custom.map((c) => ({ ...c, custom: true }))];
   const searchSongs = (q) => SONGS.search(allSongs(), q);
@@ -417,6 +694,14 @@
   const scaleRoot = (song, sc) => sc.root || song.key.root;
   const scaleFlats = (rootName, scale) => T.useFlats(rootName, MINOR_SCALES.includes(scale) ? 'minor' : 'major');
   const CONF = { high: ['ודאות גבוהה', 'c-high'], medium: ['ודאות בינונית: בדוק באוזן', 'c-med'], user: ['נוסף על ידך', 'c-med'] };
+  const TUNING_NOTE = {
+    halfDown: '<b>כיוון חצי טון למטה.</b> ההקלטה מכוונת חצי טון נמוך, ולכן הצורות על הצוואר (כמו שכתוב כאן) נשמעות חצי טון נמוך מהשם. כדי לנגן עם ההקלטה, כוון את כל המיתרים חצי טון למטה.',
+    wholeDown: '<b>כיוון טון שלם למטה (D G C F A D).</b> ההקלטה מכוונת טון שלם נמוך, ולכן הצורות על הצוואר נשמעות טון נמוך מהשם. כדי לנגן עם ההקלטה, כוון את כל המיתרים טון שלם למטה. את הצלילים אפשר לשמוע בלשונית "כלים ומשחק".',
+    check: '<b>המקורות חלוקים בכיוון של ההקלטה.</b> ייתכן שהיא מכוונת נמוך מהרגיל. כוון לפי ההקלטה, ובלשונית "כלים ומשחק" אפשר לשמוע צלילי התייחסות לכיוונים נפוצים.',
+  };
+
+  const ROOT_OPTIONS = [['C', 0], ['C#', 1], ['Db', 1], ['D', 2], ['Eb', 3], ['E', 4], ['F', 5], ['F#', 6], ['G', 7], ['Ab', 8], ['A', 9], ['Bb', 10], ['B', 11]];
+  const rootOptions = ROOT_OPTIONS.map(([n]) => n);
 
   // כרטיס סולמות: לכל סולם קישורים לתנוחות (מציגות לוח + מטרונום)
   function scalesCard(song) {
@@ -458,7 +743,7 @@
   const HOW_IMPROV = (song) => {
     const main = song.scales[0];
     return [
-      `התחל מ-${fx(scaleRoot(song, main))} ${T.SCALE_HE[main.scale]} בתנוחה 1. זו הקופסה הבטוחה: כל התווים בה מתאימים לשיר.`,
+      `התחל מ-${fx(scaleRoot(song, main))} ${T.SCALE_HE[main.scale]} בתנוחה 1. זו הקופסה הבטוחה: כל התווים בה מתאימים.`,
       'נגן את הסולם מעל הרקע בלי לנסות ליצור משהו, רק כדי להכיר את הצליל.',
       'בנה משפט קצר: שלושה עד חמישה תווים, ואז שקט. חזור על המשפט עם שינוי קטן (תו אחד או קצב).',
       'סיים משפטים על השורש או על תו מהאקורד, כדי שהם ישמעו "גמורים".',
@@ -466,44 +751,71 @@
     ];
   };
 
+  const gq = (s) => encodeURIComponent(s);
+  function externalLinks(query, extra) {
+    return `<div class="chips">
+      <a class="chip" href="https://www.youtube.com/results?search_query=${gq(query + ' guitar lesson')}" target="_blank" rel="noopener noreferrer">שיעורים ביוטיוב ↗</a>
+      <a class="chip" href="https://www.google.com/search?q=${gq(query + ' ' + (extra || 'guitar key scale solo'))}" target="_blank" rel="noopener noreferrer">חיפוש בגוגל ↗</a></div>`;
+  }
+
   function songPage(song) {
     const conf = CONF[song.conf] || CONF.medium;
-    const flats = T.useFlats(song.key.root, song.key.mode);
     const hasChords = song.chords && song.chords.length;
+    const style = load('bk-style:' + (song.presetId || song.id), song.drums || load('bk-style', 'rock'));
+    const jamControls = song.jam
+      ? `<div class="form-row"><label>מפתח <select id="jamRoot">${ROOT_OPTIONS.map(([n, pc]) => `<option value="${pc}" ${pc === song.rootPc && n === song.key.root ? 'selected' : ''}>${n}</option>`).filter((o, i, a) => a.findIndex((x) => x.split('value="')[1].split('"')[0] === o.split('value="')[1].split('"')[0]) === i).join('')}</select></label>
+        <label>סגנון <select id="jamPreset">${F.JAM.map((p) => `<option value="${p.id}" ${p.id === song.presetId ? 'selected' : ''}>${p.name}</option>`).join('')}</select></label>
+        <button class="secondary" id="jamGo">עדכן</button></div>`
+      : '';
     return `
       <a class="back" href="#" data-go="">‹ חזרה לאלתור</a>
-      <h1 class="ex-title">${fx(song.titleHe && song.titleHe !== song.title ? song.titleHe + ' · ' + song.title : song.title)}</h1>
-      <p class="muted">${fx(song.artistHe && song.artistHe !== song.artist ? song.artistHe + ' · ' + song.artist : song.artist || '')}</p>
-      <div class="chips"><span class="chip static">מפתח: ${fx(keyLabel(song.key))}</span><span class="chip static ${conf[1]}">${conf[0]}</span></div>
-      ${song.tuning === 'halfDown' ? '<section class="card style"><p style="margin:0"><b>כיוון חצי טון למטה.</b> ההקלטה מכוונת חצי טון נמוך, ולכן הצורות על הצוואר (כמו שכתוב כאן) נשמעות חצי טון נמוך מהשם. כדי לנגן עם ההקלטה, כוון את כל המיתרים חצי טון למטה.</p></section>' : ''}
+      <h1 class="ex-title">${fx(song.jam ? 'ג׳אם: ' + song.title : song.titleHe && song.titleHe !== song.title ? song.titleHe + ' · ' + song.title : song.title)}</h1>
+      <p class="muted">${fx(song.jam ? song.desc : song.artistHe && song.artistHe !== song.artist ? song.artistHe + ' · ' + song.artist : song.artist || '')}</p>
+      ${jamControls}
+      <div class="chips"><span class="chip static">מפתח: ${fx(keyLabel(song.key))}</span>${song.jam ? '' : `<span class="chip static ${conf[1]}">${conf[0]}</span>`}</div>
+      ${song.tuning && TUNING_NOTE[song.tuning] ? `<section class="card style"><p style="margin:0">${TUNING_NOTE[song.tuning]}</p></section>` : ''}
       ${hasChords ? `<section class="card"><h3>האקורדים העיקריים</h3><div class="chips">${song.chords.map((c) => `<span class="chip static">${fx(c)}</span>`).join('')}</div>${chordTonesCard(song)}</section>` : ''}
       ${scalesCard(song)}
-      <section class="card"><h3>איך לאלתר על השיר</h3><ol>${HOW_IMPROV(song).map((t) => `<li>${t}</li>`).join('')}</ol>
-        ${(song.tips || []).length ? `<h3 style="margin-top:14px">טיפים לשיר הזה</h3><ul>${song.tips.map((t) => `<li>${fx(t)}</li>`).join('')}</ul>` : ''}</section>
+      <section class="card"><h3>איך לאלתר ${song.jam ? 'מעל הרקע' : 'על השיר'}</h3><ol>${HOW_IMPROV(song).map((t) => `<li>${t}</li>`).join('')}</ol>
+        ${(song.tips || []).length ? `<h3 style="margin-top:14px">טיפים</h3><ul>${song.tips.map((t) => `<li>${fx(t)}</li>`).join('')}</ul>` : ''}</section>
       ${hasChords ? `<section class="card"><h3>רקע לאלתור</h3>
-        <p class="muted small" style="margin-top:0">רצף האקורדים בצליל פשוט, לא ההקלטה של השיר. נגן מעליו את הסולם.</p>
+        <p class="muted small" style="margin-top:0">רצף האקורדים בצליל פשוט עם תופים מסונתזים${song.jam ? '' : ', לא ההקלטה של השיר'}. נגן מעליו את הסולם.</p>
         <div class="bk-now" id="bkNow">—</div>
-        <div class="controls bk"><div class="bpm"><button class="step" id="bkSlower" aria-label="לאט יותר">−</button><input type="range" id="bkBpm" min="40" max="160" value="${load('bk:' + song.id, 80)}" aria-label="מהירות" /><button class="step" id="bkFaster" aria-label="מהר יותר">+</button><output id="bkOut"></output></div>
+        <div class="controls bk"><div class="bpm"><button class="step" id="bkSlower" aria-label="לאט יותר">−</button><input type="range" id="bkBpm" min="40" max="160" value="${load('bk:' + (song.presetId || song.id), song.bpm || 80)}" aria-label="מהירות" /><button class="step" id="bkFaster" aria-label="מהר יותר">+</button><output id="bkOut"></output></div>
         <button class="start" id="bkStart">▶ נגן רקע</button></div>
-        <label class="small"><input type="checkbox" id="bkClick" checked /> קליק מטרונום</label></section>` : ''}
-      <section class="card"><p class="muted small" style="margin:0">הסולמות הם המלצות לאלתור שמתאימות לשיר, ולא תמלול של הסולו המקורי. ${song.src ? 'מקורות: ' + fx(song.src) + ' ' : ''}קיימות גרסאות שונות של שירים, חלקן מכוונות חצי טון למטה, ולכן כדאי לוודא באוזן מול ההקלטה. ${flats ? '' : ''}</p></section>`;
+        <div class="form-row"><label>קצב <select id="bkStyle">${[['rock', 'רוק'], ['shuffle', 'שאפל (בלוז)'], ['ballad', 'בלדה איטית'], ['click', 'מטרונום בלבד']].map(([v, n]) => `<option value="${v}" ${v === style ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div></section>` : ''}
+      ${song.jam ? '' : `<section class="card"><h3>לשמוע ולהכיר</h3><p class="muted small" style="margin-top:0">שיעורים והקלטות של השיר, כדי לשמוע את הצליל ולבדוק מול ההקלטה.</p>${externalLinks((song.artist || '') + ' ' + song.title)}</section>`}
+      <section class="card"><p class="muted small" style="margin:0">הסולמות הם המלצות לאלתור שמתאימות ${song.jam ? 'לרצף' : 'לשיר'}, ולא תמלול של הסולו המקורי. ${song.src ? 'מקורות: ' + fx(song.src) + ' ' : ''}${song.jam ? '' : 'קיימות גרסאות שונות של שירים, חלקן מכוונות נמוך מהרגיל, ולכן כדאי לוודא באוזן מול ההקלטה.'}</p></section>`;
   }
 
   function bindBacking(song) {
     const startBtn = document.getElementById('bkStart');
+    if (song.jam) {
+      document.getElementById('jamGo').onclick = () => {
+        const sel = document.getElementById('jamRoot');
+        go(`jam-${document.getElementById('jamPreset').value}-${sel.value}`);
+      };
+    }
     if (!startBtn) return;
+    const key = song.presetId || song.id;
     const bpmIn = document.getElementById('bkBpm');
     const out = document.getElementById('bkOut');
     const now = document.getElementById('bkNow');
+    const styleSel = document.getElementById('bkStyle');
     const setBpm = (v) => {
       const b = Math.max(40, Math.min(160, v));
       bpmIn.value = b;
       out.textContent = b + ' BPM';
-      save('bk:' + song.id, b);
+      save('bk:' + key, b);
       if (Backing.running) Backing.bpm = b;
     };
     setBpm(Number(bpmIn.value));
     bpmIn.oninput = () => setBpm(Number(bpmIn.value));
+    styleSel.onchange = () => {
+      save('bk-style:' + key, styleSel.value);
+      save('bk-style', styleSel.value);
+      if (Backing.running) Backing.style = styleSel.value;
+    };
     document.getElementById('bkSlower').onclick = () => setBpm(Number(bpmIn.value) - 5);
     document.getElementById('bkFaster').onclick = () => setBpm(Number(bpmIn.value) + 5);
     startBtn.onclick = () => {
@@ -516,7 +828,10 @@
       }
       startBtn.textContent = '■ עצור';
       startBtn.classList.add('on');
-      Backing.start(song.chords, Number(bpmIn.value), 4, document.getElementById('bkClick').checked, (i) => {
+      S.jams++;
+      save('jams', S.jams);
+      markActive();
+      Backing.start(song.chords, Number(bpmIn.value), 4, styleSel.value, (i) => {
         const next = song.chords[(i + 1) % song.chords.length];
         now.innerHTML = `<b class="big">${fx(song.chords[i])}</b> <span class="muted">· הבא: ${fx(next)}</span>`;
       });
@@ -536,21 +851,27 @@
           { scale: 'majorPent', why: 'הסולם הבטוח ביותר לאלתור מעל שיר במז׳ור.' },
           { scale: 'major', why: 'מוסיף שני תווי צבע לפנטטוני.' },
           { scale: 'mixolydian', why: 'מתאים כשיש אקורד שנשמע "רוקי" (כמו אקורד על התו השביעי).' },
-          { scale: 'minorPent', root: null, why: 'בלוז-רוק: פנטטוני מינורי של אותו שורש על שיר במז׳ור.' },
+          { scale: 'minorPent', why: 'בלוז-רוק: פנטטוני מינורי של אותו שורש על שיר במז׳ור.' },
         ];
   }
-  const rootOptions = ['C', 'C#', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
 
   function renderImprov() {
     Met.stop();
+    Backing.stop();
     renderTabs('improv');
     app.innerHTML = `
       <h1>אלתור על שירים</h1>
-      <p class="muted">כתוב שם של שיר או להקה (בעברית או באנגלית) וקבל את המפתח, האקורדים והסולמות לאלתור, עם לוח ורקע.</p>
-      <div class="searchbox"><input id="impQ" type="search" placeholder="למשל: Don't Cry, גאנז אנד רוזס, בלוז…" autocomplete="off" value="${esc(S.query)}" aria-label="חיפוש שיר או להקה" /></div>
+      <p class="muted">כתוב שם של להקה, שיר או שניהם (למשל "pantera walk", בעברית או באנגלית) וקבל את המפתח, האקורדים והסולמות לאלתור, עם לוח ורקע.</p>
+      <div class="searchbox"><input id="impQ" type="search" placeholder="למשל: pantera walk, Don't Cry, גאנז אנד רוזס, בלוז…" autocomplete="off" value="${esc(S.query)}" aria-label="חיפוש שיר או להקה" /></div>
       <div id="impResults"></div>
+      <section class="card jam-card"><h3>🎸 ג׳אם חופשי</h3>
+        <p class="muted small" style="margin-top:0">בלי שיר מסוים: בחר סגנון ומפתח, וקבל רקע עם תופים ואת הסולמות שמתאימים. הדרך הכי כיפית להתחיל לאלתר.</p>
+        <div class="form-row"><label>סגנון <select id="jfPreset">${F.JAM.map((p) => `<option value="${p.id}">${p.name}</option>`).join('')}</select></label>
+          <label>מפתח <select id="jfRoot">${ROOT_OPTIONS.filter(([n]) => n !== 'C#').map(([n, pc]) => `<option value="${pc}" ${n === 'A' ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+          <button class="start" id="jfGo">התחל ג׳אם</button></div></section>
       <section class="card"><h3>השיר לא ברשימה?</h3>
-        <p class="muted small" style="margin-top:0">לא ניתן לחפש בכל המוזיקה בעולם מתוך האתר, כי הוא לא מתחבר לשום מאגר חיצוני. אם אתה יודע באיזה מפתח השיר, בחר אותו ותקבל את הסולמות. אפשר גם להוסיף את השיר לרשימה שלך, או לבקש ממני בשיחה להוסיף אותו לאתר.</p>
+        <p class="muted small" style="margin-top:0">האתר לא מתחבר למאגר מוזיקה חיצוני, ולכן הרשימה מצומצמת. אפשר לחפש את השיר ביוטיוב או בגוגל לשמוע ולבדוק מפתח, ואז לבחור את המפתח כאן ולקבל סולמות. אפשר גם להוסיף את השיר לרשימה שלך, או לבקש ממני בשיחה להוסיף אותו לאתר.</p>
+        <div id="impExt"></div>
         <div class="form-row"><label>מפתח <select id="kfRoot">${rootOptions.map((r) => `<option ${r === 'A' ? 'selected' : ''}>${r}</option>`).join('')}</select></label>
           <label>סוג <select id="kfMode"><option value="minor">מינור</option><option value="major">מז׳ור</option></select></label>
           <button class="secondary" id="kfShow">הצג סולמות</button></div>
@@ -563,6 +884,7 @@
       </section>`;
     const results = document.getElementById('impResults');
     const q = document.getElementById('impQ');
+    const ext = document.getElementById('impExt');
 
     const row = (s) =>
       `<li><a class="ex" href="#song-${s.id}" data-go="song-${s.id}"><b>${fx(s.titleHe && s.titleHe !== s.title ? s.titleHe + ' · ' + s.title : s.title)} ${s.custom ? '<span class="tag">שלי</span>' : ''}</b>
@@ -571,7 +893,8 @@
       const list = searchSongs(S.query);
       results.innerHTML = list.length
         ? `<p class="muted small">${list.length} ${S.query.trim() ? 'תוצאות' : 'שירים ברשימה'}</p><ul class="ex-list">${list.map(row).join('')}</ul>`
-        : '<p class="empty">לא נמצא שיר כזה. נסה שם אחר, או הוסף אותו למטה.</p>';
+        : `<p class="empty">לא נמצא שיר כזה ברשימה. אפשר לחפש אותו בחוץ (למטה), או לבקש ממני להוסיף אותו.</p>`;
+      ext.innerHTML = S.query.trim() ? externalLinks(S.query.trim(), 'guitar solo scale key') : '';
     };
     q.oninput = () => {
       S.query = q.value;
@@ -586,11 +909,11 @@
     });
     draw();
 
+    document.getElementById('jfGo').onclick = () => go(`jam-${document.getElementById('jfPreset').value}-${document.getElementById('jfRoot').value}`);
     document.getElementById('kfShow').onclick = () => {
       const root = document.getElementById('kfRoot').value;
       const mode = document.getElementById('kfMode').value;
-      const fake = { key: { root, mode }, scales: defaultScales(mode).map((s) => ({ ...s, root: root })) };
-      // השורש של הסולם המינורי על שיר במז׳ור הוא המינורי היחסי של אותו מפתח
+      const fake = { key: { root, mode }, scales: defaultScales(mode).map((s) => ({ ...s, root })) };
       document.getElementById('kfOut').innerHTML = scalesCard(fake);
     };
     document.getElementById('msAdd').onclick = () => {
@@ -610,7 +933,7 @@
       }
       S.custom.push({
         id: 'my-' + Date.now(), title: name, artist: 'השירים שלי', key: { root, mode }, chords, conf: 'user',
-        scales: defaultScales(mode).map((s) => ({ ...s, root: root })), tips: [],
+        scales: defaultScales(mode).map((s) => ({ ...s, root })), tips: [],
       });
       save('custom', S.custom);
       document.getElementById('msName').value = '';
@@ -620,18 +943,28 @@
     };
   }
 
-  function renderSong(id) {
+  function showSong(song) {
     Met.stop();
     Backing.stop();
-    const song = allSongs().find((s) => s.id === id);
     renderTabs('improv');
+    lastRoute = song.jam ? song.id : 'song-' + song.id;
+    app.innerHTML = songPage(song);
+    bindBacking(song);
+  }
+  function renderSong(id) {
+    const song = allSongs().find((s) => s.id === id);
     if (!song) {
+      renderTabs('improv');
       app.innerHTML = '<a class="back" href="#" data-go="">‹ חזרה</a><p class="empty">השיר לא נמצא.</p>';
       return;
     }
-    lastSong = song.id;
-    app.innerHTML = songPage(song);
-    bindBacking(song);
+    showSong(song);
+  }
+  function renderJam(id) {
+    const m = /^jam-(.+)-(\d+)$/.exec(id);
+    const song = m && jamSong(m[1], Number(m[2]));
+    if (!song) return renderTabView();
+    showSong(song);
   }
 
   // ---------- דף תרגיל ----------
@@ -666,7 +999,7 @@
   function renderExercise(ex) {
     Met.stop();
     Backing.stop();
-    renderTabs(ex.id.startsWith('g-') ? 'improv' : tabOf(ex.id));
+    renderTabs(ex.id.startsWith('g-') ? 'improv' : S.tab);
     let bpm = load('bpm:' + ex.id, ex.startBpm);
     const n = ex.steps.length;
     const bps = bpsOf(ex);
@@ -674,14 +1007,14 @@
     const usesOpen = ex.steps.some((st) => (chords ? st.open.length || st.mute.length : st.f === 0));
     const usesBlue = ex.steps.some((st) => st.blue);
     const flats = !!ex.flats;
-    const back = ex.id.startsWith('g-') && lastSong ? 'song-' + lastSong : '';
+    const back = ex.id.startsWith('g-') && lastRoute ? lastRoute : '';
     let peak = bpm;
     let runStart = bpm;
     const styleCard = ex.style
       ? `<section class="card style"><h3>${fx(ex.style.title)}</h3><p>${fx(ex.style.text)}</p>${ex.style.note ? `<p class="muted small">${fx(ex.style.note)}</p>` : ''}</section>`
       : '';
     app.innerHTML = `
-      <a class="back" href="#" data-go="${back}">‹ ${back ? 'חזרה לשיר' : 'חזרה'}</a>
+      <a class="back" href="#" data-go="${back}">‹ ${back ? (back.startsWith('jam-') ? 'חזרה לג׳אם' : 'חזרה לשיר') : 'חזרה'}</a>
       <h1 class="ex-title">${fx(ex.title)}</h1>
       <p class="muted">${fx(ex.goal)}</p>
       <div class="legend">${DATA.fingers.map((f) => `<span class="fchip"><i class="f${f.n}">${f.n}</i>${f.name}</span>`).join('')}
@@ -850,6 +1183,7 @@
       const reached = ex.ramp ? Math.max(peak, bpm) : bpm;
       (S.log[ex.id] ||= []).push({ at: new Date().toISOString(), bpm: reached });
       save('log', S.log);
+      markActive();
       document.getElementById('savedMsg').textContent = ' ' + CHEERS[Math.floor(Math.random() * CHEERS.length)];
       history();
     };
@@ -861,15 +1195,6 @@
       drawBoard();
       if (Met.running) board.querySelector('svg').classList.add('running');
     };
-  }
-
-  // לשונית שאליה שייך תרגיל (לסימון בסרגל)
-  function tabOf(id) {
-    for (const t of DATA.tabs) {
-      if (t.kind === 'level' && DATA.levels.find((l) => l.id === t.level).exercises.some((e) => e.id === id)) return t.id;
-      if (t.kind === 'sections' && DATA[t.ref].sections.some((s) => s.exercises.some((e) => e.id === id))) return t.id;
-    }
-    return S.tab;
   }
 
   // ---------- יד שמאלית / ימנית ----------
@@ -900,6 +1225,7 @@
   function route() {
     renderExercise.redraw = null;
     if (current.startsWith('song-')) renderSong(current.slice(5));
+    else if (current.startsWith('jam-')) renderJam(current);
     else {
       const ex = current && findEx(current);
       if (ex) renderExercise(ex);

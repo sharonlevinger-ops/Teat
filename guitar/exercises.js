@@ -217,6 +217,12 @@
     E7: chord('E7', [{ s: 5, f: 2, fi: 2 }, { s: 3, f: 1, fi: 1 }]),
     A7: chord('A7', [{ s: 4, f: 2, fi: 1 }, { s: 2, f: 2, fi: 2 }], [6]),
     B7: chord('B7', [{ s: 4, f: 1, fi: 1 }, { s: 5, f: 2, fi: 2 }, { s: 3, f: 2, fi: 3 }, { s: 1, f: 2, fi: 4 }], [6]),
+    // אקורדי פאוור: שורש וקווינטה (ואוקטבה). הצורות עם שורש במיתר 6 או 5 נעות לאורך הצוואר.
+    E5: chord('E5', [{ s: 5, f: 2, fi: 1 }, { s: 4, f: 2, fi: 2 }], [3, 2, 1]),
+    A5: chord('A5', [{ s: 4, f: 2, fi: 1 }, { s: 3, f: 2, fi: 2 }], [6, 2, 1]),
+    D5: chord('D5', [{ s: 3, f: 2, fi: 1 }, { s: 2, f: 3, fi: 2 }], [6, 5, 1]),
+    G5: chord('G5', [{ s: 6, f: 3, fi: 1 }, { s: 5, f: 5, fi: 3 }, { s: 4, f: 5, fi: 4 }], [3, 2, 1]),
+    C5: chord('C5', [{ s: 5, f: 3, fi: 1 }, { s: 4, f: 5, fi: 3 }, { s: 3, f: 5, fi: 4 }], [6, 2, 1]),
   };
   const REST = { name: 'מנוחה', rest: true, notes: [], mute: [], open: [] };
   const CHORD_FINGERS = {
@@ -225,12 +231,17 @@
     D: 'משולש: אצבעות 1, 2 ו-3 במיתרים 3, 1 ו-2.', C: 'אצבעות 3, 2 ו-1 יורדות במיתרים 5, 4 ו-2.',
     G: 'אצבעות 2, 1 ו-3 במיתרים 6, 5 ו-1.', Dm: 'אצבע 1 במיתר 1, אצבעות 2 ו-3 במיתרים 3 ו-2.',
     E7: 'כמו E בלי אצבע במיתר 4.', A7: 'שתי אצבעות בסריג 2 במיתרים 4 ו-2.', B7: 'ארבע אצבעות: 1, 2, 3 ו-4.',
+    E5: 'שתי אצבעות בסריג 2 במיתרים 5 ו-4, ומיתר 6 פתוח.', A5: 'שתי אצבעות בסריג 2 במיתרים 4 ו-3, ומיתר 5 פתוח.',
+    D5: 'אצבע 1 במיתר 3 סריג 2, אצבע 2 במיתר 2 סריג 3, ומיתר 4 פתוח.',
+    G5: 'צורת פאוור נעה: אצבע 1 במיתר 6 (השורש), אצבע 3 ו-4 בסריג 5 במיתרים 5 ו-4.',
+    C5: 'אותה צורה נעה, עם השורש במיתר 5: אצבע 1 בסריג 3, אצבעות 3 ו-4 בסריג 5.',
   };
+  const maxFret = (steps) => Math.max(4, ...steps.flatMap((st) => (st.notes || []).map((x) => x.f)));
   function chordSingle(name, bpm) {
     return {
       id: 'c-' + name.toLowerCase(), mode: 'chords', title: `האקורד ${name}`,
       goal: `אקורד אחד, בלי לחץ: מניחים, פורטים, מרימים ומחזירים. ${CHORD_FINGERS[name]}`,
-      startBpm: bpm || 40, beatsPerStep: 4, frets: 4, steps: [CH[name], REST],
+      startBpm: bpm || 40, beatsPerStep: 4, frets: maxFret([CH[name]]), steps: [CH[name], REST],
       howTo: [
         'מניחים את כל האצבעות יחד ופורטים את המיתרים מהעבה לדק.',
         'כל מיתר צריך להישמע. אם אחד עמום, בדוק שאצבע לא נוגעת במיתר השכן.',
@@ -240,7 +251,7 @@
   }
   function chordChange(id, title, goal, names, extra) {
     return {
-      id, mode: 'chords', title, goal, startBpm: 40, beatsPerStep: 4, frets: 4,
+      id, mode: 'chords', title, goal, startBpm: 40, beatsPerStep: 4, frets: maxFret(names.map((nm) => CH[nm])),
       steps: names.map((nm) => CH[nm]),
       howTo: [
         'מחליפים אקורד כל ארבע פעימות. קודם מניחים את כל האצבעות, ורק אז פורטים.',
@@ -857,7 +868,22 @@
         ],
       },
       {
-        title: '3. רצפים מוכרים',
+        title: '3. פאוור קורדס',
+        desc: 'שני תווים בלבד לאקורד (שורש וקווינטה). הבסיס של רוק ומטאל, וקל לעבור ביניהם. הצורה עם השורש במיתר 6 נעה לאורך כל הצוואר.',
+        exercises: [
+          diff(chordSingle('E5'), 'קל'),
+          diff(chordSingle('A5'), 'קל'),
+          diff(chordSingle('D5'), 'קל'),
+          diff(chordSingle('G5'), 'בינוני'),
+          diff(chordSingle('C5'), 'בינוני'),
+          diff(chordChange('cc-e5-a5', 'מעבר E5 ו-A5', 'ההתחלה של כמעט כל ריף רוק.', ['E5', 'A5'], ['שימו לב שאין צורך לפרוט את המיתרים שלא מסומנים. אם הם מצלצלים, כבה אותם בכף היד.', 'בפאוור קורדס מעמעמים עם כף היד הפורטת (palm mute) כדי לקבל צליל "תקוע" וכבד.']), 'קל'),
+          diff(chordChange('cc-g5-c5', 'מעבר G5 ו-C5: הצורה הנעה', 'אותה צורה בשני מיתרים שונים. בונה את התחושה של הזזת היד על הצוואר.', ['G5', 'C5'], ['הצורה זהה, רק מתחילה במיתר אחר: שורש, ואחריו שתי אצבעות בסריג חמש.']), 'בינוני'),
+          diff(chordChange('cp-a5d5e5', 'A5 D5 E5: רוק בסיסי', 'I, IV ו-V בלה. הרצף של המון שירי רוק ובלוז.', ['A5', 'D5', 'E5', 'A5']), 'בינוני'),
+          diff(chordChange('cp-e5g5a5', 'E5 G5 A5: רוק קשוח', 'אקורדי פאוור על E5, G5 ו-A5 משמשים בהרבה ריפים של רוק כבד (לפי Guitar World לגבי Cowboys from Hell).', ['E5', 'G5', 'A5', 'G5']), 'בינוני'),
+        ],
+      },
+      {
+        title: '4. רצפים מוכרים',
         desc: 'רצפי אקורדים שמופיעים בהרבה שירים, והסולם שמתאים להם מופיע בלשונית אלתור.',
         exercises: [
           diff(chordChange('cp-gdem', 'G D Em C: רצף הפופ הנפוץ', 'הרצף שבונים עליו אינספור שירים: I, V, vi ו-IV בסול מז׳ור.', ['G', 'D', 'Em', 'C']), 'בינוני'),
@@ -923,6 +949,7 @@
   lv3.desc = 'צלילים בלי פריטה, בנדים, ליגטו, סלייד, ויברטו ומהירות עולה. הסולמות הפנטטוניים עברו ללשונית משלהם.';
 
   DATA.tabs = [
+    { id: 'today', label: 'היום', kind: 'today' },
     { id: 'l1', label: 'שלב 1', kind: 'level', level: 1 },
     { id: 'l2', label: 'שלב 2', kind: 'level', level: 2 },
     { id: 'l3', label: 'שלב 3', kind: 'level', level: 3 },
@@ -930,6 +957,7 @@
     { id: 'penta', label: 'פנטטוני', kind: 'sections', ref: 'penta' },
     { id: 'chords', label: 'אקורדים', kind: 'sections', ref: 'chords' },
     { id: 'improv', label: 'אלתור', kind: 'improv' },
+    { id: 'tools', label: 'כלים ומשחק', kind: 'tools' },
   ];
   DATA.theory = {
     SHARP, FLAT, ROOT_PC, noteNameOf, useFlats, SCALE_IV, SCALE_HE, SCALE_CHAR, POSITIONS,

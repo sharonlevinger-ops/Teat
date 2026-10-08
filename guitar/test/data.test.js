@@ -27,8 +27,8 @@ test('ארבע רמות, ושמה של הראשונה הוא חימום אצבע
   for (const l of DATA.levels) assert.ok(l.exercises.length >= 6, `רמה ${l.id}`);
 });
 
-test('שבע לשוניות: שלבים 1-4, פנטטוני, אקורדים ואלתור', () => {
-  assert.deepEqual(DATA.tabs.map((t) => t.id), ['l1', 'l2', 'l3', 'l4', 'penta', 'chords', 'improv']);
+test('תשע לשוניות: היום, שלבים 1-4, פנטטוני, אקורדים, אלתור וכלים', () => {
+  assert.deepEqual(DATA.tabs.map((t) => t.id), ['today', 'l1', 'l2', 'l3', 'l4', 'penta', 'chords', 'improv', 'tools']);
 });
 
 test('רמה 3 כוללת טכניקות חדשות (ליגטו, סלייד, ויברטו) ובלי סולמות פנטטוניים', () => {
@@ -256,7 +256,7 @@ test('אקורדים: הצורות תואמות לצורות המוכרות', ()
   for (const e of chordEx) for (const st of e.steps) if (!st.rest) byName[st.name] = st;
   const frets = (st) =>
     [6, 5, 4, 3, 2, 1].map((s) => (st.mute.includes(s) ? 'x' : st.notes.find((x) => x.s === s)?.f ?? 0)).join('');
-  const expected = { Em: '022000', Am: 'x02210', E: '022100', A: 'x02220', D: 'xx0232', C: 'x32010', G: '320003', Dm: 'xx0231', E7: '020100', A7: 'x02020', B7: 'x21202' };
+  const expected = { Em: '022000', Am: 'x02210', E: '022100', A: 'x02220', D: 'xx0232', C: 'x32010', G: '320003', Dm: 'xx0231', E7: '020100', A7: 'x02020', B7: 'x21202', E5: '022xxx', A5: 'x022xx', D5: 'xx023x', G5: '355xxx', C5: 'x355xx' };
   for (const [name, shape] of Object.entries(expected)) assert.equal(frets(byName[name]), shape, name);
   for (const st of Object.values(byName)) {
     for (let s = 1; s <= 6; s++) {
@@ -286,7 +286,7 @@ test('אקורדים: התווים בכל אקורד נכונים לפי תיא�
 });
 
 test('תרגילי אקורדים: ארבע פעימות לאקורד, ובכל לשונית מעברים ורצפים', () => {
-  assert.ok(chordEx.length >= 17);
+  assert.ok(chordEx.length >= 26);
   for (const e of chordEx) {
     assert.equal(e.beatsPerStep, 4, e.id);
     assert.ok(e.steps.some((x) => !x.rest), e.id);
