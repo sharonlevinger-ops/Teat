@@ -30,12 +30,11 @@
 
   const allEx = DATA.levels.flatMap((l) => l.exercises || []);
   const findEx = (id) => allEx.find((e) => e.id === id);
-  const isGuide = (ex) => ex.type === 'guide';
 
-  // רצפי מספרים ("1-2-3-4") ומונחים באנגלית נשארים בכיוון שמאל-לימין בתוך טקסט עברי
+  // רצפי מספרים ("1-2-3-4") ורצפים באנגלית נשארים בכיוון שמאל-לימין בתוך טקסט עברי (בלי לגעת בתגיות HTML)
   const fx = (t) =>
-    t.replace(/(<[^>]+>)|(\d+(?:[-–]\d+)+|[A-Za-z][A-Za-z-]*(?:[ ,]+[A-Za-z][A-Za-z-]*)*)/g, (m, tag, txt) =>
-      tag ? tag : `<bdi dir="ltr">${txt}</bdi>`
+    t.replace(/(<[^>]+>)|(\d+(?:[-–]\d+)+|[A-Za-z][A-Za-z0-9-]*(?:[ ,.]+[A-Za-z][A-Za-z0-9-]*)*)/g, (m, tag, txt) =>
+      tag ? tag : `<bdi dir="ltr">${txt.replace(/[ ,.]+$/, '')}</bdi>${txt.match(/[ ,.]+$/) ? txt.match(/[ ,.]+$/)[0] : ''}`
     );
   const fingerName = (n) => DATA.fingers.find((f) => f.n === n).name;
 
@@ -45,11 +44,7 @@
   const noteName = (s, f) => NOTE_NAMES[(OPEN_MIDI[s] + f) % 12];
   const STRING_NAMES = { 1: 'e', 2: 'B', 3: 'G', 4: 'D', 5: 'A', 6: 'E' };
   const STRING_W = { 1: 1, 2: 1.4, 3: 1.9, 4: 2.5, 5: 3.1, 6: 3.7 };
-  const keyOf = (n) => n.s + '-' + n.f;
-
-  // כמה פעימות נמשך כל צעד (אקורדים: כמה פעימות לאקורד)
-  const bpsOf = (ex) => ex.beatsPerStep || 1;
-  const stepIndexOf = (ex, c) => Math.floor(c / bpsOf(ex)) % ex.steps.length;
+  const keyOf = (n) => `${n.s}-${n.f}-${n.fi}`;
 
   // ---------- מטרונום (Web Audio, תזמון מדויק) ----------
   const Met = {
@@ -72,30 +67,29 @@
       o.start(t);
       o.stop(t + 0.08);
     },
-    pluck(note, t, len) {
+    pluck(note, t) {
       const midi = OPEN_MIDI[note.s] + note.f;
       const freq = 440 * Math.pow(2, (midi - 69) / 12);
-      const dur = len || Math.min(0.9, (60 / this.bpm) * 0.95);
+      const dur = Math.min(0.9, (60 / this.bpm) * 0.95);
       const o = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       o.type = 'triangle';
-      o.frequency.value = freq;
+      // בנד: הצליל עולה טון (שני חצאי טון); שחרור: יורד חזרה
+      if (note.t === 'b') {
+        o.frequency.setValueAtTime(freq, t);
+        o.frequency.linearRampToValueAtTime(freq * Math.pow(2, 2 / 12), t + dur * 0.5);
+      } else if (note.t === 'r') {
+        o.frequency.setValueAtTime(freq * Math.pow(2, 2 / 12), t);
+        o.frequency.linearRampToValueAtTime(freq, t + dur * 0.6);
+      } else {
+        o.frequency.value = freq;
+      }
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(note.t ? 0.12 : 0.22, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(note.t === 'h' || note.t === 'p' ? 0.12 : 0.22, t + 0.01);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g).connect(this.ctx.destination);
       o.start(t);
       o.stop(t + dur + 0.05);
-    },
-    strum(step, t) {
-      if (step.rest) return;
-      let k = 0;
-      for (let s = 6; s >= 1; s--) {
-        if (step.mute.includes(s)) continue;
-        const nt = step.notes.find((x) => x.s === s);
-        this.pluck({ s, f: nt ? nt.f : 0 }, t + k * 0.03, 1.6);
-        k++;
-      }
     },
     start(ex, bpm, onTick) {
       this.stop();
@@ -118,16 +112,11 @@
     },
     schedule() {
       const ex = this.ex;
-      const bps = bpsOf(ex);
       while (this.next < this.ctx.currentTime + 0.12) {
         const c = this.counter;
         const accent = (((c % 4) + 4) % 4) === 0;
         this.click(this.next, accent);
-        if (c >= 0 && S.notesSound && c % bps === 0) {
-          const step = ex.steps[stepIndexOf(ex, c)];
-          if (ex.mode === 'chords') this.strum(step, this.next);
-          else this.pluck(step, this.next);
-        }
+        if (c >= 0 && S.notesSound) this.pluck(ex.steps[c % ex.steps.length], this.next);
         this.queue.push({ c, t: this.next });
         this.next += 60 / this.bpm;
         this.counter++;
@@ -145,7 +134,6 @@
   function boardSvg(ex, lefty) {
     const frets = ex.frets;
     const startFret = ex.startFret || 1;
-    const chords = ex.mode === 'chords';
     const L = 70, R = 730, top = 46, gap = 30;
     // מיקום חוט הסריג k (0 = תחילת החלון) לפי חוקי הצוואר האמיתיים
     const g = (x) => 1 - Math.pow(2, -x / 12);
@@ -160,9 +148,9 @@
     const rel = (f) => f - startFret + 1; // סריג בחלון
     const dotX = (f) => xk(rel(f)) + (xk(rel(f) - 1) - xk(rel(f))) * 0.3;
 
-    let svg = `<svg viewBox="0 0 800 ${bottom + 78}" role="img" aria-label="לוח צוואר גיטרה">`;
+    let svg = `<svg viewBox="0 0 800 ${bottom + 78}" role="img" aria-label="לוח צוואר גיטרה" class="${ex.dynamicFingers ? 'only-cur' : ''}">`;
     svg += `<rect x="${L}" y="${top - 16}" width="${R - L}" height="${bottom - top + 32}" rx="6" fill="var(--wood)"/>`;
-    for (const m of [3, 5, 7, 9, 12]) {
+    for (const m of [3, 5, 7, 9, 12, 15]) {
       if (m >= startFret && m < startFret + frets) {
         const cx = (xk(rel(m) - 1) + xk(rel(m))) / 2;
         svg += `<circle cx="${cx}" cy="${(top + bottom) / 2}" r="7" fill="var(--wood-dark)" opacity=".7"/>`;
@@ -186,35 +174,24 @@
     }
     svg += `<text x="${lefty ? 796 : 4}" y="${top - 30}" text-anchor="${lefty ? 'end' : 'start'}" font-size="12" fill="var(--muted)">${startFret === 1 ? 'ראש הגיטרה' : 'לכיוון ראש הגיטרה'}</text>`;
     for (let k = 1; k <= frets; k++) {
-      svg += `<text x="${(xk(k - 1) + xk(k)) / 2}" y="${bottom + 44}" text-anchor="middle" font-size="14" fill="var(--muted)">סריג ${startFret + k - 1}</text>`;
+      const fretNo = startFret + k - 1;
+      svg += `<text x="${(xk(k - 1) + xk(k)) / 2}" y="${bottom + 44}" text-anchor="middle" font-size="14" fill="var(--muted)">${frets > 7 ? fretNo : 'סריג ' + fretNo}</text>`;
     }
 
-    const dot = (n, extra) => {
+    const dot = (n) => {
       if (n.f === 0) {
-        return `<g class="dot open ${extra || ''}" data-key="${keyOf(n)}"><circle cx="${xOpen}" cy="${yS(n.s)}" r="11" fill="var(--surface)" stroke="var(--text)" stroke-width="3"/></g>`;
+        return `<g class="dot open" data-key="${keyOf(n)}"><circle cx="${xOpen}" cy="${yS(n.s)}" r="11" fill="var(--surface)" stroke="var(--text)" stroke-width="3"/></g>`;
       }
       const cx = dotX(n.f);
-      return `<g class="dot ${extra || ''}" data-key="${keyOf(n)}"><circle cx="${cx}" cy="${yS(n.s)}" r="12" fill="var(--f${n.fi})"/><text x="${cx}" y="${yS(n.s)}">${n.fi}</text></g>`;
+      const blue = n.blue ? ' stroke="var(--text)" stroke-width="3" stroke-dasharray="4 3"' : '';
+      return `<g class="dot" data-key="${keyOf(n)}"><circle cx="${cx}" cy="${yS(n.s)}" r="12" fill="var(--f${n.fi})"${blue}/><text x="${cx}" y="${yS(n.s)}">${n.fi}</text></g>`;
     };
-
-    if (chords) {
-      ex.steps.forEach((st, i) => {
-        svg += `<g class="chord" data-step="${i}">`;
-        for (const n of st.notes) svg += dot(n);
-        for (const s of st.open) svg += dot({ s, f: 0, fi: 0 });
-        for (const s of st.mute) {
-          svg += `<text class="mute" x="${xOpen}" y="${yS(s)}" text-anchor="middle" dominant-baseline="central" font-size="22" font-weight="700" fill="var(--muted)">×</text>`;
-        }
-        svg += '</g>';
-      });
-    } else {
-      const seen = new Set();
-      for (const n of ex.steps) {
-        const key = keyOf(n);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        svg += dot(n);
-      }
+    const seen = new Set();
+    for (const n of ex.steps) {
+      const key = keyOf(n);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      svg += dot(n);
     }
     return svg + '</svg>';
   }
@@ -250,82 +227,22 @@
     const st = stats();
     const statLine = st.total
       ? `תרגלת ${daysText(st.total)} בסך הכול (${st.week} בשבוע האחרון).`
-      : 'עוד לא תרגלת. התרגיל הראשון לוקח חמש דקות.';
+      : 'עוד לא תרגלת. תתחיל מחימום קצר.';
     app.innerHTML =
-      `<h1>תרגילי גיטרה לאצבעות</h1>
-       <p class="muted">מיועד למי שרק התחיל להחזיק גיטרה. בוחרים תרגיל, והלוח מראה איפה לשים כל אצבע. המטרונום מוביל אותך.</p>
-       <div class="welcome"><b>${statLine}</b><br>חמש עד עשר דקות ביום מספיקות. זה בסדר שזה נשמע לא טוב בהתחלה, כולם מתחילים כך.</div>` +
+      `<h1>תרגילי גיטרה</h1>
+       <p class="muted">חימום, טכניקות וסולמות. בוחרים תרגיל, והלוח מראה איפה לשים כל אצבע. המטרונום מוביל אותך תו אחרי תו.</p>
+       <div class="welcome"><b>${statLine}</b><br>התחל כל תרגיל לאט. אם הוא נשמע נקי שלוש פעמים ברצף, העלה 5 BPM.</div>` +
       DATA.levels
         .map((lv) => {
           const body = `<ul class="ex-list">${lv.exercises
             .map((e) => {
-              const tag = isGuide(e) ? '<span class="tag">מדריך</span>' : e.mode === 'chords' ? '<span class="tag">אקורדים</span>' : '';
+              const tag = e.style ? '<span class="tag">בסגנון נגנים</span>' : '';
               return `<li><a class="ex" href="#${e.id}" data-go="${e.id}"><b>${fx(e.title)} ${tag}</b><span>${fx(e.goal)}</span> ${summary(e.id)}</a></li>`;
             })
             .join('')}</ul>`;
           return `<section class="level"><h2>${fx(lv.name)}</h2><p>${fx(lv.desc)}</p>${body}</section>`;
         })
         .join('');
-  }
-
-  // ---------- מדריך התחלה ----------
-  function guideSections(lefty) {
-    const fret = lefty ? 'ימין' : 'שמאל';
-    const pick = lefty ? 'שמאל' : 'ימין';
-    return [
-      { title: 'הכרת הגיטרה', items: [
-        'לגיטרה שישה <b>מיתרים</b>. מיתר 1 הוא הדק ביותר והגבוה בצליל, מיתר 6 הוא העבה ביותר והנמוך.',
-        'בצוואר יש <b>סריגים</b>: פסי המתכת הדקים. הסריג הראשון הוא הקרוב ביותר לראש הגיטרה.',
-        `היד שלוחצת על המיתרים בצוואר היא <b>היד הלוחצת</b> (אצלך: ${fret}). היד השנייה פורטת ליד חור הקול (אצלך: ${pick}). ההסבר הזה מניח גיטרה ${lefty ? 'שמאלית' : 'ימנית'}. אפשר להחליף למעלה.`,
-        'האצבעות ביד הלוחצת ממוספרות: <b>1 מורה, 2 אמצעית, 3 קמיצה, 4 זרת</b>. האגודל לא נספר.',
-      ] },
-      { title: 'איך יושבים ומחזיקים', items: [
-        'יושבים על כיסא יציב בלי ידיות, עם גב ישר אבל לא דרוך. הכתפיים רפויות.',
-        `גוף הגיטרה נשען על הירך (אצלך: ${lefty ? 'השמאלית' : 'הימנית'}) והצוואר מצביע לכיוון היד הלוחצת, מעט כלפי מעלה.`,
-        'האגודל של היד הלוחצת <b>מאחורי הצוואר</b>, בערך מול האצבע האמצעית, לא מעל הצוואר.',
-        'האצבעות מקושתות, כך שכל אצבע לוחצת בקצה ולא נוגעת במיתרים הסמוכים.',
-      ] },
-      { title: 'איך קוראים את הלוח באתר', items: [
-        'הלוח מראה את הצוואר מלמעלה. בצד אחד נמצא ראש הגיטרה (מסומן), והאותיות E A D G B e הן שמות המיתרים.',
-        'נקודה צבעונית = לוחצים שם. המספר בתוכה = איזו אצבע.',
-        'עיגול ריק ליד ראש הגיטרה = <b>מיתר פתוח</b>: פורטים אותו בלי ללחוץ. סימן × = לא פורטים את המיתר.',
-        'כשהמטרונום פועל, רק הנקודה הנוכחית מוארת, ומתחת כתוב באיזה מיתר, סריג ואצבע.',
-      ] },
-      { title: 'כיוון הגיטרה', items: [
-        'גיטרה לא מכוונת נשמעת לא נכון גם כשהאצבעות במקום הנכון. לפני כל תרגול כדאי לכוון.',
-        'אפשר להוריד אפליקציית כיוון חינמית לטלפון. הכיוון הרגיל, מהעבה לדק: <b>E A D G B e</b>.',
-        'מיתרים חדשים נמתחים בימים הראשונים, ולכן הם יוצאים מכיוון הרבה. זה נורמלי.',
-      ] },
-      { title: 'כמה מתרגלים', items: [
-        'חמש עד עשר דקות ביום עדיפות על שעה אחת בשבוע.',
-        'אחרי כל תרגיל נחים כמה שניות. אצבעות עייפות מתרגלות פחות טוב.',
-        'קצות האצבעות יכאבו קצת בימים הראשונים. זה נורמלי, ואחרי שבועיים-שלושה נוצרות יבלות והכאב נעלם.',
-        'כאב חד, נימול, או כאב בשורש כף היד או בכתף: עוצרים ונחים. אם זה חוזר, כדאי להתייעץ עם מורה לגיטרה או עם רופא.',
-      ] },
-      { title: 'מה נורמלי', items: [
-        'זמזום, צליל עמום או אצבע שלא "תופסת" הם חלק מהלימוד. זה לא סימן שאין לך כישרון.',
-        'הרבה מהזמזום נעלם כשהאצבע קרובה יותר לחוט הסריג ולוחצת בקצה.',
-        'אפשר לדלג על תרגיל שמתסכל ולחזור אליו אחרי כמה ימים. אין סדר חובה.',
-      ] },
-      { title: 'איך מתקדמים', items: [
-        'מתחילים ב-40 BPM או פחות. המהירות הנכונה היא כזו שאפשר לבצע בלי לחשוב.',
-        'כשהצלחת שלוש פעמים ברצף בלי זמזום או צליל שבור, מעלים 5 BPM.',
-        'אם משהו קשה מדי, חוזרים לתרגיל קודם. זו לא נסיגה, זו בנייה.',
-      ] },
-    ];
-  }
-
-  function renderGuide(ex) {
-    Met.stop();
-    app.innerHTML = `
-      <a class="back" href="#" data-go="">‹ חזרה לרמות</a>
-      <h1 class="ex-title">${fx(ex.title)}</h1>
-      <p class="muted">${fx(ex.goal)}</p>
-      ${guideSections(S.lefty)
-        .map((sec) => `<section class="card"><h3>${sec.title}</h3><ul>${sec.items.map((t) => `<li>${fx(t)}</li>`).join('')}</ul></section>`)
-        .join('')}
-      <p><a class="start link-btn" href="#open" data-go="open">מתחילים: מכירים את המיתרים ›</a></p>`;
-    renderExercise.redraw = () => renderGuide(ex);
   }
 
   // ---------- דף תרגיל ----------
@@ -344,34 +261,24 @@
     'שמעת זמזום או צליל עמום? זה נורמלי. תתקרב לחוט הסריג ותלחץ בקצה האצבע.',
   ];
 
-  function chordHelp(ex) {
-    const seen = new Set();
-    const rows = [];
-    for (const st of ex.steps) {
-      if (st.rest || seen.has(st.name)) continue;
-      seen.add(st.name);
-      const fingers = st.notes.map((n) => `אצבע ${n.fi} במיתר ${n.s} בסריג ${n.f}`).join(', ');
-      const mute = st.mute.length ? `. לא פורטים: מיתר ${st.mute.join(' ו-')}` : '. פורטים את כל המיתרים';
-      rows.push(`<li><b><bdi dir="ltr">${st.name}</bdi></b>: ${fingers}${mute}</li>`);
-    }
-    return rows.length ? `<section class="card"><h3>האקורדים בתרגיל</h3><ul>${rows.join('')}</ul></section>` : '';
-  }
-
   function renderExercise(ex) {
     Met.stop();
     let bpm = load('bpm:' + ex.id, ex.startBpm);
     const n = ex.steps.length;
-    const bps = bpsOf(ex);
-    const chords = ex.mode === 'chords';
-    const usesOpen = ex.steps.some((st) => (chords ? st.open.length || st.mute.length : st.f === 0));
+    const usesOpen = ex.steps.some((st) => st.f === 0);
+    const usesBlue = ex.steps.some((st) => st.blue);
     let peak = bpm;
     let runStart = bpm;
+    const styleCard = ex.style
+      ? `<section class="card style"><h3>${fx(ex.style.title)}</h3><p>${fx(ex.style.text)}</p>${ex.style.note ? `<p class="muted small">${fx(ex.style.note)}</p>` : ''}</section>`
+      : '';
     app.innerHTML = `
       <a class="back" href="#" data-go="">‹ חזרה לרמות</a>
       <h1 class="ex-title">${fx(ex.title)}</h1>
       <p class="muted">${fx(ex.goal)}</p>
       <div class="legend">${DATA.fingers.map((f) => `<span class="fchip"><i class="f${f.n}">${f.n}</i>${f.name}</span>`).join('')}
         ${usesOpen ? '<span class="fchip"><i class="openchip"></i>מיתר פתוח</span>' : ''}
+        ${usesBlue ? '<span class="fchip"><i class="bluechip"></i>תו מתח (b5)</span>' : ''}
         <span class="muted" style="font-size:.8rem">מיתר 1 = הדק ביותר (e), מיתר 6 = העבה ביותר (E)</span></div>
       <div class="board-wrap" id="board"></div>
       <div class="now" id="now">לחץ "התחל" כדי להתחיל.</div>
@@ -391,7 +298,7 @@
       </div>
       ${ex.ramp ? `<p class="muted small">המהירות עולה מעצמה (${ex.ramp.step} BPM בכל פעם, עד ${ex.ramp.max}). עצור כשזה מתחיל להיות מלוכלך.</p>` : ''}
       <section class="card"><h3>איך מתרגלים</h3><ol>${ex.howTo.map((t) => `<li>${fx(t)}</li>`).join('')}</ol></section>
-      ${chords ? chordHelp(ex) : ''}
+      ${styleCard}
       <section class="card"><h3>לחיצה נכונה</h3><ul>${TIPS.map((t) => `<li>${t}</li>`).join('')}</ul></section>
       <section class="card"><h3>אם זה לא יוצא</h3><ul>${HARD.map((t) => `<li>${t}</li>`).join('')}</ul></section>
       <section class="card"><h3>התקדמות</h3>
@@ -407,12 +314,16 @@
     const bpmIn = document.getElementById('bpm');
     const bpmOut = document.getElementById('bpmOut');
 
-    const showChord = (i) => {
-      board.querySelectorAll('.chord').forEach((g) => g.classList.toggle('cur', Number(g.dataset.step) === i));
+    const markCur = (step) => {
+      const svg = board.querySelector('svg');
+      svg.querySelectorAll('.dot.cur').forEach((d) => d.classList.remove('cur'));
+      const dot = svg.querySelector(`.dot[data-key="${keyOf(step)}"]`);
+      if (dot) dot.classList.add('cur');
+      return dot;
     };
     const drawBoard = () => {
       board.innerHTML = boardSvg(ex, S.lefty);
-      if (chords) showChord(0);
+      if (ex.dynamicFingers) markCur(ex.steps[0]);
     };
     const setBpm = (v, opts) => {
       bpm = Math.max(20, Math.min(160, v));
@@ -438,33 +349,30 @@
       if (svg) {
         svg.classList.remove('running');
         svg.querySelectorAll('.dot.cur').forEach((d) => d.classList.remove('cur'));
+        if (ex.dynamicFingers) markCur(ex.steps[0]);
       }
-      if (chords) showChord(0);
       pulse.className = 'pulse';
       pulse.textContent = '♩';
       startBtn.textContent = '▶ התחל';
       startBtn.classList.remove('on');
     };
 
-    const describe = (step, i, c) => {
-      if (chords) {
-        const next = ex.steps[(i + 1) % n];
-        const left = bps - (c % bps);
-        const nextName = next.rest ? 'מנוחה' : `<bdi dir="ltr">${next.name}</bdi>`;
-        const soon = left <= 2 && n > 1 ? ` · <span class="tech">מתכוננים לעבור ל-${nextName}</span>` : '';
-        if (step.rest) {
-          return `<b>מנוחה</b>: הרם את האצבעות מהלוח ותן להן לנוח. הבא: ${nextName}${soon}`;
-        }
-        return `אקורד <b class="big"><bdi dir="ltr">${step.name}</bdi></b> <span class="muted">· הבא: ${nextName} · עוד ${left} פעימות</span>${soon}`;
-      }
-      const tech =
-        step.t === 'h' ? ' <span class="tech">· Hammer-on: מטיחים בלי לפרוט</span>'
-        : step.t === 'p' ? ' <span class="tech">· Pull-off: מושכים הצידה בלי לפרוט</span>'
-        : ex.steps.some((x) => x.t) ? ' <span class="tech">· פורטים</span>' : '';
+    const TECH = {
+      h: 'Hammer-on: מטיחים בלי לפרוט',
+      p: 'Pull-off: מושכים הצידה בלי לפרוט',
+      b: 'בנד: דוחפים את המיתר עד שהצליל עולה טון',
+      r: 'שחרור: מחזירים את המיתר לאט למקומו',
+    };
+    const describe = (step, i) => {
+      const hasTech = ex.steps.some((x) => x.t === 'h' || x.t === 'p');
+      const tech = step.t
+        ? ` <span class="tech">· ${TECH[step.t]}</span>`
+        : hasTech ? ' <span class="tech">· פורטים</span>' : '';
+      const blue = step.blue ? ' <span class="tech">· תו המתח (b5)</span>' : '';
       const where = step.f === 0
         ? `מיתר <b>${step.s}</b> (${STRING_NAMES[step.s]}) · <b>פתוח</b> (בלי ללחוץ)`
         : `מיתר <b>${step.s}</b> (${STRING_NAMES[step.s]}) · סריג <b>${step.f}</b> · אצבע <b>${step.fi}</b> (${fingerName(step.fi)})`;
-      return `${where} <span class="muted">· תו <bdi dir="ltr">${noteName(step.s, step.f)}</bdi> · ${i + 1} מתוך ${n}</span>${tech}`;
+      return `${where} <span class="muted">· תו <bdi dir="ltr">${noteName(step.s, step.f)}</bdi> · ${i + 1} מתוך ${n}</span>${tech}${blue}`;
     };
 
     // במסך צר הלוח גולל אופקית; מוודאים שהנקודה הנוכחית נראית
@@ -485,29 +393,20 @@
         return;
       }
       // מהירות עולה בתרגילים עם ramp
-      if (ex.ramp && c > 0 && c % (ex.ramp.every || n * bps) === 0 && bpm < ex.ramp.max) {
+      if (ex.ramp && c > 0 && c % (ex.ramp.every || n) === 0 && bpm < ex.ramp.max) {
         setBpm(Math.min(ex.ramp.max, bpm + ex.ramp.step), { persist: false });
         peak = Math.max(peak, bpm);
       }
-      const i = stepIndexOf(ex, c);
+      const i = c % n;
       const step = ex.steps[i];
       const inBar = (c % 4) + 1;
       pulse.textContent = inBar;
       pulse.classList.add('beat');
       if (inBar === 1) pulse.classList.add('accent');
-      const svg = board.querySelector('svg');
-      svg.classList.add('running');
-      if (chords) {
-        showChord(i);
-      } else {
-        svg.querySelectorAll('.dot.cur').forEach((d) => d.classList.remove('cur'));
-        const dot = svg.querySelector(`.dot[data-key="${keyOf(step)}"]`);
-        if (dot) {
-          dot.classList.add('cur');
-          keepVisible(dot);
-        }
-      }
-      now.innerHTML = describe(step, i, c);
+      board.querySelector('svg').classList.add('running');
+      const dot = markCur(step);
+      if (dot) keepVisible(dot);
+      now.innerHTML = describe(step, i);
     };
 
     startBtn.onclick = () => {
@@ -575,8 +474,7 @@
   function route() {
     const ex = current && findEx(current);
     renderExercise.redraw = null;
-    if (ex && isGuide(ex)) renderGuide(ex);
-    else if (ex) renderExercise(ex);
+    if (ex) renderExercise(ex);
     else renderHome();
     window.scrollTo(0, 0);
   }

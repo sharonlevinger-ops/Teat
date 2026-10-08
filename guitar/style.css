@@ -101,3 +101,8 @@ bdi { white-space: nowrap; }
   .board-wrap { overflow-x: auto; }
   .board-wrap svg { min-width: 560px; }
 }
+.fchip i.bluechip { width: 22px; height: 22px; border-radius: 50%; border: 3px dashed var(--text); background: transparent; display: inline-block; box-sizing: border-box; }
+svg.only-cur .dot { display: none; }
+svg.only-cur .dot.cur { display: inline; }
+.card.style { border-inline-start: 4px solid var(--accent); }
+.card.style p { margin: 4px 0; }
