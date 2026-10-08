@@ -209,7 +209,8 @@ export function search(db, { q = '', category, type, producer, thcMin, thcMax, c
       `SELECT i.*, m.source AS menu_source, m.menu_date
        FROM menu_items i JOIN menus m ON m.id = i.menu_id
        ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-       ORDER BY i.category DESC, i.type, i.price_ils
+       ORDER BY i.thc DESC, i.cbd ASC,
+         CASE i.type WHEN 'sativa' THEN 0 WHEN 'indica' THEN 1 WHEN 'hybrid' THEN 2 ELSE 3 END, i.price_ils
        LIMIT 500`,
     )
     .all(...params);
