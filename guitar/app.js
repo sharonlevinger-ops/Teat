@@ -514,18 +514,35 @@
   let lastRoute = null; // המסך שממנו נפתח תרגיל שנוצר (שיר או ג׳אם), לכפתור החזרה
   const todayKey = () => new Date().toLocaleDateString('en-CA');
 
+  const BOTTOM = [['today', '🏠', 'היום'], ['improv', '🎵', 'אלתור'], ['riffs', '⚡', 'ריפים'], ['rhythm', '🥁', 'קצב'], ['tuner', '🎯', 'כוונון']];
+  const bnav = document.getElementById('bnav');
+  const sheet = document.getElementById('moreSheet');
   function renderTabs(active) {
     tabsEl.innerHTML = DATA.tabs
       .map((t) => `<button class="tab ${t.id === active ? 'on' : ''}" data-tab="${t.id}" role="tab" aria-selected="${t.id === active}">${t.label}</button>`)
       .join('');
+    const inBottom = BOTTOM.some(([id]) => id === active);
+    bnav.innerHTML =
+      BOTTOM.map(([id, ic, l]) => `<button class="${id === active ? 'on' : ''}" data-tab="${id}"><span>${ic}</span>${l}</button>`).join('') +
+      `<button class="${inBottom ? '' : 'on'}" data-more="1"><span>☰</span>עוד</button>`;
+    sheet.innerHTML = `<div class="sheet-card"><h3>כל הלשוניות</h3><div class="sheet-grid">${DATA.tabs.map((t) => `<button class="${t.id === active ? 'on' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}</div></div>`;
+    sheet.hidden = true;
   }
-  tabsEl.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-tab]');
-    if (!b) return;
-    S.tab = b.dataset.tab;
+  function openTab(id) {
+    S.tab = id;
     save('tab', S.tab);
     lastRoute = null;
     go('');
+  }
+  document.addEventListener('click', (e) => {
+    const more = e.target.closest('[data-more]');
+    if (more) {
+      sheet.hidden = !sheet.hidden;
+      return;
+    }
+    if (!sheet.hidden && !e.target.closest('.sheet-card')) sheet.hidden = true;
+    const b = e.target.closest('[data-tab]');
+    if (b) openTab(b.dataset.tab);
   });
 
   const exItem = (e) => {
@@ -600,10 +617,26 @@
     const st = fullStats();
     const ach = F.ACHIEVEMENTS.map((a) => ({ ...a, ok: a.check(st) }));
     app.innerHTML = `
-      <h1>האימון של היום</h1>
-      <p class="muted">חמש דקות לכל חלק, בערך 40 דקות בסך הכול. אפשר לעשות רק חלק מהם. כל סימון נחשב ליום תרגול.</p>
-      <div class="welcome"><b>${st.streak ? `🔥 ${daysText(st.streak)} ברצף` : 'מתחילים רצף חדש היום'}</b>${st.totalDays ? ` · ${daysText(st.totalDays)} תרגול בסך הכול` : ''}<br>
-        <span class="small">סימנת ${done.size} מתוך ${items.length}.</span></div>
+      ${(() => {
+        const hr = new Date().getHours();
+        const hello = hr < 5 ? 'לילה טוב' : hr < 12 ? 'בוקר טוב' : hr < 18 ? 'צהריים טובים' : 'ערב טוב';
+        const next = items.find((it) => it.go && !done.has(it.id));
+        const pct = items.length ? done.size / items.length : 0;
+        const C = 2 * Math.PI * 30;
+        return `<section class="hero">
+          <div class="hero-top"><div><div class="hero-kicker">${hello} 👋</div><h1>האימון של היום</h1>
+            <p class="hero-sub">${done.size >= items.length ? 'סיימת הכול להיום. איזה כיף!' : 'עד 40 דקות, וגם חצי מזה נחשב.'}</p></div>
+            <div class="ring" role="img" aria-label="סימנת ${done.size} מתוך ${items.length}"><svg viewBox="0 0 72 72"><circle cx="36" cy="36" r="30" class="ring-bg"/><circle cx="36" cy="36" r="30" class="ring-fg" stroke-dasharray="${(C * pct).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 36 36)"/></svg><b>${done.size}/${items.length}</b></div></div>
+          <div class="hero-stats"><span><b>🔥 ${st.streak}</b> ימים ברצף</span><span><b>📅 ${st.totalDays}</b> ימי תרגול</span><span><b>🎯 ${st.uniqueExercises}</b> תרגילים</span></div>
+          ${next ? `<a class="hero-cta" href="#${next.go}" data-go="${next.go}"><span><small>ההמשך שלך · ${next.kind}</small><b>${fx(next.title)}</b></span><i>▶</i></a>` : ''}
+        </section>
+        <div class="quick">
+          <button data-tab="tuner"><span>🎯</span>לכוונן</button>
+          <a href="#${jam.id}" data-go="${jam.id}" class="qa"><span>🎸</span>ג׳אם</a>
+          <button data-tab="rhythm"><span>🥁</span>קצב</button>
+          <button data-tab="riffs"><span>⚡</span>ריפים</button>
+        </div>`;
+      })()}
       <ul class="ex-list today">${items
         .map(
           (it) => `<li class="${done.has(it.id) ? 'is-done' : ''}"><label class="td"><input type="checkbox" data-td="${it.id}" ${done.has(it.id) ? 'checked' : ''} aria-label="עשיתי: ${esc(it.title)}" />
