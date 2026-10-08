@@ -181,7 +181,7 @@
         .map((lv) => {
           const body = lv.exercises
             ? `<ul class="ex-list">${lv.exercises
-                .map((e) => `<li><a class="ex" href="#${e.id}"><b>${fx(e.title)}</b><span>${fx(e.goal)}</span> ${summary(e.id)}</a></li>`)
+                .map((e) => `<li><a class="ex" href="#${e.id}" data-go="${e.id}"><b>${fx(e.title)}</b><span>${fx(e.goal)}</span> ${summary(e.id)}</a></li>`)
                 .join('')}</ul>`
             : `<ul class="soon">${lv.soon.map((t) => `<li>${fx(t)} <span class="tag">בקרוב</span></li>`).join('')}</ul>`;
           return `<section class="level"><h2>${fx(lv.name)}</h2><p>${fx(lv.desc)}</p>${body}</section>`;
@@ -205,7 +205,7 @@
     let bpm = load('bpm:' + ex.id, ex.startBpm);
     const n = ex.steps.length;
     app.innerHTML = `
-      <a class="back" href="#">‹ חזרה לרמות</a>
+      <a class="back" href="#" data-go="">‹ חזרה לרמות</a>
       <h1 class="ex-title">${fx(ex.title)}</h1>
       <p class="muted">${fx(ex.goal)}</p>
       <div class="legend">${DATA.fingers.map((f) => `<span class="fchip"><i class="f${f.n}">${f.n}</i>${f.name}</span>`).join('')}
@@ -338,19 +338,31 @@
     S.lefty = !S.lefty;
     save('lefty', S.lefty);
     updateHandBtn();
-    if (renderExercise.redraw && location.hash.length > 1) renderExercise.redraw();
+    if (renderExercise.redraw) renderExercise.redraw();
   };
 
   // ---------- ניתוב לפי hash ----------
+  let current = location.hash.slice(1);
+  function go(id) {
+    current = id;
+    try { history.replaceState(null, '', id ? '#' + id : location.pathname + location.search); } catch (e) { /* מתעלמים */ }
+    route();
+  }
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-go]');
+    if (!a) return;
+    e.preventDefault();
+    go(a.dataset.go);
+  });
   function route() {
-    const id = location.hash.slice(1);
+    const id = current;
     const ex = id && findEx(id);
     renderExercise.redraw = null;
     if (ex) renderExercise(ex);
     else renderHome();
     window.scrollTo(0, 0);
   }
-  window.addEventListener('hashchange', route);
+  window.addEventListener('hashchange', () => { current = location.hash.slice(1); route(); });
   updateHandBtn();
   route();
 })();

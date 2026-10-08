@@ -6,16 +6,20 @@
   font-family: system-ui, 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif;
   color: var(--text); background: var(--bg);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
     --bg: #15171a; --surface: #1f2226; --text: #ecebe7; --muted: #a0a5aa; --line: #30343a;
     --accent: #ff8a5c; --accent-soft: #3a2a22;
     --f1: #4d94f0; --f2: #36b36a; --f3: #e07a2e; --f4: #b673d6;
     --wood: #8a6440; --wood-dark: #6f4e30;
-  }
-}
+   color-scheme: dark; } }
+:root[data-theme="dark"] {
+    --bg: #15171a; --surface: #1f2226; --text: #ecebe7; --muted: #a0a5aa; --line: #30343a;
+    --accent: #ff8a5c; --accent-soft: #3a2a22;
+    --f1: #4d94f0; --f2: #36b36a; --f3: #e07a2e; --f4: #b673d6;
+    --wood: #8a6440; --wood-dark: #6f4e30;
+   color-scheme: dark; }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); }
+body { margin: 0; background: var(--bg); color: var(--text); font-size: 16px; }
 button { font: inherit; cursor: pointer; }
 a { color: var(--accent); }
 .top { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; max-width: 920px; margin: 0 auto; }
