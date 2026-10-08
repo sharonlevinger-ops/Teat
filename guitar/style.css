@@ -89,3 +89,15 @@ svg.running .dot.cur { opacity: 1; }
 }
 bdi { white-space: nowrap; }
 .tech { color: var(--accent); font-weight: 700; }
+.welcome { background: var(--accent-soft); border-radius: 12px; padding: 12px 16px; margin: 12px 0; line-height: 1.6; }
+.fchip i.openchip { width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--text); background: var(--surface); display: inline-block; box-sizing: border-box; }
+.chord { display: none; }
+.chord.cur { display: inline; }
+.chord .dot, svg.running .chord .dot { opacity: 1; }
+.now .big { font-size: 1.6rem; }
+.link-btn { display: inline-block; text-decoration: none; }
+.dot.open circle { stroke: var(--text); }
+@media (max-width: 600px) {
+  .board-wrap { overflow-x: auto; }
+  .board-wrap svg { min-width: 560px; }
+}
