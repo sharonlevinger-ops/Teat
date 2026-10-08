@@ -106,3 +106,44 @@ svg.only-cur .dot { display: none; }
 svg.only-cur .dot.cur { display: inline; }
 .card.style { border-inline-start: 4px solid var(--accent); }
 .card.style p { margin: 4px 0; }
+
+/* לשוניות */
+.tabs { display: flex; gap: 6px; overflow-x: auto; padding: 4px 16px 10px; max-width: 920px; margin: 0 auto; scrollbar-width: thin; }
+.tab { flex: 0 0 auto; border: 1px solid var(--line); background: var(--surface); color: var(--text); padding: 7px 16px; border-radius: 999px; white-space: nowrap; }
+.tab.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+.welcome.small { font-size: .9rem; padding: 8px 12px; }
+
+/* תגיות קושי */
+.tag.d-1 { color: #1e8449; border-color: #1e8449; }
+.tag.d-2 { color: #b9770e; border-color: #b9770e; }
+.tag.d-3 { color: #b03a2e; border-color: #b03a2e; }
+
+/* אלתור */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { display: inline-block; border: 1px solid var(--line); background: var(--surface); color: var(--text); padding: 4px 12px; border-radius: 999px; text-decoration: none; font-size: .9rem; }
+a.chip:hover { border-color: var(--accent); }
+.chip.static { background: var(--bg); }
+.chip.c-high { color: #1e8449; border-color: #1e8449; }
+.chip.c-med { color: #b9770e; border-color: #b9770e; }
+.searchbox input { width: 100%; font-size: 1.05rem; padding: 12px 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
+.searchbox input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.form-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 8px 0; }
+.form-row label { display: grid; gap: 4px; font-size: .85rem; color: var(--muted); }
+.form-row input, .form-row select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); }
+.scale-row { padding: 10px 0; border-top: 1px solid var(--line); }
+.scale-row:first-of-type { border-top: none; }
+.scale-row p { margin: 3px 0; }
+table.tones { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .9rem; }
+table.tones th, table.tones td { text-align: right; padding: 6px; border-bottom: 1px solid var(--line); }
+table.tones td span { display: inline-block; min-width: 2.2em; font-weight: 600; direction: ltr; }
+table.tones td span.out { color: var(--muted); font-weight: 400; }
+.bk-now { min-height: 2.4em; font-size: 1.05rem; margin: 6px 0; }
+.bk { margin-top: 6px; }
+.ex-list li { position: relative; }
+.del { position: absolute; left: 10px; top: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 8px; padding: 2px 8px; font-size: .75rem; }
+details.mysong { margin-top: 10px; }
+details.mysong summary { cursor: pointer; color: var(--accent); }
+.empty { text-align: center; color: var(--muted); margin-top: 18px; }
+@media (max-width: 560px) { .bk.controls { grid-template-columns: 1fr; } }
+.secondary { background: var(--surface); border: 1px solid var(--line); color: var(--text); padding: 7px 16px; border-radius: 999px; }
+.secondary:hover { border-color: var(--accent); }

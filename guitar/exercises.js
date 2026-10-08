@@ -1,6 +1,6 @@
 // נתוני התרגילים. מבנה תו (step): s = מיתר (1 = הדק ביותר, 6 = העבה ביותר),
 // f = סריג (0 = מיתר פתוח), fi = אצבע (0 = בלי אצבע, 1 מורה, 2 אמצעית, 3 קמיצה, 4 זרת),
-// t = טכניקה אופציונלית: 'h' Hammer-on, 'p' Pull-off, 'b' בנד, 'r' שחרור בנד.
+// t = טכניקה אופציונלית: 'h' Hammer-on, 'p' Pull-off, 'b' בנד, 'r' שחרור בנד, 's' סלייד, 'v' ויברטו.
 // blue = תו מתח (b5) בסולם הבלוז.
 (function (root) {
   const n = (s, f) => ({ s, f, fi: f }); // בתנוחה הראשונה: אצבע = סריג
@@ -128,6 +128,142 @@
       ],
     });
   }
+
+  // ---------- תיאוריה: שמות תווים, סולמות בכל מפתח ואקורדים ----------
+  const SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+  const ROOT_PC = { C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, F: 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11 };
+  const noteNameOf = (pc, flats) => (flats ? FLAT : SHARP)[((pc % 12) + 12) % 12];
+  // האם לכתוב את שמות התווים בבמולים (למשל סי במול) לפי סימון המפתח
+  function useFlats(rootName, mode) {
+    if (/b$/.test(rootName)) return true;
+    if (/#$/.test(rootName)) return false;
+    return mode === 'minor' ? ['D', 'G', 'C', 'F'].includes(rootName) : rootName === 'F';
+  }
+  const SCALE_HE = {
+    minorPent: 'פנטטוני מינורי', majorPent: 'פנטטוני מז׳ורי', blues: 'סולם בלוז', major: 'מז׳ור',
+    naturalMinor: 'מינורי טבעי', dorian: 'דורי', mixolydian: 'מיקסולידי', harmonicMinor: 'מינורי הרמוני',
+    phrygianDominant: 'פריגי דומיננטי',
+  };
+  const SCALE_CHAR = {
+    minorPent: 'הסולם הבטוח ביותר: חמישה תווים, וכמעט כל תו נשמע טוב מעל אקורדים מינוריים.',
+    majorPent: 'חמישה תווים בצליל פתוח ושמח. מתאים מעל אקורדים מז׳וריים.',
+    blues: 'פנטטוני מינורי עם תו מתח אחד (b5) שנותן צליל בלוזי. התו עובר ולא נשאר.',
+    major: 'הסולם הבסיסי: שבעה תווים בצליל שמח ויציב.',
+    naturalMinor: 'הסולם המינורי הבסיסי: שבעה תווים בצליל עצוב ורציני.',
+    dorian: 'מינורי עם סקסטה מז׳ורית: צליל "פתוח", פחות עצוב.',
+    mixolydian: 'מז׳ורי עם ספטימה מופחתת: צליל בלוז-רוק.',
+    harmonicMinor: 'מינורי עם ספטימה מז׳ורית: צליל דרמטי וקלאסי.',
+    phrygianDominant: 'הצליל של "אהבה רבה" וחיג׳אז: קרוב לאוזן ים-תיכונית וישראלית.',
+  };
+  const POSITIONS = (scaleKey) => (scaleKey === 'minorPent' || scaleKey === 'majorPent' ? 5 : 2);
+
+  // תנוחה של סולם בכל מפתח: מזיזים את הצורה (המוגדרת בלה) לפי המרחק של השורש מלה
+  function genExercise(scaleKey, rootPc, pos, flats) {
+    const iv = SCALE_IV[scaleKey];
+    if (!iv) throw new Error('סולם לא מוכר: ' + scaleKey);
+    if (pos < 1 || pos > POSITIONS(scaleKey)) throw new Error('תנוחה לא קיימת');
+    const pcs = new Set(iv.map((i) => (rootPc + i) % 12));
+    const rootName = noteNameOf(rootPc, flats);
+    let steps;
+    let startFret;
+    if (scaleKey === 'minorPent' || scaleKey === 'majorPent') {
+      const minorRoot = scaleKey === 'minorPent' ? rootPc : (rootPc + 9) % 12; // מז׳ורי = המינורי היחסי
+      const d = (minorRoot - A + 12) % 12;
+      let table = A_MINOR_PENT[pos].map(([a, b]) => [a + d, b + d]);
+      if (Math.min(...table.flat()) > 12) table = table.map(([a, b]) => [a - 12, b - 12]);
+      steps = pentaBox(table);
+    } else {
+      const d = (rootPc - A + 12) % 12;
+      let base = (pos === 1 ? 5 : 7) + d;
+      if (base > 12) base -= 12;
+      steps = windowBox(pcs, base, scaleKey === 'blues' ? (rootPc + 6) % 12 : undefined);
+      startFret = base;
+    }
+    const ex = posEx({
+      id: `g-${scaleKey}-${rootPc}-${pos}-${flats ? 'f' : 's'}`,
+      title: `${rootName} ${SCALE_HE[scaleKey]}: תנוחה ${pos}`,
+      goal: SCALE_CHAR[scaleKey],
+      startBpm: 45,
+      startFret,
+      steps,
+      flats: !!flats,
+      howTo: [
+        'עולים מהמיתר העבה (6) אל הדק (1), בכל מיתר מהתו הנמוך לגבוה, ואז חוזרים.',
+        scaleKey === 'minorPent' || scaleKey === 'majorPent'
+          ? 'הכלל: אצבע 1 על התו הנמוך בכל מיתר, ואצבע 3 או 4 על התו הגבוה, לפי המרחק.'
+          : 'בכל מיתר אצבע אחת לכל סריג, כשאצבע 1 בסריג הראשון של התנוחה.',
+        'בלוח למטה מופיע שם כל תו. השורש של הסולם הוא ' + rootName + '.',
+      ],
+    });
+    return ex;
+  }
+
+  // ---------- אקורדים ----------
+  function chord(name, notes, mute) {
+    mute = mute || [];
+    const openS = [1, 2, 3, 4, 5, 6].filter((st) => !mute.includes(st) && !notes.some((x) => x.s === st));
+    return { name, notes, mute, open: openS };
+  }
+  const CH = {
+    Em: chord('Em', [{ s: 5, f: 2, fi: 2 }, { s: 4, f: 2, fi: 3 }]),
+    Am: chord('Am', [{ s: 4, f: 2, fi: 2 }, { s: 3, f: 2, fi: 3 }, { s: 2, f: 1, fi: 1 }], [6]),
+    E: chord('E', [{ s: 5, f: 2, fi: 2 }, { s: 4, f: 2, fi: 3 }, { s: 3, f: 1, fi: 1 }]),
+    A: chord('A', [{ s: 4, f: 2, fi: 1 }, { s: 3, f: 2, fi: 2 }, { s: 2, f: 2, fi: 3 }], [6]),
+    D: chord('D', [{ s: 3, f: 2, fi: 1 }, { s: 2, f: 3, fi: 3 }, { s: 1, f: 2, fi: 2 }], [6, 5]),
+    C: chord('C', [{ s: 5, f: 3, fi: 3 }, { s: 4, f: 2, fi: 2 }, { s: 2, f: 1, fi: 1 }], [6]),
+    G: chord('G', [{ s: 6, f: 3, fi: 2 }, { s: 5, f: 2, fi: 1 }, { s: 1, f: 3, fi: 3 }]),
+    Dm: chord('Dm', [{ s: 3, f: 2, fi: 2 }, { s: 2, f: 3, fi: 3 }, { s: 1, f: 1, fi: 1 }], [6, 5]),
+    E7: chord('E7', [{ s: 5, f: 2, fi: 2 }, { s: 3, f: 1, fi: 1 }]),
+    A7: chord('A7', [{ s: 4, f: 2, fi: 1 }, { s: 2, f: 2, fi: 2 }], [6]),
+    B7: chord('B7', [{ s: 4, f: 1, fi: 1 }, { s: 5, f: 2, fi: 2 }, { s: 3, f: 2, fi: 3 }, { s: 1, f: 2, fi: 4 }], [6]),
+  };
+  const REST = { name: 'מנוחה', rest: true, notes: [], mute: [], open: [] };
+  const CHORD_FINGERS = {
+    Em: 'אצבעות 2 ו-3 על מיתרים 5 ו-4.', Am: 'אצבע 1 במיתר 2, אצבעות 2 ו-3 במיתרים 4 ו-3.',
+    E: 'כמו Em, ועוד אצבע 1 במיתר 3.', A: 'שלוש אצבעות בשורה בסריג 2, במיתרים 4, 3 ו-2.',
+    D: 'משולש: אצבעות 1, 2 ו-3 במיתרים 3, 1 ו-2.', C: 'אצבעות 3, 2 ו-1 יורדות במיתרים 5, 4 ו-2.',
+    G: 'אצבעות 2, 1 ו-3 במיתרים 6, 5 ו-1.', Dm: 'אצבע 1 במיתר 1, אצבעות 2 ו-3 במיתרים 3 ו-2.',
+    E7: 'כמו E בלי אצבע במיתר 4.', A7: 'שתי אצבעות בסריג 2 במיתרים 4 ו-2.', B7: 'ארבע אצבעות: 1, 2, 3 ו-4.',
+  };
+  function chordSingle(name, bpm) {
+    return {
+      id: 'c-' + name.toLowerCase(), mode: 'chords', title: `האקורד ${name}`,
+      goal: `אקורד אחד, בלי לחץ: מניחים, פורטים, מרימים ומחזירים. ${CHORD_FINGERS[name]}`,
+      startBpm: bpm || 40, beatsPerStep: 4, frets: 4, steps: [CH[name], REST],
+      howTo: [
+        'מניחים את כל האצבעות יחד ופורטים את המיתרים מהעבה לדק.',
+        'כל מיתר צריך להישמע. אם אחד עמום, בדוק שאצבע לא נוגעת במיתר השכן.',
+        'במנוחה מרימים את האצבעות לגמרי ומניחים שוב. זה מה שבונה את הזיכרון של היד.',
+      ],
+    };
+  }
+  function chordChange(id, title, goal, names, extra) {
+    return {
+      id, mode: 'chords', title, goal, startBpm: 40, beatsPerStep: 4, frets: 4,
+      steps: names.map((nm) => CH[nm]),
+      howTo: [
+        'מחליפים אקורד כל ארבע פעימות. קודם מניחים את כל האצבעות, ורק אז פורטים.',
+        'העיניים כבר על האקורד הבא בפעימה השלישית.',
+        ...(extra || ['אם אתה מפספס מעבר, המשך לאקורד הבא ואל תעצור. הקצב חשוב יותר מהשלמות.']),
+      ],
+    };
+  }
+
+  // ---------- שמות אקורדים -> תווים (לרקע ולתווי האקורד) ----------
+  const QUAL = {
+    '': [0, 4, 7], m: [0, 3, 7], 5: [0, 7], 7: [0, 4, 7, 10], m7: [0, 3, 7, 10], maj7: [0, 4, 7, 11],
+    sus2: [0, 2, 7], sus4: [0, 5, 7], '7sus4': [0, 5, 7, 10], dim: [0, 3, 6], '7#9': [0, 4, 7, 10, 15], 6: [0, 4, 7, 9],
+  };
+  function parseChord(sym) {
+    const m = /^([A-G])([#b]?)(.*)$/.exec(String(sym).trim());
+    if (!m) return null;
+    const root = ROOT_PC[m[1] + m[2]];
+    const q = QUAL[m[3]];
+    if (root === undefined || !q) return null;
+    return { name: sym, root, quality: m[3], intervals: q, tones: q.map((i) => (root + i) % 12) };
+  }
+  const chordToneNames = (sym, flats) => (parseChord(sym) ? parseChord(sym).tones.map((pc) => noteNameOf(pc, flats)) : []);
 
   const DATA = {
     fingers: [
@@ -615,6 +751,189 @@
         ],
       },
     ],
+  };
+
+
+  // ---------- סידור מחדש: לשונית פנטטוני, אקורדים וטכניקות חדשות ברמה 3 ----------
+  const lv3 = DATA.levels[2];
+  const takeFrom = (list, ids) =>
+    ids.map((id) => {
+      const i = list.findIndex((e) => e.id === id);
+      if (i < 0) throw new Error('חסר תרגיל ' + id);
+      return list.splice(i, 1)[0];
+    });
+  const moved = takeFrom(lv3.exercises, ['pm-1', 'pm-2', 'pm-3', 'pm-4', 'pm-5', 'blues-1', 'bb-box', 'seq3', 'lick-pull']);
+  const mv = Object.fromEntries(moved.map((e) => [e.id, e]));
+  const diff = (ex, d) => ((ex.diff = d), ex);
+
+  // תנוחות פנטטוני מז׳ורי בלה: הצורות של פה# מינורי (המינורי היחסי), בלי לשכפל טבלאות
+  const majorPentPos = (k) => {
+    const table = A_MINOR_PENT[k].map(([a, b]) => [a - 3, b - 3]);
+    const fr = table.flat();
+    const lo = Math.min(...fr);
+    const shifted = lo < 1 ? table.map(([a, b]) => [a + 12, b + 12]) : table;
+    const steps = pentaBox(shifted);
+    return steps;
+  };
+  const MAJ_HOW = [
+    'עולים מהמיתר העבה (6) אל הדק (1): בכל מיתר שני תווים, מהנמוך לגבוה, ואחר כך חוזרים.',
+    'הכלל כמו במינורי: אצבע 1 על התו הנמוך בכל מיתר, ואצבע 3 או 4 על הגבוה.',
+    'זה סולם לה מז׳ורי פנטטוני, אותם תווים כמו פה דיאז מינורי פנטטוני. השורש לה (A) מסומן בשם התו.',
+  ];
+  const majorPent = (k, title, goal, d) =>
+    diff(posEx({ id: 'pmaj-' + k, title, goal, startBpm: 45, steps: majorPentPos(k), howTo: MAJ_HOW }), d);
+
+  // חדש: פנטטוני בארבעות
+  const seq4 = (() => {
+    const base = pentaBox(A_MINOR_PENT[1]).slice(0, 12);
+    const out = [];
+    for (let i = 0; i + 3 < base.length; i++) out.push(base[i], base[i + 1], base[i + 2], base[i + 3]);
+    return posEx({
+      id: 'seq4', title: 'פנטטוני בארבעות', diff: 'קשה', startBpm: 45,
+      goal: 'כמו השלשות, אבל קבוצות של ארבעה תווים. קשה יותר כי הקבוצה לא מתיישבת על ארבע פעימות בצורה "נוחה".',
+      steps: out,
+      howTo: [
+        'תנוחה 1, עשרת התווים הראשונים בעלייה: 1-2-3-4, 2-3-4-5, 3-4-5-6, וכן הלאה.',
+        'בכל קבוצה התווים עוברים בין מיתרים, והיד הפורטת עובדת הרבה.',
+        'התחל לאט מאוד. אם אתה מתבלבל, חזור לשלשות.',
+      ],
+    });
+  })();
+
+  DATA.penta = {
+    name: 'פנטטוני',
+    title: 'סוגי פנטטוני: מהקל לקשה',
+    desc: 'הסולם הנפוץ ביותר לאלתור. מתחילים בתנוחה אחת של המינורי, ומשם מתרחבים לשאר התנוחות, למז׳ורי, לסולם הבלוז ולתבניות.',
+    sections: [
+      {
+        title: '1. פנטטוני מינורי: חמש תנוחות',
+        desc: 'אותו סולם בחמישה מקומות על הצוואר. כשהם מתחברים, כל הצוואר שלך.',
+        exercises: [diff(mv['pm-1'], 'קל'), diff(mv['pm-2'], 'קל'), diff(mv['pm-3'], 'בינוני'), diff(mv['pm-4'], 'בינוני'), diff(mv['pm-5'], 'בינוני')],
+      },
+      {
+        title: '2. סולם בלוז',
+        desc: 'הפנטטוני המינורי עם תו אחד נוסף, תו המתח.',
+        exercises: [diff(mv['blues-1'], 'בינוני')],
+      },
+      {
+        title: '3. פנטטוני מז׳ורי: חמש תנוחות',
+        desc: 'אותו מבנה, צליל שמח ופתוח יותר. תנוחה 4 היא תבנית B.B.',
+        exercises: [
+          majorPent(1, 'פנטטוני מז׳ורי: תנוחה 1 (סריגים 2-5)', 'התנוחה הנמוכה והקלה ביותר של המז׳ורי.', 'קל'),
+          majorPent(2, 'פנטטוני מז׳ורי: תנוחה 2 (סריגים 4-7)', 'תנוחה שמתחברת לתנוחה 1 מלמעלה.', 'קל'),
+          majorPent(3, 'פנטטוני מז׳ורי: תנוחה 3 (סריגים 6-10)', 'תנוחה אמצעית. במיתר 3 האצבע זזה אחורה, ובמיתר 2 יש מתיחה.', 'בינוני'),
+          diff(mv['bb-box'], 'בינוני'),
+          majorPent(5, 'פנטטוני מז׳ורי: תנוחה 5 (סריגים 11-14)', 'התנוחה הגבוהה, שמתחברת בסוף לתנוחה 1.', 'בינוני'),
+        ],
+      },
+      {
+        title: '4. תבניות וליקים',
+        desc: 'מרגע שהתנוחות מוכרות, אפשר לעבוד איתן כמו נגן: תבניות, ריצות ו-Pull-off.',
+        exercises: [diff(mv['seq3'], 'בינוני'), diff(mv['lick-pull'], 'בינוני'), seq4],
+      },
+    ],
+  };
+
+  DATA.chords = {
+    name: 'אקורדים',
+    title: 'אקורדים ורצפים',
+    desc: 'אקורדים פתוחים, מעברים ביניהם ורצפים מוכרים. אקורדים לוקחים כמה שבועות, וזה נורמלי. התחל לאט.',
+    sections: [
+      {
+        title: '1. אקורדים בודדים',
+        desc: 'כל אקורד לבד, מהקל לקשה.',
+        exercises: ['Em', 'Am', 'E', 'A', 'D', 'C', 'Dm', 'G'].map((nm, i) => diff(chordSingle(nm), i < 2 ? 'קל' : i < 6 ? 'בינוני' : 'קשה')),
+      },
+      {
+        title: '2. מעברים בין שני אקורדים',
+        desc: 'המעבר הוא התרגיל. בחרנו זוגות שחולקים אצבעות.',
+        exercises: [
+          diff(chordChange('cc-em-am', 'מעבר Em ו-Am', 'שני אקורדים עם צורה דומה.', ['Em', 'Am']), 'קל'),
+          diff(chordChange('cc-e-a', 'מעבר E ו-A', 'שני אקורדים שמופיעים בהמון שירים.', ['E', 'A']), 'קל'),
+          diff(chordChange('cc-am-c', 'מעבר Am ו-C', 'אצבע 1 נשארת במקום בשני האקורדים.', ['Am', 'C'], ['אצבע 1 נשארת על מיתר 2 בסריג 1. שאר האצבעות זזות.', 'בשני האקורדים לא פורטים את מיתר 6.']), 'בינוני'),
+          diff(chordChange('cc-d-a', 'מעבר D ו-A', 'אקורדים עם אצבעות צפופות.', ['D', 'A']), 'בינוני'),
+          diff(chordChange('cc-dm-am', 'מעבר Dm ו-Am', 'שני אקורדים מינוריים.', ['Dm', 'Am']), 'בינוני'),
+          diff(chordChange('cc-g-c', 'מעבר G ו-C', 'אחד המעברים המפורסמים והקשים למתחילים.', ['G', 'C']), 'קשה'),
+        ],
+      },
+      {
+        title: '3. רצפים מוכרים',
+        desc: 'רצפי אקורדים שמופיעים בהרבה שירים, והסולם שמתאים להם מופיע בלשונית אלתור.',
+        exercises: [
+          diff(chordChange('cp-gdem', 'G D Em C: רצף הפופ הנפוץ', 'הרצף שבונים עליו אינספור שירים: I, V, vi ו-IV בסול מז׳ור.', ['G', 'D', 'Em', 'C']), 'בינוני'),
+          diff(chordChange('cp-heyjoe', 'C G D A E: רצף של Hey Joe', 'חמישה אקורדים בשרשרת. הרצף מוכר בשיר Hey Joe.', ['C', 'G', 'D', 'A', 'E']), 'קשה'),
+          diff(chordChange('cp-knock', 'G D Am C: בסגנון Knockin\' on Heaven\'s Door', 'מבוסס על הרצף של השיר של Bob Dylan: G D Am, ואחריו G D C.', ['G', 'D', 'Am', 'Am', 'G', 'D', 'C', 'C']), 'בינוני'),
+          diff(chordChange('cp-blues12', 'בלוז 12 תיבות באי', 'המבנה שעליו בנויים אינספור שירי בלוז ורוק: E7, A7 ו-B7.', ['E7', 'E7', 'E7', 'E7', 'A7', 'A7', 'E7', 'E7', 'B7', 'A7', 'E7', 'B7'], ['12 תיבות, כל אחת ארבע פעימות. המבנה: ארבע על E7, שתיים על A7, שתיים על E7, ואז B7, A7, E7, B7.', 'אקורד B7 הוא הקשה ביותר: ארבע אצבעות.']), 'קשה'),
+        ],
+      },
+    ],
+  };
+
+  // טכניקות חדשות ברמה 3: ליגטו, סלייד, ויברטו
+  const idx = lv3.exercises.findIndex((e) => e.id === '2-4');
+  lv3.exercises.splice(idx + 1, 0,
+    {
+      id: 'legato',
+      title: 'ליגטו: 1-2-3-4 בלי פריטה',
+      goal: 'פורטים פעם אחת ועולים ויורדים בין ארבע האצבעות עם Hammer-on ו-Pull-off בלבד.',
+      startBpm: 40,
+      frets: 5,
+      steps: [n(2, 1), { ...n(2, 2), t: 'h' }, { ...n(2, 3), t: 'h' }, { ...n(2, 4), t: 'h' }, { ...n(2, 3), t: 'p' }, { ...n(2, 2), t: 'p' }, { ...n(2, 1), t: 'p' }],
+      howTo: [
+        'פורטים סריג 1, ואז מטיחים בזה אחר זה את אצבעות 2, 3 ו-4 (Hammer-on) בלי לפרוט.',
+        'בירידה מושכים את האצבעות בזו אחר זו (Pull-off): 4 ל-3, 3 ל-2 ו-2 ל-1.',
+        'כדי שה-Pull-off ישמע, האצבע התחתונה כבר צריכה להיות לחוצה על הסריג.',
+      ],
+    },
+    {
+      id: 'slide',
+      title: 'סלייד: החלקה בין סריגים',
+      goal: 'מחליקים את האצבע לאורך המיתר בין שני סריגים בלי להרים אותה, והצליל עובר ברציפות.',
+      startBpm: 40,
+      startFret: 5,
+      frets: 5,
+      steps: [
+        { s: 3, f: 5, fi: 1 },
+        { s: 3, f: 7, fi: 1, t: 's' },
+        { s: 3, f: 9, fi: 1, t: 's' },
+        { s: 3, f: 5, fi: 1, t: 's' },
+      ],
+      howTo: [
+        'פורטים סריג 5 עם אצבע 1, ואז מחליקים את אותה אצבע לסריג 7, אחר כך לסריג 9, וחזרה לסריג 5.',
+        'ממשיכים ללחוץ בזמן ההחלקה, אבל קצת פחות חזק, כדי שהאצבע תחליק.',
+        'מסתכלים על הסריגים כדי לנחות במקום הנכון. עם הזמן זה נעשה באוזן.',
+      ],
+    },
+    {
+      id: 'vibrato',
+      title: 'ויברטו',
+      goal: 'מנדנדים את התו קלות כדי שייתן "חיים". החותמת של נגנים מוכרים בסולואים איטיים.',
+      startBpm: 40,
+      startFret: 5,
+      frets: 4,
+      steps: [{ s: 2, f: 7, fi: 3 }, { s: 2, f: 7, fi: 3, t: 'v' }, { s: 2, f: 7, fi: 3, t: 'v' }, { s: 2, f: 7, fi: 3, t: 'v' }],
+      howTo: [
+        'פורטים סריג 7 עם אצבע 3, ואז מנדנדים את הלחיצה: דוחפים את המיתר מעט למעלה ולמטה בקצב איטי ויציב.',
+        'התנועה באה מסיבוב שורש כף היד, לא מהאצבע לבדה.',
+        'תנועה קטנה ויציבה עדיפה על גדולה ולא אחידה. התחל לאט מאוד.',
+      ],
+    }
+  );
+  lv3.name = 'רמה 3 – טכניקות ומהירות';
+  lv3.desc = 'צלילים בלי פריטה, בנדים, ליגטו, סלייד, ויברטו ומהירות עולה. הסולמות הפנטטוניים עברו ללשונית משלהם.';
+
+  DATA.tabs = [
+    { id: 'l1', label: 'שלב 1', kind: 'level', level: 1 },
+    { id: 'l2', label: 'שלב 2', kind: 'level', level: 2 },
+    { id: 'l3', label: 'שלב 3', kind: 'level', level: 3 },
+    { id: 'l4', label: 'שלב 4', kind: 'level', level: 4 },
+    { id: 'penta', label: 'פנטטוני', kind: 'sections', ref: 'penta' },
+    { id: 'chords', label: 'אקורדים', kind: 'sections', ref: 'chords' },
+    { id: 'improv', label: 'אלתור', kind: 'improv' },
+  ];
+  DATA.theory = {
+    SHARP, FLAT, ROOT_PC, noteNameOf, useFlats, SCALE_IV, SCALE_HE, SCALE_CHAR, POSITIONS,
+    genExercise, parseChord, chordToneNames, pcsOf, A,
   };
 
   // הערות רקע לסולמות שיש להם מקור

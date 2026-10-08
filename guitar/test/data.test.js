@@ -2,7 +2,13 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const DATA = require('../exercises.js');
 
-const all = DATA.levels.flatMap((l) => l.exercises);
+const fixed = [
+  ...DATA.levels.flatMap((l) => l.exercises),
+  ...DATA.penta.sections.flatMap((x) => x.exercises),
+  ...DATA.chords.sections.flatMap((x) => x.exercises),
+];
+const all = fixed.filter((e) => e.mode !== 'chords'); // תרגילי תווים (בלי אקורדים)
+const chordEx = fixed.filter((e) => e.mode === 'chords');
 const OPEN_PC = { 6: 4, 5: 9, 4: 2, 3: 7, 2: 11, 1: 4 };
 const pc = (s, f) => (OPEN_PC[s] + f) % 12;
 const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -21,17 +27,22 @@ test('ארבע רמות, ושמה של הראשונה הוא חימום אצבע
   for (const l of DATA.levels) assert.ok(l.exercises.length >= 6, `רמה ${l.id}`);
 });
 
+test('שבע לשוניות: שלבים 1-4, פנטטוני, אקורדים ואלתור', () => {
+  assert.deepEqual(DATA.tabs.map((t) => t.id), ['l1', 'l2', 'l3', 'l4', 'penta', 'chords', 'improv']);
+});
+
+test('רמה 3 כוללת טכניקות חדשות (ליגטו, סלייד, ויברטו) ובלי סולמות פנטטוניים', () => {
+  const ids = DATA.levels[2].exercises.map((e) => e.id);
+  for (const id of ['legato', 'slide', 'vibrato', 'bend']) assert.ok(ids.includes(id), id);
+  assert.ok(!ids.some((id) => id.startsWith('pm-') || id === 'blues-1' || id === 'bb-box'));
+});
+
 test('הבסיס למתחילים הוסר: אין מדריך, מיתרים פתוחים או אצבע-אחת', () => {
   for (const id of ['guide', 'open', 'f1', 'f2', 'f3', 'f4']) assert.equal(ex(id), undefined, id);
 });
 
-test('אין תרגילי אקורדים (הוחלפו בסולמות)', () => {
-  assert.ok(all.every((e) => e.mode !== 'chords'));
-  assert.ok(DATA.levels[3].exercises.length >= 10);
-});
-
 test('מזהי תרגילים ייחודיים', () => {
-  assert.equal(new Set(all.map((e) => e.id)).size, all.length);
+  assert.equal(new Set(fixed.map((e) => e.id)).size, fixed.length);
 });
 
 test('כל תו תקין: מיתר 1-6, סריג בחלון הלוח, אצבע 0-4 (פתוח = בלי אצבע)', () => {
@@ -201,4 +212,96 @@ test('כל תרגיל כולל הוראות, מטרה וקצב התחלתי סב
     assert.ok(e.howTo.length >= 2 && e.goal && e.title, e.id);
     assert.ok(e.startBpm >= 30 && e.startBpm <= 80, e.id);
   }
+});
+
+// ---------- לשונית פנטטוני ----------
+test('לשונית פנטטוני: מהקל לקשה בתוך כל קבוצה, וכל תרגיל מסומן ברמת קושי', () => {
+  const rank = { קל: 1, בינוני: 2, קשה: 3 };
+  for (const sec of DATA.penta.sections) {
+    let prev = 0;
+    for (const e of sec.exercises) {
+      assert.ok(rank[e.diff], `${e.id} בלי רמת קושי`);
+      assert.ok(rank[e.diff] >= prev, `${sec.title}: ${e.id} לא בסדר עולה`);
+      prev = rank[e.diff];
+    }
+  }
+  assert.ok(DATA.penta.sections.flatMap((s) => s.exercises).length >= 14);
+});
+
+test('פנטטוני מז׳ורי: חמש תנוחות, כולן בסולם לה מז׳ורי פנטטוני, ותנוחה 4 היא תבנית B.B.', () => {
+  const set = pcs('majorPent');
+  for (const id of ['pmaj-1', 'pmaj-2', 'pmaj-3', 'bb-box', 'pmaj-5']) {
+    const e = ex(id);
+    const up = e.steps.slice(0, 12);
+    for (let i = 0; i < 6; i++) {
+      const s = 6 - i;
+      const [a, b] = [up[i * 2], up[i * 2 + 1]];
+      assert.ok(set.has(pc(s, a.f)) && set.has(pc(s, b.f)), `${id} מיתר ${s}`);
+      for (let f = a.f + 1; f < b.f; f++) assert.ok(!set.has(pc(s, f)), `${id} דילוג על תו`);
+    }
+  }
+  assert.deepEqual(ex('bb-box').steps.slice(0, 12).map((x) => x.f), [9, 12, 9, 12, 9, 11, 9, 11, 10, 12, 9, 12]);
+});
+
+test('פנטטוני בארבעות: 36 תווים בקבוצות של ארבעה', () => {
+  const e = ex('seq4');
+  assert.equal(e.steps.length, 36);
+  const up = ex('pm-1').steps.slice(0, 12);
+  for (let g = 0; g < 9; g++) for (let k = 0; k < 4; k++) assert.deepEqual(e.steps[g * 4 + k], up[g + k]);
+});
+
+// ---------- לשונית אקורדים ----------
+test('אקורדים: הצורות תואמות לצורות המוכרות', () => {
+  const byName = {};
+  for (const e of chordEx) for (const st of e.steps) if (!st.rest) byName[st.name] = st;
+  const frets = (st) =>
+    [6, 5, 4, 3, 2, 1].map((s) => (st.mute.includes(s) ? 'x' : st.notes.find((x) => x.s === s)?.f ?? 0)).join('');
+  const expected = { Em: '022000', Am: 'x02210', E: '022100', A: 'x02220', D: 'xx0232', C: 'x32010', G: '320003', Dm: 'xx0231', E7: '020100', A7: 'x02020', B7: 'x21202' };
+  for (const [name, shape] of Object.entries(expected)) assert.equal(frets(byName[name]), shape, name);
+  for (const st of Object.values(byName)) {
+    for (let s = 1; s <= 6; s++) {
+      const roles = [st.mute.includes(s), st.open.includes(s), st.notes.some((x) => x.s === s)].filter(Boolean).length;
+      assert.equal(roles, 1, `${st.name} מיתר ${s}`);
+    }
+    assert.equal(new Set(st.notes.map((x) => x.fi)).size, st.notes.length, `${st.name}: אצבע לא חוזרת`);
+  }
+});
+
+test('אקורדים: התווים בכל אקורד נכונים לפי תיאוריה (שורש, שלישית, חמישית)', () => {
+  const T = DATA.theory;
+  const frets = {};
+  for (const e of chordEx) for (const st of e.steps) if (!st.rest) frets[st.name] = st;
+  const OPEN = { 6: 4, 5: 9, 4: 2, 3: 7, 2: 11, 1: 4 };
+  for (const [name, st] of Object.entries(frets)) {
+    const played = new Set();
+    for (let s = 1; s <= 6; s++) {
+      if (st.mute.includes(s)) continue;
+      const f = st.notes.find((x) => x.s === s)?.f ?? 0;
+      played.add((OPEN[s] + f) % 12);
+    }
+    const tones = new Set(T.parseChord(name).tones);
+    for (const p of played) assert.ok(tones.has(p), `${name}: תו ${p} מחוץ לאקורד`);
+    for (const t of tones.has(T.parseChord(name).root) ? [T.parseChord(name).root] : []) assert.ok(played.has(t), `${name}: חסר שורש`);
+  }
+});
+
+test('תרגילי אקורדים: ארבע פעימות לאקורד, ובכל לשונית מעברים ורצפים', () => {
+  assert.ok(chordEx.length >= 17);
+  for (const e of chordEx) {
+    assert.equal(e.beatsPerStep, 4, e.id);
+    assert.ok(e.steps.some((x) => !x.rest), e.id);
+  }
+  const blues = chordEx.find((e) => e.id === 'cp-blues12');
+  assert.deepEqual(blues.steps.map((x) => x.name), ['E7', 'E7', 'E7', 'E7', 'A7', 'A7', 'E7', 'E7', 'B7', 'A7', 'E7', 'B7']);
+});
+
+// ---------- טכניקות חדשות ----------
+test('ליגטו: פריטה אחת, שלושה Hammer-on ושלושה Pull-off חזרה', () => {
+  const e = ex('legato');
+  assert.deepEqual(e.steps.map((x) => x.t), [undefined, 'h', 'h', 'h', 'p', 'p', 'p']);
+  assert.deepEqual(e.steps.map((x) => x.f), [1, 2, 3, 4, 3, 2, 1]);
+});
+test('סלייד וויברטו: מסומנים בטכניקה הנכונה', () => {
+  assert.deepEqual(ex('slide').steps.map((x) => x.t), [undefined, 's', 's', 's']);
+  assert.deepEqual(ex('vibrato').steps.map((x) => x.t), [undefined, 'v', 'v', 'v']);
 });
