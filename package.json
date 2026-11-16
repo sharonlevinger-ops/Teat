@@ -1,0 +1,12 @@
+{
+  "name": "yoman-2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "יומן 2.0 – PWA אישי לאייפון (ללא שלב בנייה)",
+  "scripts": {
+    "test": "node --test tests/*.mjs",
+    "check": "for f in js/*.js sw.js; do node --check $f || exit 1; done",
+    "serve": "npx --yes serve -l 5173 ."
+  }
+}
