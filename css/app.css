@@ -388,3 +388,11 @@ input[type="date"].input, input[type="time"].input { min-height: 46px; -webkit-a
 .switch.on { background: var(--green); }
 .switch.on::after { inset-inline-start: 22px; }
 .footnote { font-size: 12.5px; color: var(--text-2); margin: 8px 6px 0; line-height: 1.5; }
+
+/* ---------- backup reminder ---------- */
+.backup-banner { margin: 0 16px 10px; padding: 10px 10px 10px 8px; background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px; border-inline-start: 4px solid var(--amber); }
+.backup-banner .grow { flex: 1; min-width: 0; font-size: 15px; }
+.backup-banner .meta { font-size: 12.5px; color: var(--text-2); }
+.backup-banner .bb-icon { color: var(--amber); }
+.backup-banner .btn { height: 36px; padding: 0 14px; font-size: 15px; }
+.backup-banner .bb-x { color: var(--text-3); width: 30px; height: 30px; display: grid; place-items: center; }

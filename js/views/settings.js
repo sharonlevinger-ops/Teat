@@ -8,6 +8,30 @@ import { openSheet, toast, confirmDialog, promptDialog, blobToDataURL, dataURLTo
 import { applyTheme } from '../app.js';
 
 const SETTINGS_KEYS = ['yoman2.theme', 'yoman2.calMode', 'yoman2.seeded'];
+const LAST_BACKUP = 'yoman2.lastBackup';
+const SNOOZE = 'yoman2.backupSnooze';
+const REMIND_DAYS = 7;
+
+const markBackedUp = () => { localStorage.setItem(LAST_BACKUP, String(Date.now())); localStorage.removeItem(SNOOZE); };
+export function daysSinceBackup() {
+  const t = +localStorage.getItem(LAST_BACKUP) || 0;
+  return t ? Math.floor((Date.now() - t) / 86400000) : null;
+}
+export function lastBackupLabel() {
+  const d = daysSinceBackup();
+  if (d === null) return 'עוד לא בוצע גיבוי';
+  if (d === 0) return 'היום';
+  if (d === 1) return 'אתמול';
+  return `לפני ${d} ימים`;
+}
+/** Show the reminder when the last backup (or first use) is a week old and it was not snoozed today. */
+export function backupDue() {
+  if (!localStorage.getItem('yoman2.installedAt')) localStorage.setItem('yoman2.installedAt', String(Date.now()));
+  const ref = +localStorage.getItem(LAST_BACKUP) || +localStorage.getItem('yoman2.installedAt');
+  const snooze = +localStorage.getItem(SNOOZE) || 0;
+  return Date.now() - ref >= REMIND_DAYS * 86400000 && Date.now() - snooze >= 86400000;
+}
+export const snoozeBackup = () => localStorage.setItem(SNOOZE, String(Date.now()));
 
 export async function openSettings({ highlightBio = false } = {}) {
   const body = document.createElement('div');
@@ -39,7 +63,7 @@ export async function openSettings({ highlightBio = false } = {}) {
       </div>
       <p class="footnote">האפליקציה ננעלת אוטומטית אחרי דקה ברקע. הכספת דורשת אימות בכל כניסה.</p>
 
-      <div class="section-title">גיבוי ושחזור</div>
+      <div class="section-title">גיבוי ושחזור<span class="count" style="color:${backupDue() ? 'var(--amber)' : 'var(--text-3)'}">גיבוי אחרון: ${lastBackupLabel()}</span></div>
       <div class="list">
         <button class="row tappable" data-export style="width:100%"><span class="setting-icon" style="background:#007AFF">${icon('upload', 18)}</span><div class="grow" style="text-align:start">ייצוא גיבוי מוצפן (.json)<div class="meta">שמרו ב-iCloud Drive דרך "שמירה בקבצים"</div></div>${icon('chevron-left', 18, 'chev')}</button>
         <button class="row tappable" data-import style="width:100%"><span class="setting-icon" style="background:#5856D6">${icon('download', 18)}</span><div class="grow" style="text-align:start">שחזור מגיבוי<div class="meta">מחליף את כל הנתונים במכשיר</div></div>${icon('chevron-left', 18, 'chev')}</button>
@@ -79,15 +103,15 @@ export async function openSettings({ highlightBio = false } = {}) {
       return;
     }
     if (t('[data-lock]')) { sh.close(); document.dispatchEvent(new Event('yoman-lock')); return; }
-    if (t('[data-export]')) { await exportBackup(); return; }
+    if (t('[data-export]')) { if (await exportBackup()) draw(); return; }
     if (t('[data-import]')) { await importBackup(); }
   });
 }
 
 /* ---------------- backup ---------------- */
-async function exportBackup() {
+export async function exportBackup() {
   const pin = await pinPad({ mode: 'verify', overlay: true, subtitle: 'הגיבוי יוצפן בקוד הגישה', allowBio: false });
-  if (!pin) return;
+  if (!pin) return false;
   toast('מכין גיבוי…', 20000);
   const data = { stores: {}, auth: auth.exportAuth(), settings: {} };
   for (const s of STORES) {
@@ -110,7 +134,7 @@ async function exportBackup() {
   const blob = new Blob([file], { type: 'application/json' });
   const f = new File([blob], name, { type: 'application/json' });
   if (navigator.canShare?.({ files: [f] })) {
-    try { await navigator.share({ files: [f], title: 'גיבוי יומן 2.0' }); toast('הגיבוי מוכן ✓'); return; } catch (err) { if (err?.name === 'AbortError') { toast('בוטל'); return; } }
+    try { await navigator.share({ files: [f], title: 'גיבוי יומן 2.0' }); markBackedUp(); toast('הגיבוי מוכן ✓'); return true; } catch (err) { if (err?.name === 'AbortError') { toast('בוטל'); return false; } }
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -118,7 +142,9 @@ async function exportBackup() {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  markBackedUp();
   toast('הגיבוי הורד ✓');
+  return true;
 }
 
 async function importBackup() {
@@ -154,6 +180,7 @@ async function importBackup() {
     await db.clear('kv');
     auth.importAuth(data.auth);
     Object.entries(data.settings || {}).forEach(([k, v]) => { if (v != null) localStorage.setItem(k, v); });
+    markBackedUp();
     toast('השחזור הושלם ✓ (הפעילו מחדש Face ID בהגדרות)');
     setTimeout(() => location.reload(), 1500);
   };

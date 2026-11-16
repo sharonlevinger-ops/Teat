@@ -1,5 +1,5 @@
 // יומן 2.0 – service worker: full offline support (app shell cached, cache-first).
-const VERSION = 'yoman2-v1';
+const VERSION = 'yoman2-v2';
 const SHELL = [
   './',
   './index.html',
@@ -29,7 +29,7 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (event) => {

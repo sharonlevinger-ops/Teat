@@ -9,7 +9,7 @@ import calendar from './views/calendar.js';
 import tasks from './views/tasks.js';
 import documents from './views/documents.js';
 import vault from './views/vault.js';
-import { openSettings } from './views/settings.js';
+import { openSettings, exportBackup, backupDue, snoozeBackup, lastBackupLabel } from './views/settings.js';
 import { openVoice } from './voice.js';
 
 const VIEWS = { calendar, tasks, documents, vault };
@@ -39,6 +39,7 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyThe
 function renderShell() {
   $('#app').innerHTML = `
     <header class="topbar" id="topbar"></header>
+    <div id="backupBanner"></div>
     <main id="view" tabindex="-1"></main>
     <button class="fab" id="fab" aria-label="הקלטה קולית">${icon('mic', 22)}<span>הקלטה</span></button>
     <nav class="tabbar" role="tablist">
@@ -81,10 +82,24 @@ export function render(tabChanged = false) {
   const keep = tabChanged ? (scrollPos[current] || 0) : viewEl.scrollTop;
   $('#topbar').innerHTML = `<h1>${view.title}</h1>${view.headerActions?.() || ''}<button class="icon-btn" data-settings aria-label="הגדרות">${icon('settings', 20)}</button>`;
   $('#topbar [data-settings]').onclick = () => openSettings();
+  renderBackupBanner();
   view.bindHeader?.($('#topbar'));
   view.render(viewEl);
   viewEl.scrollTop = keep;
   if (tabChanged) view.enter?.(viewEl);
+}
+
+/* ---------- weekly backup reminder ---------- */
+function renderBackupBanner() {
+  const el = $('#backupBanner');
+  if (!backupDue()) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="backup-banner" role="status">
+    <span class="bb-icon">${icon('upload', 20)}</span>
+    <div class="grow"><strong>הגיע הזמן לגבות</strong><div class="meta">גיבוי אחרון: ${lastBackupLabel()}</div></div>
+    <button class="btn" data-bb-now>לגבות</button>
+    <button class="bb-x" data-bb-later aria-label="אחר כך">${icon('x', 18)}</button></div>`;
+  el.querySelector('[data-bb-now]').onclick = async () => { if (await exportBackup()) renderBackupBanner(); };
+  el.querySelector('[data-bb-later]').onclick = () => { snoozeBackup(); renderBackupBanner(); };
 }
 
 /* ---------- locking ---------- */
