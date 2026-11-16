@@ -8,6 +8,8 @@ import {
 } from '../util.js';
 import { openViewer } from './documents.js';
 import { openVoice } from '../voice.js';
+import { openNavigate } from '../maps.js';
+import { pickAddress, editAddress } from './addresses.js';
 
 const START_H = 6, END_H = 23;
 // rotating the iPhone to landscape shows the whole week automatically
@@ -31,11 +33,19 @@ function subtasksHTML(evId, limit = 99) {
     </div>`).join('')}</div>`;
 }
 
+/** Current address for an event (follows edits in the addresses tab). */
+export function eventPlace(e) {
+  const a = e.addressId ? state.addresses.find((x) => x.id === e.addressId) : null;
+  return { address: a?.address || e.location || '', name: a?.name || e.locationName || '' };
+}
+
 function eventHTML(e) {
   const docs = (e.docIds || []).length;
+  const place = eventPlace(e);
   return `<div class="event" data-event="${e.id}" role="button" tabindex="0">
     ${e.time ? `<span class="ev-time">${esc(e.time)}</span>` : ''}
     <div class="ev-title">${esc(e.title)}</div>
+    ${place.address ? `<div class="ev-meta ev-place" data-ev-nav="${e.id}">${icon('pin', 13)} <span>${esc(place.name || place.address)}</span> <span class="badge blue">${icon('navigation', 11)} ניווט</span></div>` : ''}
     ${e.notes ? `<div class="ev-notes">${esc(e.notes.split('\n')[0])}</div>` : ''}
     ${docs ? `<div class="ev-meta">${icon('paperclip', 13)} ${docs} מסמכים</div>` : ''}
     ${subtasksHTML(e.id)}
@@ -131,7 +141,7 @@ function renderWeek(el) {
           ${eventsOn(s).map((e) => {
             const ts = tasksOfEvent(e.id);
             const open = ts.filter((t) => !t.done).length;
-            return `<button class="wg-ev" data-event="${e.id}">${e.time ? `<span class="t">${esc(e.time)}</span>` : ''}<span class="n">${esc(e.title)}</span>${ts.length ? `<div class="tk">✓ ${ts.length - open}/${ts.length}</div>` : ''}</button>`;
+            return `<button class="wg-ev" data-event="${e.id}">${e.time ? `<span class="t">${esc(e.time)}</span>` : ''}<span class="n">${esc(e.title)}</span>${eventPlace(e).address ? `<div class="tk">${icon('pin', 10)} ${esc(eventPlace(e).name || eventPlace(e).address)}</div>` : ''}${ts.length ? `<div class="tk">✓ ${ts.length - open}/${ts.length}</div>` : ''}</button>`;
           }).join('')}
           <button class="wg-add" data-add-day="${s}" aria-label="הוספה ביום ${HEB_DAYS[i]}">${icon('plus', 16)}</button>
         </div>`;
@@ -163,6 +173,14 @@ export function openEventSheet(evOrDraft = {}) {
         <div class="field"><label>תאריך</label><input class="input" type="date" name="date" value="${esc(ev.date || selected)}"></div>
         <div class="field"><label>שעה</label><input class="input" type="time" name="time" value="${esc(ev.time || '')}"></div>
       </div>
+      <div class="field"><label>כתובת</label>
+        <div style="display:flex;gap:8px"><input class="input" name="location" value="${esc(eventPlace(ev).address)}" placeholder="כתובת, או בחירה מהכתובות שלי" autocomplete="street-address">
+        <button class="btn secondary" data-pick-addr style="height:46px;padding:0 12px;white-space:nowrap">${icon('pin', 17)} שמורות</button></div>
+        ${eventPlace(ev).address ? `<div style="display:flex;gap:14px;align-items:center;margin:6px 4px 0;flex-wrap:wrap">
+          ${eventPlace(ev).name ? `<span class="badge">${icon('pin', 11)} ${esc(eventPlace(ev).name)}</span>` : ''}
+          <button class="btn-text" data-nav-ev style="display:flex;gap:4px;align-items:center">${icon('navigation', 15)} ניווט</button>
+          ${ev.addressId ? '' : `<button class="btn-text" data-save-addr style="display:flex;gap:4px;align-items:center">${icon('plus', 15)} שמירה בכתובות</button>`}
+        </div>` : ''}</div>
       ${hols ? `<div class="holiday-chips">${hols}</div>` : ''}
       <div class="field"><label>הערות</label><textarea class="textarea" name="notes" placeholder="למשל: לשאול לגבי שקע כוח">${esc(ev.notes || '')}</textarea></div>
 
@@ -191,6 +209,8 @@ export function openEventSheet(evOrDraft = {}) {
     ev.date = f('date').value || selected;
     ev.time = f('time').value || null;
     ev.notes = f('notes').value;
+    const loc = f('location').value.trim();
+    if (loc !== eventPlace(ev).address) { ev.location = loc; ev.addressId = null; ev.locationName = ''; }
     body.querySelectorAll('[data-sub-text]').forEach((inp) => { subs[+inp.dataset.subText].text = inp.value; });
     const n = body.querySelector('[data-sub-new]');
     if (n && n.value.trim()) { subs.push({ text: n.value.trim(), done: false }); n.value = ''; }
@@ -229,6 +249,17 @@ export function openEventSheet(evOrDraft = {}) {
     if (dd) { e.stopPropagation(); sync(); docIds = docIds.filter((x) => x !== dd.dataset.docDel); draw(); return; }
     const doc = e.target.closest('[data-doc]');
     if (doc) { const d = state.docs.find((x) => x.id === doc.dataset.doc); if (d) openViewer(d); return; }
+    if (e.target.closest('[data-pick-addr]')) {
+      sync();
+      pickAddress((a) => { if (!a) return; ev.addressId = a.id; ev.location = a.address; ev.locationName = a.name; draw(); });
+      return;
+    }
+    if (e.target.closest('[data-nav-ev]')) { sync(); const pl = eventPlace(ev); openNavigate(pl.address, pl.name || ev.title); return; }
+    if (e.target.closest('[data-save-addr]')) {
+      sync();
+      editAddress(null, { address: ev.location, name: '' }, (a) => { ev.addressId = a.id; ev.location = a.address; ev.locationName = a.name; draw(); });
+      return;
+    }
     if (e.target.closest('[data-attach]')) {
       sync();
       pickDocs(docIds, (ids) => { docIds = ids; draw(); });
@@ -316,6 +347,7 @@ async function onClick(e) {
   const t = (sel) => e.target.closest(sel);
   let n;
   if ((n = t('[data-toggle]'))) { e.stopPropagation(); haptic(); await toggleTask(n.dataset.toggle); return; }
+  if ((n = t('[data-ev-nav]'))) { const ev = state.events.find((x) => x.id === n.dataset.evNav); if (ev) { const pl = eventPlace(ev); openNavigate(pl.address, pl.name || ev.title); } return; }
   if ((n = t('[data-event]'))) { openEventSheet({ id: n.dataset.event }); return; }
   if ((n = t('[data-mode]'))) { mode = n.dataset.mode; localStorage.setItem('yoman2.calMode', mode); rerender(); return; }
   if ((n = t('[data-nav]'))) { selected = ymd(addDays(parseYmd(selected), +n.dataset.nav)); rerender(); return; }

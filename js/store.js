@@ -2,7 +2,7 @@
 import { db } from './db.js';
 import { uid, todayStr } from './util.js';
 
-export const state = { events: [], tasks: [], folders: [], docs: [] };
+export const state = { events: [], tasks: [], folders: [], docs: [], addresses: [] };
 const listeners = new Set();
 export const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
 const emit = () => listeners.forEach((fn) => fn());
@@ -16,8 +16,8 @@ const DEFAULT_FOLDERS = [
 ];
 
 export async function loadAll() {
-  const [events, tasks, folders, docs] = await Promise.all(['events', 'tasks', 'folders', 'docs'].map((s) => db.all(s)));
-  Object.assign(state, { events, tasks, folders, docs });
+  const [events, tasks, folders, docs, addresses] = await Promise.all(['events', 'tasks', 'folders', 'docs', 'addresses'].map((s) => db.all(s)));
+  Object.assign(state, { events, tasks, folders, docs, addresses });
   if (!localStorage.getItem('yoman2.seeded')) {
     const now = Date.now();
     state.folders = DEFAULT_FOLDERS.map((f, i) => ({ id: uid(), ...f, order: i, createdAt: now }));
@@ -135,5 +135,19 @@ export async function deleteDoc(id) {
   emit();
 }
 export const getFile = async (id) => (await db.get('files', id))?.blob || null;
+
+/* ---------- addresses ---------- */
+export async function saveAddress(a) {
+  const item = { cat: 'other', phone: '', notes: '', createdAt: Date.now(), ...a, id: a.id || uid(), updatedAt: Date.now() };
+  upsert(state.addresses, item);
+  await db.put('addresses', item);
+  emit();
+  return item;
+}
+export async function deleteAddress(id) {
+  state.addresses = state.addresses.filter((a) => a.id !== id);
+  await db.del('addresses', id);
+  emit();
+}
 
 export const notify = emit;

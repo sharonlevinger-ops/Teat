@@ -1,7 +1,7 @@
 // Minimal promise-based IndexedDB wrapper. All data stays on the device.
 const DB_NAME = 'yoman2';
-const VERSION = 1;
-export const STORES = ['events', 'tasks', 'folders', 'docs', 'files', 'vault', 'kv'];
+const VERSION = 2;
+export const STORES = ['events', 'tasks', 'folders', 'docs', 'files', 'vault', 'addresses', 'kv'];
 
 let dbPromise;
 function open() {

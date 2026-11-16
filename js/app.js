@@ -9,13 +9,15 @@ import calendar from './views/calendar.js';
 import tasks from './views/tasks.js';
 import documents from './views/documents.js';
 import vault from './views/vault.js';
+import addresses from './views/addresses.js';
 import { openSettings, exportBackup, backupDue, snoozeBackup, lastBackupLabel } from './views/settings.js';
 import { openVoice } from './voice.js';
 
-const VIEWS = { calendar, tasks, documents, vault };
+const VIEWS = { calendar, tasks, addresses, documents, vault };
 const TABS = [
   ['calendar', 'יומן', 'calendar'],
   ['tasks', 'משימות', 'tasks'],
+  ['addresses', 'כתובות', 'pin'],
   ['documents', 'מסמכים', 'folder'],
   ['vault', 'סיסמאות', 'key'],
 ];

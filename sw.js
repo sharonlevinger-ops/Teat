@@ -1,5 +1,5 @@
 // יומן 2.0 – service worker: full offline support (app shell cached, cache-first).
-const VERSION = 'yoman2-v2';
+const VERSION = 'yoman2-v3';
 const SHELL = [
   './',
   './index.html',
@@ -16,6 +16,8 @@ const SHELL = [
   './js/store.js',
   './js/util.js',
   './js/voice.js',
+  './js/maps.js',
+  './js/views/addresses.js',
   './js/views/calendar.js',
   './js/views/documents.js',
   './js/views/settings.js',

@@ -83,7 +83,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 .tabbar {
   position: fixed; bottom: 0; inset-inline: 0; z-index: 20;
   height: var(--tabbar-h); padding-bottom: var(--sab);
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   background: var(--tabbar); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-top: 0.5px solid var(--sep);
 }
@@ -278,6 +278,8 @@ input[type="date"].input, input[type="time"].input { min-height: 46px; -webkit-a
 .event .ev-time { font-size: 12.5px; color: var(--accent); font-weight: 600; direction: ltr; display: inline-block; }
 .event .ev-notes { font-size: 12.5px; color: var(--text-2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .event .ev-meta { display: flex; gap: 8px; align-items: center; color: var(--text-2); font-size: 12px; margin-top: 3px; }
+.ev-place { cursor: pointer; }
+.ev-place span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .subtasks { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
 .subtask { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 4px 0; text-align: start; width: 100%; }
 .subtask .check { width: 20px; height: 20px; border-width: 1.75px; }
@@ -396,3 +398,5 @@ input[type="date"].input, input[type="time"].input { min-height: 46px; -webkit-a
 .backup-banner .bb-icon { color: var(--amber); }
 .backup-banner .btn { height: 36px; padding: 0 14px; font-size: 15px; }
 .backup-banner .bb-x { color: var(--text-3); width: 30px; height: 30px; display: grid; place-items: center; }
+.wg-ev .tk { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wg-ev .tk .ic { display: inline-block; vertical-align: -1px; }
