@@ -2,7 +2,8 @@
 // the vault data key; entering the tab always requires Face ID or PIN again.
 import { db } from '../db.js';
 import { encryptJSON, decryptJSON, randBytes } from '../crypto.js';
-import { pinPad } from '../lock.js';
+import { pinPad, requirePin } from '../lock.js';
+import * as auth from '../auth.js';
 import { icon } from '../icons.js';
 import { notify } from '../store.js';
 import { esc, uid, openSheet, confirmDialog, toast, haptic, emptyState } from '../util.js';
@@ -33,7 +34,13 @@ async function unlock() {
   if (prompting) return;
   prompting = true;
   try {
-    const k = await pinPad({ mode: 'vault', overlay: true, subtitle: 'אימות נוסף לכניסה לכספת' });
+    let k;
+    if (!auth.isSetUp()) { // first visit: choose the vault PIN
+      const pin = await requirePin();
+      k = pin ? await auth.vaultKeyFromPin(pin) : null;
+    } else {
+      k = await pinPad({ mode: 'vault', overlay: true, subtitle: 'הזינו קוד לכניסה לכספת' });
+    }
     if (!k) return;
     key = k;
     const rows = await db.all('vault');

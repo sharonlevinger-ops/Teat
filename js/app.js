@@ -1,10 +1,8 @@
 // יומן 2.0 – app shell: lock, tabs, FAB, auto-lock, service worker.
-import * as auth from './auth.js';
-import { pinPad } from './lock.js';
 import { loadAll, subscribe } from './store.js';
 import { requestPersistence } from './db.js';
 import { icon } from './icons.js';
-import { $, closeAllSheets, toast } from './util.js';
+import { $, closeAllSheets } from './util.js';
 import calendar from './views/calendar.js';
 import tasks from './views/tasks.js';
 import documents from './views/documents.js';
@@ -21,12 +19,10 @@ const TABS = [
   ['documents', 'מסמכים', 'folder'],
   ['vault', 'סיסמאות', 'key'],
 ];
-const AUTO_LOCK_MS = 60 * 1000;
 
 let current = localStorage.getItem('yoman2.tab') || 'calendar';
-if (!VIEWS[current]) current = 'calendar';
-let locked = true;
-let hiddenAt = 0;
+if (!VIEWS[current] || current === 'vault') current = 'calendar'; // never open straight into the vault
+let locked = true; // true only until data has loaded
 
 /* ---------- theme ---------- */
 export function applyTheme() {
@@ -104,29 +100,12 @@ function renderBackupBanner() {
   el.querySelector('[data-bb-later]').onclick = () => { snoozeBackup(); renderBackupBanner(); };
 }
 
-/* ---------- locking ---------- */
-async function lock() {
-  if (locked && document.querySelector('.lock')) return;
-  locked = true;
-  closeAllSheets();
-  document.querySelectorAll('.viewer').forEach((v) => v.remove());
-  VIEWS.vault.leave?.();
-  await pinPad({ mode: 'unlock' });
-  locked = false;
-  render(true);
-}
-
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
-    hiddenAt = Date.now();
-    VIEWS.vault.leave?.(); // vault always requires re-auth
+    VIEWS.vault.leave?.(); // the password vault always requires re-auth
     if (current === 'vault' && !locked) render();
-  } else if (!locked && auth.isSetUp() && hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS) {
-    lock();
   }
 });
-
-document.addEventListener('yoman-lock', () => lock());
 
 /* ---------- boot ---------- */
 async function boot() {
@@ -138,21 +117,11 @@ async function boot() {
   requestPersistence();
   subscribe(() => render());
 
-  if (!auth.isSetUp()) {
-    await pinPad({ mode: 'setup' });
-    toast('הקוד נשמר ✓');
-  } else {
-    await pinPad({ mode: 'unlock' });
-  }
+  // the journal opens directly – only the password vault asks for a PIN / Face ID
   locked = false;
   await loadAll();
   render(true);
 
-  // offer Face ID once after first setup
-  if (!auth.bioEnrolled() && !localStorage.getItem('yoman2.bioOffered') && await auth.bioSupported()) {
-    localStorage.setItem('yoman2.bioOffered', '1');
-    setTimeout(() => openSettings({ highlightBio: true }), 600);
-  }
 }
 
 boot();

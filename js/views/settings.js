@@ -1,6 +1,6 @@
 // Settings: theme, Face ID, PIN, encrypted backup & restore, storage info.
 import * as auth from '../auth.js';
-import { pinPad } from '../lock.js';
+import { pinPad, requirePin } from '../lock.js';
 import { db, STORES } from '../db.js';
 import { deriveKey, encryptBytes, decryptBytes, randBytes, b64, unb64 } from '../crypto.js';
 import { icon } from '../icons.js';
@@ -44,31 +44,30 @@ export async function openSettings({ highlightBio = false } = {}) {
     const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
     body.innerHTML = `
       ${highlightBio && bioOk && !auth.bioEnrolled() ? `<div class="card" style="padding:14px;margin-bottom:6px;display:flex;gap:12px;align-items:center">
-        <span style="color:var(--accent)">${icon('faceid', 34)}</span><div class="grow"><strong>פתיחה מהירה עם Face ID</strong><div class="meta">הפעילו כדי לפתוח את היומן והכספת במבט אחד</div></div></div>` : ''}
+        <span style="color:var(--accent)">${icon('faceid', 34)}</span><div class="grow"><strong>פתיחה מהירה עם Face ID</strong><div class="meta">הפעילו כדי לפתוח את כספת הסיסמאות במבט אחד</div></div></div>` : ''}
 
       <div class="section-title">מראה</div>
       <div class="list"><div class="row plain"><div class="segmented grow">
-        <button data-theme="light" class="${theme === 'light' ? 'active' : ''}">${icon('sun', 15)} בהיר</button>
-        <button data-theme="dark" class="${theme === 'dark' ? 'active' : ''}">${icon('moon', 15)} כהה</button>
-        <button data-theme="auto" class="${theme === 'auto' ? 'active' : ''}">אוטומטי</button>
+        <button data-theme-opt="light" class="${theme === 'light' ? 'active' : ''}">${icon('sun', 15)} בהיר</button>
+        <button data-theme-opt="dark" class="${theme === 'dark' ? 'active' : ''}">${icon('moon', 15)} כהה</button>
+        <button data-theme-opt="auto" class="${theme === 'auto' ? 'active' : ''}">אוטומטי</button>
       </div></div></div>
 
       <div class="section-title">אבטחה</div>
       <div class="list">
         <div class="row"><span class="setting-icon" style="background:#34C759">${icon('faceid', 18)}</span>
-          <div class="grow">Face ID<div class="meta">${bioOk ? 'פתיחת האפליקציה והכספת' : 'דורש אייפון עם Face ID ואתר HTTPS'}</div></div>
+          <div class="grow">Face ID<div class="meta">${bioOk ? 'פתיחת כספת הסיסמאות' : 'דורש אייפון עם Face ID ואתר HTTPS'}</div></div>
           <button class="switch ${auth.bioEnrolled() ? 'on' : ''}" data-bio ${bioOk ? '' : 'disabled style="opacity:.4"'} aria-label="Face ID"></button></div>
-        <button class="row tappable" data-change-pin style="width:100%"><span class="setting-icon" style="background:#FF9500">${icon('hash', 18)}</span><span class="grow" style="text-align:start">שינוי קוד גישה</span>${icon('chevron-left', 18, 'chev')}</button>
-        <button class="row tappable" data-lock style="width:100%"><span class="setting-icon" style="background:#8E8E93">${icon('lock', 18)}</span><span class="grow" style="text-align:start">נעילה עכשיו</span>${icon('chevron-left', 18, 'chev')}</button>
+        <button class="row tappable" data-change-pin style="width:100%"><span class="setting-icon" style="background:#FF9500">${icon('hash', 18)}</span><span class="grow" style="text-align:start">${auth.isSetUp() ? 'שינוי קוד הכספת' : 'הגדרת קוד לכספת'}</span>${icon('chevron-left', 18, 'chev')}</button>
       </div>
-      <p class="footnote">האפליקציה ננעלת אוטומטית אחרי דקה ברקע. הכספת דורשת אימות בכל כניסה.</p>
+      <p class="footnote">היומן נפתח ישירות, בלי קוד. כספת הסיסמאות דורשת Face ID או קוד בכל כניסה.</p>
 
       <div class="section-title">גיבוי ושחזור<span class="count" style="color:${backupDue() ? 'var(--amber)' : 'var(--text-3)'}">גיבוי אחרון: ${lastBackupLabel()}</span></div>
       <div class="list">
         <button class="row tappable" data-export style="width:100%"><span class="setting-icon" style="background:#007AFF">${icon('upload', 18)}</span><div class="grow" style="text-align:start">ייצוא גיבוי מוצפן (.json)<div class="meta">שמרו ב-iCloud Drive דרך "שמירה בקבצים"</div></div>${icon('chevron-left', 18, 'chev')}</button>
         <button class="row tappable" data-import style="width:100%"><span class="setting-icon" style="background:#5856D6">${icon('download', 18)}</span><div class="grow" style="text-align:start">שחזור מגיבוי<div class="meta">מחליף את כל הנתונים במכשיר</div></div>${icon('chevron-left', 18, 'chev')}</button>
       </div>
-      <p class="footnote">הגיבוי מוצפן בקוד הגישה הנוכחי שלכם. לשחזור במכשיר חדש תצטרכו את אותו הקוד.</p>
+      <p class="footnote">הגיבוי מוצפן בקוד הכספת שלכם. לשחזור במכשיר חדש תצטרכו את אותו הקוד.</p>
 
       <div class="section-title">מידע</div>
       <div class="list">
@@ -85,16 +84,17 @@ export async function openSettings({ highlightBio = false } = {}) {
   body.addEventListener('click', async (e) => {
     const t = (s) => e.target.closest(s);
     let n;
-    if ((n = t('[data-theme]'))) { localStorage.setItem('yoman2.theme', n.dataset.theme); applyTheme(); draw(); return; }
+    if ((n = t('[data-theme-opt]'))) { localStorage.setItem('yoman2.theme', n.dataset.themeOpt); applyTheme(); draw(); return; }
     if (t('[data-bio]') && bioOk) {
       if (auth.bioEnrolled()) { await auth.disableBio(); toast('Face ID כובה'); draw(); return; }
-      const pin = await pinPad({ mode: 'verify', overlay: true, subtitle: 'הזינו קוד כדי להפעיל Face ID' });
+      const pin = await requirePin('הזינו קוד כדי להפעיל Face ID');
       if (!pin) return;
       try { await auth.enrollBio(pin); toast('Face ID הופעל ✓'); } catch (err) { toast(err?.name === 'NotAllowedError' ? 'ההפעלה בוטלה' : 'לא ניתן להפעיל Face ID'); }
       draw();
       return;
     }
     if (t('[data-change-pin]')) {
+      if (!auth.isSetUp()) { if (await requirePin()) { toast('הקוד נשמר ✓'); draw(); } return; }
       const old = await pinPad({ mode: 'verify', overlay: true, subtitle: 'הזינו את הקוד הנוכחי', allowBio: false });
       if (!old) return;
       const neu = await pinPad({ mode: 'newpin', overlay: true, title: 'קוד חדש' });
@@ -102,7 +102,6 @@ export async function openSettings({ highlightBio = false } = {}) {
       toast((await auth.changePin(old, neu)) ? 'הקוד עודכן ✓' : 'שינוי הקוד נכשל');
       return;
     }
-    if (t('[data-lock]')) { sh.close(); document.dispatchEvent(new Event('yoman-lock')); return; }
     if (t('[data-export]')) { if (await exportBackup()) draw(); return; }
     if (t('[data-import]')) { await importBackup(); }
   });
@@ -110,7 +109,7 @@ export async function openSettings({ highlightBio = false } = {}) {
 
 /* ---------------- backup ---------------- */
 export async function exportBackup() {
-  const pin = await pinPad({ mode: 'verify', overlay: true, subtitle: 'הגיבוי יוצפן בקוד הגישה', allowBio: false });
+  const pin = await requirePin('הגיבוי יוצפן בקוד הכספת');
   if (!pin) return false;
   toast('מכין גיבוי…', 20000);
   const data = { stores: {}, auth: auth.exportAuth(), settings: {} };

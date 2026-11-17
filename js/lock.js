@@ -15,7 +15,7 @@ export function pinPad({ mode = 'unlock', title, subtitle = '', overlay = false,
   return new Promise((resolve) => {
     const el = document.createElement('div');
     el.className = `lock ${overlay ? 'overlay' : ''}`;
-    const cancellable = mode === 'vault' || mode === 'verify' || mode === 'newpin';
+    const cancellable = mode === 'vault' || mode === 'verify' || mode === 'newpin' || (mode === 'setup' && overlay);
     const choosing = mode === 'setup' || mode === 'newpin';
     const useBio = allowBio && (mode === 'unlock' || mode === 'vault') && auth.bioEnrolled();
     let pin = '', first = null, busy = false;
@@ -129,4 +129,12 @@ export function pinPad({ mode = 'unlock', title, subtitle = '', overlay = false,
     renderDots();
     if (useBio) setTimeout(tryBio, 250);
   });
+}
+
+/** Verified PIN for sensitive actions (vault, backup, Face ID). Creates one the first time. */
+export async function requirePin(subtitle) {
+  if (!auth.isSetUp()) {
+    return pinPad({ mode: 'setup', overlay: true, title: 'קוד לכספת ולגיבוי', subtitle: 'בחרו קוד בן 4–6 ספרות (היומן עצמו נפתח בלי קוד)' });
+  }
+  return pinPad({ mode: 'verify', overlay: true, subtitle, allowBio: false });
 }
