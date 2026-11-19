@@ -5,6 +5,9 @@ import { icon } from './icons.js';
 import { esc, openSheet, toast, fmtDateLong, haptic } from './util.js';
 
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+// On iPhone/iPad the browser speech API is unreliable (especially in a home-screen app, where it
+// often returns no text at all). The keyboard's own 🎙️ dictation always works, so it is the default.
+const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const EXAMPLES = [
   'מחר בחמש פגישה עם חשמלאי ולאחר מכן לקנות חלב',
@@ -15,11 +18,20 @@ const EXAMPLES = [
 
 export function openVoice({ autoStart = true } = {}) {
   let rec = null, recording = false, parsed = null;
+  const keyboardMode = IS_IOS || !SR;
   const body = document.createElement('div');
-  body.innerHTML = `
+  body.innerHTML = `${keyboardMode ? `
+    <div class="dictate-tip">
+      <span class="dt-mic">${icon('mic', 22)}</span>
+      <div><strong>מדברים דרך המקלדת</strong>
+        <div>הקישו על <b>🎙️ בפינה התחתונה של המקלדת</b> ודברו. הטקסט ייכתב כאן ויפוענח לבד.</div></div>
+    </div>
+    <textarea class="textarea" data-text placeholder="דברו או הקלידו… למשל: מחר בחמש פגישה עם חשמלאי ולאחר מכן לקנות חלב" style="min-height:76px"></textarea>
+    <div class="voice-hint" data-hint style="margin:6px 0 0;font-size:12.5px">לא רואים 🎙️ במקלדת? הגדרות ← כללי ← מקלדת ← "הפעלת הכתבה"</div>
+    <button class="voice-orb hidden" data-mic aria-label="הקלטה"></button>` : `
     <button class="voice-orb" data-mic aria-label="הקלטה">${icon('mic', 40)}</button>
-    <div class="voice-hint" data-hint>${SR ? 'הקישו על המיקרופון ודברו בחופשיות' : 'הקלידו, או השתמשו במיקרופון של המקלדת 🎙️'}</div>
-    <textarea class="textarea" data-text placeholder="מה בתוכנית? למשל: מחר בחמש פגישה עם חשמלאי ולאחר מכן לקנות חלב" style="min-height:84px"></textarea>
+    <div class="voice-hint" data-hint>הקישו על המיקרופון ודברו בחופשיות</div>
+    <textarea class="textarea" data-text placeholder="מה בתוכנית? למשל: מחר בחמש פגישה עם חשמלאי ולאחר מכן לקנות חלב" style="min-height:84px"></textarea>`}
     <div data-preview></div>
     <div class="examples" data-examples>
       <div class="section-title" style="margin:10px 4px 0">דוגמאות</div>
@@ -207,7 +219,12 @@ export function openVoice({ autoStart = true } = {}) {
   }
   orb.onclick = () => (recording ? stop() : start());
 
-  // must run synchronously inside the tap that opened the sheet (iOS gesture rule)
-  if (autoStart && SR) start();
-  else if (!SR) hint.textContent = 'הקישו על שדה הטקסט ואז על 🎙️ במקלדת כדי להכתיב';
+  if (keyboardMode) {
+    // focus synchronously inside the tap so iOS opens the keyboard (with its 🎙️ key) right away
+    ta.focus();
+    return;
+  }
+  // must run synchronously inside the tap that opened the sheet (browser gesture rule)
+  if (autoStart) start();
+  else ta.focus();
 }
