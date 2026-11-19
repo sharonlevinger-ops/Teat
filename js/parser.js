@@ -29,6 +29,9 @@ export function isInfinitive(word) {
   return /^ל[֐-׿]{3,}$/.test(w) && !NOT_VERBS.has(w);
 }
 
+const HEB_MONTHS = { 'ינואר': 1, 'פברואר': 2, 'מרץ': 3, 'מרס': 3, 'אפריל': 4, 'מאי': 5, 'יוני': 6, 'יולי': 7, 'אוגוסט': 8, 'ספטמבר': 9, 'אוקטובר': 10, 'נובמבר': 11, 'דצמבר': 12 };
+const NOT_TIME_AFTER = `(?!\\s*(?:ימים|יום|שבועות|חודשים|דקות|שעות|ש"ח|ש״ח|₪|%|לחודש|ב(?:${Object.keys(HEB_MONTHS).join('|')})))`;
+
 function applyDaypart(h, part, explicitColon) {
   if (part) {
     if (part === 'בבוקר') return h === 12 ? 0 : h;
@@ -36,7 +39,8 @@ function applyDaypart(h, part, explicitColon) {
     if (part.startsWith('בצהר')) return h < 6 ? h + 12 : h;
     return h < 12 ? h + 12 : h; // ערב / אחה"צ
   }
-  if (!explicitColon && h >= 1 && h <= 6) return h + 12; // "בחמש" → 17:00
+  if (explicitColon === 'zero') return h; // "06:00" written with a leading zero – keep as is
+  if (h >= 1 && h <= 6) return h + 12; // "בחמש", "ב-5", "5:00" → afternoon
   return h;
 }
 
@@ -65,6 +69,26 @@ function extractDate(state, now) {
     if (!m[4] && dt < addDays(today, -1)) dt = new Date(y + 1, mo - 1, d);
     date = dt;
     // also drop a weekday name right before / after (e.g. "ביום שלישי 25/11")
+    return true;
+  });
+
+  // "ב-25 בנובמבר", "25 לנובמבר"
+  if (!date) cut(state, new RegExp(`${B}(?:ב|ה)?[-־]?(\\d{1,2})\\s+(?:ב|ל)(${Object.keys(HEB_MONTHS).join('|')})(?:\\s+(\\d{4}))?${E}`), (m) => {
+    const d = +m[2], mo = HEB_MONTHS[m[3]];
+    if (d < 1 || d > 31) return false;
+    let y = m[4] ? +m[4] : today.getFullYear();
+    let dt = new Date(y, mo - 1, d);
+    if (!m[4] && dt < addDays(today, -1)) dt = new Date(y + 1, mo - 1, d);
+    date = dt;
+    return true;
+  });
+  // "ה-25 לחודש"
+  if (!date) cut(state, new RegExp(`${B}(?:ב|ה)?[-־]?(\\d{1,2})\\s+לחודש(?:\\s+הבא)?${E}`), (m) => {
+    const d = +m[2];
+    if (d < 1 || d > 31) return false;
+    let dt = new Date(today.getFullYear(), today.getMonth(), d);
+    if (dt < today || m[0].includes('הבא')) dt = new Date(today.getFullYear(), today.getMonth() + 1, d);
+    date = dt;
     return true;
   });
 
@@ -112,11 +136,13 @@ function extractTime(state) {
   const dpRe = `(?:\\s+${DAYPART})?`;
 
   // HH:MM / HH.MM
-  if (cut(state, new RegExp(`${B}(?:ב?שעה\\s*|ב[-־]?)?(\\d{1,2})[:.](\\d{2})${dpRe}${E}`), (m) => set(applyDaypart(+m[2], m[4], true), +m[3]))) return time;
+  if (cut(state, new RegExp(`${B}(?:ב?שעה\\s*|ב[-־]?\\s?)?(\\d{1,2})[:.](\\d{2})${dpRe}${E}`), (m) => set(applyDaypart(+m[2], m[4], m[2].length === 2 && m[2][0] === '0' ? 'zero' : true), +m[3]))) return time;
 
   // "בשעה 5", "ב-17", "ב5 בערב"
   if (cut(state, new RegExp(`${B}(?:ב?שעה\\s*)(\\d{1,2})(\\s+וחצי|\\s+ורבע)?${dpRe}${E}`), (m) => set(applyDaypart(+m[2], m[4], +m[2] > 12), MINUTE_WORDS[(m[3] || '').trim()] || 0))) return time;
-  if (cut(state, new RegExp(`${B}ב[-־]?(\\d{1,2})(\\s+וחצי|\\s+ורבע)?\\s+${DAYPART}${E}`), (m) => set(applyDaypart(+m[2], m[4], false), MINUTE_WORDS[(m[3] || '').trim()] || 0))) return time;
+  if (cut(state, new RegExp(`${B}ב[-־]?\\s?(\\d{1,2})(\\s+וחצי|\\s+ורבע)?\\s+${DAYPART}${E}`), (m) => set(applyDaypart(+m[2], m[4], false), MINUTE_WORDS[(m[3] || '').trim()] || 0))) return time;
+  // bare "ב-5" / "ב5" / "ב 5" (common in iPhone dictation)
+  if (cut(state, new RegExp(`${B}ב[-־]?\\s?(\\d{1,2})(\\s+וחצי|\\s+ורבע)?${NOT_TIME_AFTER}${E}`), (m) => +m[2] >= 1 && +m[2] <= 23 && set(applyDaypart(+m[2], null, false), MINUTE_WORDS[(m[3] || '').trim()] || 0))) return time;
 
   // Number words: "בחמש", "בשעה שמונה וחצי בערב"
   const words = Object.keys(NUM_WORDS).join('|');

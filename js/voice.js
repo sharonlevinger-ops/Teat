@@ -14,7 +14,7 @@ const EXAMPLES = [
 ];
 
 export function openVoice({ autoStart = true } = {}) {
-  let rec = null, recording = false, finalText = '', parsed = null;
+  let rec = null, recording = false, parsed = null;
   const body = document.createElement('div');
   body.innerHTML = `
     <button class="voice-orb" data-mic aria-label="הקלטה">${icon('mic', 40)}</button>
@@ -36,7 +36,7 @@ export function openVoice({ autoStart = true } = {}) {
     body,
     full: true,
     actions: '<button class="btn-text strong" data-save disabled>שמירה</button>',
-    onClose: () => stop(),
+    onClose: () => stop(true),
   });
   const saveBtn = sheet.el.querySelector('[data-save]');
 
@@ -106,47 +106,108 @@ export function openVoice({ autoStart = true } = {}) {
     toast(res.event ? `נוסף ליומן${res.tasks.length ? ` עם ${res.tasks.length} משימות` : ''} ✓` : 'המשימה נוספה ✓');
   };
 
-  /* ---- speech ---- */
-  function start() {
-    if (!SR) { ta.focus(); return; }
-    try {
-      rec = new SR();
-      rec.lang = 'he-IL';
-      rec.interimResults = true;
-      rec.continuous = true;
-      finalText = ta.value ? ta.value.trim() + ' ' : '';
-      rec.onresult = (e) => {
-        let interim = '';
-        for (let i = e.resultIndex; i < e.results.length; i++) {
-          const r = e.results[i];
-          if (r.isFinal) finalText += r[0].transcript.trim() + ' ';
-          else interim += r[0].transcript;
-        }
-        ta.value = (finalText + interim).trim();
-        renderPreview();
-      };
-      rec.onerror = (e) => {
-        hint.textContent = e.error === 'not-allowed' ? 'אין הרשאת מיקרופון – אפשרו בהגדרות, או השתמשו במקלדת' : 'ההקלטה נעצרה – אפשר להקליד או לנסות שוב';
-        setRec(false);
-      };
-      rec.onend = () => setRec(false);
-      rec.start();
-      setRec(true);
-    } catch {
-      hint.textContent = 'הקלטה לא זמינה – השתמשו במיקרופון של המקלדת';
-      ta.focus();
+  /* ---- speech ----
+   * iPhone notes:
+   *  - recognition must start directly inside the tap (no setTimeout), or iOS silently refuses;
+   *  - iOS often never marks results as final and may repeat earlier text, so the transcript is
+   *    rebuilt from all results on every event and overlapping chunks are merged;
+   *  - recording stops by itself after a short silence. */
+  const SILENCE_MS = 2500;
+  let base = '', heard = false, lastErr = null, silenceTimer = null, maxTimer = null;
+
+  function mergeResults(results) {
+    const parts = [];
+    for (let i = 0; i < results.length; i++) {
+      const t = (results[i][0]?.transcript || '').trim();
+      if (!t) continue;
+      const last = parts[parts.length - 1];
+      if (last && t.startsWith(last)) parts[parts.length - 1] = t; // cumulative repeat
+      else if (last && last.startsWith(t)) continue; // shorter duplicate
+      else parts.push(t);
     }
+    return parts.join(' ');
   }
-  function stop() { try { rec?.stop(); } catch { /* ignore */ } setRec(false); }
+
+  const ERRORS = {
+    'not-allowed': 'אין הרשאת מיקרופון. בהגדרות האייפון: Safari ← מיקרופון ← "אפשר". בינתיים אפשר להשתמש במיקרופון של המקלדת 🎙️',
+    'service-not-allowed': 'זיהוי הדיבור כבוי באייפון. בהגדרות: כללי ← מקלדת ← "הפעלת הכתבה". בינתיים השתמשו במיקרופון של המקלדת 🎙️',
+    'language-not-supported': 'עברית לא מופעלת בהכתבה. בהגדרות: כללי ← מקלדת ← שפות הכתבה ← עברית',
+    'audio-capture': 'המיקרופון לא זמין (אולי בשימוש בשיחה או באפליקציה אחרת)',
+    'network': 'זיהוי הדיבור צריך חיבור לאינטרנט. אפשר להקליד בינתיים',
+    'no-speech': 'לא נשמע דיבור. הקישו על המיקרופון ודברו קרוב לטלפון',
+  };
+
+  function start() {
+    if (!SR) { keyboardFallback('ההקלטה לא נתמכת כאן. הקישו על 🎙️ במקלדת כדי להכתיב'); return; }
+    stop(true);
+    base = ta.value.trim();
+    heard = false; lastErr = null;
+    let r;
+    try {
+      r = new SR();
+      r.lang = 'he-IL';
+      r.interimResults = true;
+      r.continuous = true;
+      r.maxAlternatives = 1;
+    } catch {
+      keyboardFallback('ההקלטה לא זמינה. הקישו על 🎙️ במקלדת כדי להכתיב');
+      return;
+    }
+    rec = r;
+    r.onresult = (e) => {
+      if (rec !== r) return;
+      const text = mergeResults(e.results);
+      if (!text) return;
+      heard = true;
+      ta.value = base ? `${base} ${text}` : text;
+      renderPreview();
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => { if (rec === r) r.stop(); }, SILENCE_MS);
+    };
+    r.onerror = (e) => { if (rec === r && e.error !== 'aborted') lastErr = e.error; };
+    r.onend = () => {
+      if (rec !== r) return;
+      rec = null;
+      clearTimeout(silenceTimer); clearTimeout(maxTimer);
+      setRec(false);
+      if (lastErr && !(lastErr === 'no-speech' && heard)) hint.textContent = ERRORS[lastErr] || `ההקלטה נעצרה (${lastErr}). אפשר לנסות שוב או להקליד`;
+      else if (!heard) hint.textContent = ERRORS['no-speech'];
+      else hint.textContent = 'נקלט ✓ בדקו את הטקסט, תקנו אם צריך ולחצו "שמירה". הקשה על המיקרופון ממשיכה להקליט';
+    };
+    try {
+      r.start();
+    } catch {
+      rec = null;
+      keyboardFallback('לא ניתן להתחיל הקלטה. הקישו על 🎙️ במקלדת כדי להכתיב');
+      return;
+    }
+    setRec(true);
+    maxTimer = setTimeout(() => { if (rec === r) r.stop(); }, 60000);
+  }
+
+  function stop(silent = false) {
+    clearTimeout(silenceTimer); clearTimeout(maxTimer);
+    const r = rec;
+    if (!r) return;
+    if (silent) { rec = null; try { r.abort(); } catch { /* ignore */ } setRec(false); return; }
+    try { r.stop(); } catch { rec = null; setRec(false); }
+  }
+
+  function keyboardFallback(msg) {
+    hint.textContent = msg;
+    ta.focus(); // inside a tap this also opens the keyboard (with its own 🎙️ dictation key)
+  }
+
   function setRec(on) {
     recording = on;
     orb.classList.toggle('rec', on);
     orb.innerHTML = icon(on ? 'stop' : 'mic', 40);
-    if (on) hint.textContent = 'מקשיב… דברו בעברית';
-    else if (hint.textContent === 'מקשיב… דברו בעברית') hint.textContent = 'הקישו שוב להמשך הקלטה';
+    orb.setAttribute('aria-label', on ? 'עצירת הקלטה' : 'הקלטה');
+    if (on) hint.textContent = 'מקשיב… דברו בעברית (ההקלטה נעצרת לבד אחרי שתיקה)';
   }
   orb.onclick = () => (recording ? stop() : start());
 
-  if (autoStart && SR) setTimeout(start, 300);
-  else setTimeout(() => ta.focus(), 350);
+  // must run synchronously inside the tap that opened the sheet (iOS gesture rule)
+  if (autoStart && SR) start();
+  else if (!SR) hint.textContent = 'הקישו על שדה הטקסט ואז על 🎙️ במקלדת כדי להכתיב';
 }
