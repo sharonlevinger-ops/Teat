@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Forest Pinball Saga</title>
+  <meta name="description" content="A magical 3D pinball adventure for iPhone: mushroom tower, white wizard, multiball and three story chapters.">
+  <meta name="theme-color" content="#120a05">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Pinball Saga">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preload" href="fonts/orbitron-800.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/cinzel-decorative-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game" aria-label="Forest Pinball Saga playfield"></canvas>
+
+  <!-- top HUD: dark carved wood and gold -->
+  <header id="hud" class="hud">
+    <div class="hud-frame">
+      <div class="hud-side hud-left">
+        <button id="btn-pause" class="orb-btn" aria-label="Pause">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
+        </button>
+        <div class="stat"><span class="stat-label">Ball</span><span id="hud-ball" class="stat-value">1</span></div>
+      </div>
+      <div class="hud-center">
+        <div class="hud-title">Forest Pinball Saga</div>
+        <div id="hud-score" class="hud-score">000000</div>
+        <div id="hud-mode" class="hud-mode" aria-live="polite"></div>
+        <div id="hud-combo" class="hud-combo" aria-label="Rush combo progress">
+          <i data-id="mush1"></i><i data-id="mush2"></i><i data-id="mush3"></i><i data-id="crystal1" class="gem"></i><i data-id="crystal2" class="gem"></i><i data-id="potion" class="potion"></i>
+        </div>
+      </div>
+      <div class="hud-side hud-right">
+        <button id="btn-settings" class="orb-btn" aria-label="Camera and settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6l1.5 2H20a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3.5z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12.5" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        </button>
+        <div class="stat"><span class="stat-label">Score multiplier</span><span id="hud-mult" class="stat-value">1.0X</span></div>
+        <div class="stat"><span class="stat-label">Guests</span><span id="hud-guests" class="stat-value">0</span></div>
+      </div>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" aria-live="assertive"></div>
+  <div id="popups" class="popups"></div>
+
+  <div id="launch-hint" class="launch-hint hidden">TOUCH TO LAUNCH</div>
+  <div id="plunger-meter" class="plunger-meter hidden"><div class="fill"></div><div class="skill-now">NOW!</div></div>
+  <div id="fps" class="fps hidden"></div>
+
+  <!-- title screen -->
+  <section id="title" class="overlay title">
+    <div class="title-art">
+      <div class="title-sub">A magical pinball tale</div>
+      <h1>Forest<br>Pinball Saga</h1>
+      <div id="title-best" class="title-best"></div>
+    </div>
+    <ul class="how">
+      <li><b>Left / right half</b> of the screen: flippers</li>
+      <li><b>Hold &amp; release</b> bottom-right to launch. Release while <span class="hl">the skill light glows</span> for a 5,000 Skill Shot</li>
+      <li>Hit all <b>3 mushrooms, 2 crystals and the potion</b> for RUSH COMBO</li>
+      <li>Charge the <b>White Wizard</b> 3 times, then shoot the open tower door for MULTIBALL</li>
+    </ul>
+    <div class="tap-to-play">TAP FLIPPERS TO PLAY</div>
+  </section>
+
+  <!-- pause -->
+  <section id="pause" class="overlay panel hidden" role="dialog" aria-label="Paused">
+    <div class="card">
+      <h2>Paused</h2>
+      <button id="btn-resume" class="gold-btn">Resume</button>
+      <button id="btn-restart" class="gold-btn ghost">New game</button>
+      <button id="btn-pause-settings" class="gold-btn ghost">Settings</button>
+    </div>
+  </section>
+
+  <!-- settings -->
+  <section id="settings" class="overlay panel hidden" role="dialog" aria-label="Settings">
+    <div class="card">
+      <h2>Camera &amp; Settings</h2>
+      <div class="row"><span>Camera</span>
+        <div class="seg" id="set-camera"><button data-v="classic">Classic</button><button data-v="top">Top-down</button></div>
+      </div>
+      <label class="row"><span>Music</span><input id="set-music" type="range" min="0" max="100"></label>
+      <label class="row"><span>Effects</span><input id="set-sfx" type="range" min="0" max="100"></label>
+      <div class="row"><span>Graphics</span>
+        <div class="seg" id="set-quality"><button data-v="auto">Auto</button><button data-v="saver">Battery saver</button></div>
+      </div>
+      <label class="row"><span>Show FPS</span><input id="set-fps" type="checkbox"></label>
+      <button id="btn-settings-close" class="gold-btn">Done</button>
+    </div>
+  </section>
+
+  <!-- game over -->
+  <section id="gameover" class="overlay panel hidden" role="dialog" aria-label="Game over">
+    <div class="card">
+      <h2 class="big">Game Over</h2>
+      <div class="final">Score <b id="go-score">0</b></div>
+      <div class="final">Best <b id="go-best">0</b></div>
+      <div id="go-new" class="newbest hidden">NEW HIGH SCORE!</div>
+      <div class="tap-to-play small">TAP TO PLAY AGAIN</div>
+    </div>
+  </section>
+
+  <noscript><p style="color:#fff;padding:2em">Forest Pinball Saga needs JavaScript.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
