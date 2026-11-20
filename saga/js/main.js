@@ -11,6 +11,7 @@ import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
 import { Messages } from './ui/messages.js';
 import { ChapterLook } from './render/chapters.js';
+import { flatToArt } from './core/artmap.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -28,7 +29,9 @@ async function boot() {
     hud.el('btn-pause').style.backgroundImage = `url(${window.__ART_URLS__['btn-pause.png']})`;
     hud.el('btn-camera').style.backgroundImage = `url(${window.__ART_URLS__['btn-camera.png']})`;
   }
-  const messages = new Messages(hud, sim);
+  const tableLayer = document.getElementById('table-layer');
+  tableLayer.style.width = '1284px'; tableLayer.style.height = '2281px';
+  const messages = new Messages(hud, sim, tableLayer);
   messages.bind(bus);
   const audio = new AudioEngine();
   const store = {
@@ -64,7 +67,8 @@ async function boot() {
     return false;
   };
   // launch area: the painted plunger and the TOUCH TO LAUNCH hint (bottom-right of the painting)
-  const isPlungerZone = (x, y) => { const [ax, ay] = stage.screenToArt(x, y); return ax > 1030 && ay > 1560; };
+  // (screen space, from the un-zoomed fit, so it is the same corner in both camera views)
+  const isPlungerZone = (x, y) => { const L = stage.layout; return x > L.left + 1030 * L.s && y > L.top + 1560 * L.s; };
   const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused, isPlungerZone });
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
@@ -79,13 +83,17 @@ async function boot() {
   hud.el('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); setPaused(!paused); });
   document.getElementById('btn-resume').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); });
   document.getElementById('btn-newgame').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); startGame(); });
-  hud.el('btn-camera').addEventListener('click', (e) => { e.stopPropagation(); hud.set('cam-num', hud.el('cam-num').textContent === '1' ? '2' : '1'); });
+  // camera: 1 = the whole painted table, 2 = closer view that follows the ball (remembered)
+  let view = store.get('view', 1) === 2 ? 2 : 1;
+  const setView = (v) => { view = v; stage.setView(v); hud.set('cam-num', String(v)); store.set('view', v); };
+  setView(view);
+  hud.el('btn-camera').addEventListener('click', (e) => { e.stopPropagation(); setView(view === 1 ? 2 : 1); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && sim.rules.state === 'playing' && !paused) setPaused(true); });
 
   const toggle = document.getElementById('calib-toggle');
   const setCalib = (on) => { stage.setCalibration(on, sim.table); toggle.setAttribute('aria-pressed', String(on)); };
   toggle.addEventListener('click', (e) => { e.stopPropagation(); setCalib(toggle.getAttribute('aria-pressed') !== 'true'); });
-  if (location.hash === '#calib') setCalib(true);
+  if (location.hash === '#calib') { toggle.classList.remove('hidden'); setCalib(true); } // developer overlay only
 
   // ------------------------------------------------------------------ sound (presentation only)
   let lastThud = 0;
@@ -120,7 +128,8 @@ async function boot() {
   bus.on('loop', () => audio.rampDone());
 
   // ------------------------------------------------------------------ loop: fixed 120 Hz physics, interpolated drawing
-  let last = performance.now(), acc = 0, jolted = false;
+  let last = performance.now(), acc = 0, jolted = false, tableKey = '', goodRuns = 0;
+  const frameTimes = [];
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = (now - last) / 1000;
@@ -135,11 +144,29 @@ async function boot() {
     layers.update(paused ? 1 : acc / STEP);
     chapters.update(paused ? 0 : dt);
     effects.update(paused ? 0 : dt);
-    if (effects.shake > 0 || jolted) { // the painted table and its HUD frame move together
+    // camera: follow the ball nearest the flippers (view 2), apply the table jolt
+    let focus = null;
+    for (const b of sim.world.balls) {
+      if (!b.active || b.mode === 'tower' || b.mode === 'off') continue;
+      if (!focus || b.y < focus.y) focus = b;
+    }
+    stage.setJolt(effects.shakeX, effects.shakeY);
+    stage.updateCamera(dt, focus ? flatToArt(focus.x, focus.y) : [640, 1500]);
+    const T = stage.tableXf, key = `${T.x.toFixed(1)},${T.y.toFixed(1)},${T.s.toFixed(4)}`;
+    if (key !== tableKey) { tableKey = key; tableLayer.style.transform = `translate(${T.x}px, ${T.y}px) scale(${T.s})`; }
+    if (view === 1 && (effects.shake > 0 || jolted)) { // in the full view the painted HUD frame jolts with the table
       jolted = effects.shake > 0;
       const L = stage.layout;
-      stage.setJolt(effects.shakeX, effects.shakeY);
       hud.fit({ s: L.s, left: L.left + effects.shakeX * L.s, top: L.top + effects.shakeY * L.s });
+    }
+    // adaptive resolution: hold 60 FPS by lowering the pixel ratio if frames get slow
+    frameTimes.push(dt);
+    if (frameTimes.length >= 90) {
+      const avg = frameTimes.reduce((a, c) => a + c, 0) / frameTimes.length;
+      frameTimes.length = 0;
+      const pr = stage.renderer.getPixelRatio(), maxPr = Math.min(window.devicePixelRatio || 1, 3);
+      if (avg > 1 / 52 && pr > 1.5) { stage.setPixelRatio(pr - 0.5); layout(); goodRuns = 0; }
+      else if (avg < 1 / 58 && pr < maxPr && ++goodRuns > 10) { stage.setPixelRatio(Math.min(maxPr, pr + 0.5)); layout(); goodRuns = 0; }
     }
     messages.update(dt);
     const r = sim.rules;
@@ -150,9 +177,13 @@ async function boot() {
     const waiting = r.state !== 'playing' || (sim.canLaunch() && !sim.plunger.pulling);
     const tl = hud.el('touch-launch');
     if (tl.classList.contains('hidden') === waiting) tl.classList.toggle('hidden', !waiting);
-    let roll = 0;
-    for (const b of sim.world.balls) if (b.active && b.mode === 'free' && !paused) roll += Math.hypot(b.vx, b.vy);
-    audio.setRolling(roll, false);
+    let roll = 0, onRail = false; // wood rumble on the table, metallic hiss on the ramps
+    for (const b of sim.world.balls) {
+      if (!b.active || paused) continue;
+      if (b.mode === 'free') roll += Math.hypot(b.vx, b.vy);
+      else if (b.mode === 'rail') { roll += b.railV; onRail = true; }
+    }
+    audio.setRolling(roll, onRail);
     stage.render();
   }
   requestAnimationFrame(frame);
@@ -163,3 +194,8 @@ boot().catch((e) => {
   console.error(e);
   document.body.insertAdjacentHTML('beforeend', `<p style="position:fixed;inset:auto 0 40% 0;text-align:center;color:#fff;font:16px sans-serif">Could not start: ${String(e && e.message || e)}</p>`);
 });
+
+// offline + home-screen install (not in the single-file build, where service workers are unavailable)
+if ('serviceWorker' in navigator && !window.__ART_URLS__ && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}

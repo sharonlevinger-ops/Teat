@@ -160,6 +160,7 @@ const SPOTS = {
   slingL: { x: 352, y: 1690, r: 170, color: 0x7dff8a },
   slingR: { x: 928, y: 1690, r: 170, color: 0x7dff8a },
   kickback: { x: 138, y: 1840, r: 110, color: 0x50ff80 },
+  kickbackR: { x: 1142, y: 1840, r: 110, color: 0x50ff80 },
   plunger: { x: 1186, y: 1760, r: 120, color: 0x40ff90 },
 };
 const RUSH_IDS = ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'];
@@ -312,8 +313,8 @@ export class Effects {
     bus.on('superJackpot', () => { this.fireworks(3, 1.2); this.jolt(16); P.burst(DOOR.x, DOOR.y + 40, gold, 60, 420, 22, 1); });
     bus.on('skillShot', () => { hit('mush3', 50, 380); this.fireworks(1, 0); });
     bus.on('kickbackFire', ({ x, y }) => { this.jolt(9); const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, green, 30, 360, 18, 0.6, -100); });
-    bus.on('railEnter', ({ id }) => { const s = id === 'rampA' ? [1012, 1255] : [286, 1045]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 16, 200, 14, 0.5); });
-    bus.on('ramp', ({ id }) => { const s = id === 'rampA' ? [1012, 712] : [520, 628]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 30, 280, 16, 0.8); });
+    bus.on('railEnter', ({ id }) => { const s = id === 'rampA' ? [796, 660] : [494, 724]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 16, 200, 14, 0.5); });
+    bus.on('ramp', ({ id }) => { const s = id === 'rampA' ? [1068, 1572] : [232, 1560]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 30, 280, 16, 0.8); });
     bus.on('towerEject', ({ x, y }) => { const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, gold, 24, 240, 16, 0.6); });
     bus.on('ballSpawn', ({ where }) => { if (where === 'portal') P.burst(200, 760, c(0xff70e0), 40, 260, 18, 0.8, 0); });
     bus.on('ballDissolve', ({ x, y }) => { const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, white, 40, 200, 16, 1, 0); P.burst(ax, ay, green, 30, 150, 14, 1.2, 0); });
@@ -342,7 +343,7 @@ export class Effects {
         if (rules.rushActive) base = 0.45 + 0.35 * Math.sin(t * 9 + RUSH_IDS.indexOf(id));
         else if (rules.combo.has(id)) base = 0.22 + 0.06 * Math.sin(t * 2.5);
         else if (id.startsWith('mush')) base = 0.05 + 0.04 * Math.sin(t * 1.7 + RUSH_IDS.indexOf(id) * 2); // gentle breathing
-      } else if (id === 'kickback') base = rules.state === 'playing' && rules.kickbackLit ? 0.45 + 0.15 * Math.sin(t * 4) : 0;
+      } else if (id === 'kickback' || id === 'kickbackR') base = rules.state === 'playing' && rules.kickLit[id === 'kickback' ? 'L' : 'R'] ? 0.45 + 0.15 * Math.sin(t * 4) : 0;
       if (id === 'plunger') base = waiting ? 0.35 + 0.25 * Math.sin(t * 5) : 0;
       else if (id === 'wizard') base = 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0);
       g.mesh.material.opacity = Math.min(1, (base + g.flash * 0.95) * (this.glowBoost || 1));

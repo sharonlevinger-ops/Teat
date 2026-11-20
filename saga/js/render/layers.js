@@ -139,8 +139,9 @@ export class TableLayers {
       bl.shadow.scale.set(size * 1.25, size * 0.8, 1);
       bl.shadow.position.set(ax + size * 0.18 + lift * 0.4, -(ay + size * 0.32 + lift), 0);
       bl.shadow.material.opacity = 1 / (1 + z * 0.4);
-      bl.mesh.renderOrder = depth(y) + 2;
-      bl.shadow.renderOrder = depth(y) + 1;
+      // a ball riding a ramp is above the table and everything on it
+      bl.mesh.renderOrder = b.mode === 'rail' ? 9e4 : depth(y) + 2;
+      bl.shadow.renderOrder = b.mode === 'rail' ? 9e4 - 1 : depth(y) + 1;
     }
   }
 }

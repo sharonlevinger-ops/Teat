@@ -14,7 +14,7 @@ const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff
   ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
 
 export class Messages {
-  constructor(hud, sim) {
+  constructor(hud, sim, tableLayer = hud.root) {
     this.hud = hud;
     this.sim = sim;
     const root = hud.root;
@@ -29,7 +29,7 @@ export class Messages {
     for (let i = 0; i < 12; i++) {
       const d = document.createElement('div');
       d.className = 'pop';
-      root.appendChild(d);
+      tableLayer.appendChild(d); // pop-ups ride on the table (they follow the camera zoom)
       this.pops.push(d);
     }
     this.popIdx = 0;

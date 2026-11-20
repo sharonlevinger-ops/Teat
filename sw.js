@@ -1,5 +1,5 @@
 // יומן 2.0 – service worker: full offline support (app shell cached, cache-first).
-const VERSION = 'yoman2-v7';
+const VERSION = 'yoman2-v8';
 const SHELL = [
   './',
   './index.html',
@@ -48,7 +48,7 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   // other apps hosted on the same site (e.g. /pinball/) have their own service worker
-  if (url.pathname.startsWith(new URL('./pinball/', self.registration.scope).pathname)) return;
+  if (['./pinball/', './saga/'].some((d) => url.pathname.startsWith(new URL(d, self.registration.scope).pathname))) return;
 
   // navigation: serve the cached shell (works offline), refresh in background
   if (req.mode === 'navigate') {

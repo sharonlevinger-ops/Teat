@@ -58,8 +58,8 @@ export class Simulation {
     this.bus.emit('ballRemoved', { id: b.id });
   }
 
-  kickback(b) {
-    const [x] = this.table.points.kickback;
+  kickback(b, side = 'L') {
+    const [x] = side === 'R' ? this.table.points.kickbackR : this.table.points.kickback;
     b.x = x;
     b.vx = 0;
     b.vy = PHYS.KICKBACK_SPEED;
@@ -245,6 +245,7 @@ export class Simulation {
     b.railS = 0;
     b.railI = 0;
     b.railV = Math.max(20, Math.min(34, Math.hypot(b.vx, b.vy)));
+    b.railTouch = 0; // next feature along the ramp
     this.bus.emit('railEnter', { id });
   }
 
@@ -257,6 +258,12 @@ export class Simulation {
     const slope = (pts[j][2] - pts[i][2]) / seg;
     b.railV = Math.max(13, Math.min(38, b.railV - 30 * slope * PHYS_DT));
     b.railS += b.railV * PHYS_DT;
+    const touches = b.rail.touches;
+    while (touches && b.railTouch < touches.length && b.railS >= b.rail.path.at[touches[b.railTouch].at]) {
+      const tch = touches[b.railTouch++];
+      const p = b.rail.path.pts[Math.min(b.rail.path.pts.length - 1, i + 1)];
+      this.rules.onElementHit(tch.id, p[0], p[1]);
+    }
     if (b.railS >= length) {
       const end = pts[pts.length - 1];
       const [vx, vy] = b.rail.exitVel;

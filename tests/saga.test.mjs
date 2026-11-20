@@ -119,6 +119,36 @@ test('slingshot kick scores 500 (x chapter multiplier), once per kick', () => {
   assert.equal(r.lastAward.points, 750, '500 x 1.5 in chapter 2');
 });
 
+test('right outlane has its own kickback (like the left); the potion relights both', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  const b = sim.heldBall(); b.mode = 'free';
+  const [x, y] = sim.table.points.kickbackR;
+  sim._place(b, x, y + 3, 0, -15, 'free');
+  run(sim, secs(1));
+  assert.equal(count('kickbackFire'), 1, 'right kickback fired');
+  assert.ok(b.y > y, 'ball sent back up the right outlane');
+  assert.equal(r.kickLit.R, false);
+  assert.equal(r.kickLit.L, true, 'left kickback still lit');
+  r.cooldowns.clear(); r.onElementHit('potion', 0, 0);
+  assert.equal(r.kickLit.R, true);
+});
+
+test('both painted ramps ride end to end: crystal ramp passes the potion, both drop into an inlane', () => {
+  for (const [id, entryArt] of [['rampA', [796, 680]], ['rampB', [482, 726]]]) {
+    const { sim, count, events } = newGame();
+    const b = sim.heldBall(); b.mode = 'free';
+    const [x, y] = artToFlat(...entryArt);
+    sim._place(b, x, y, 0, 18, 'free'); // a shot travelling up into the entrance
+    let rode = false;
+    run(sim, secs(6), () => { if (b.mode === 'rail') rode = true; });
+    assert.ok(rode, `${id}: the ball rode the rail`);
+    assert.equal(events.filter((e) => e.type === 'ramp' && e.p.id === id).length >= 1, true, `${id} completed`);
+    if (id === 'rampA') assert.ok(events.some((e) => e.type === 'element' && e.p.id === 'potion'), 'crystal ramp counts the potion');
+    void count;
+  }
+});
+
 test('kickback saves the left outlane once', () => {
   const { sim, count } = newGame();
   const b = sim.heldBall(); b.mode = 'free';

@@ -5,6 +5,8 @@ import * as THREE from '../vendor/three.module.min.js';
 import { ART_W, ART_H, flatToArt } from '../core/artmap.js';
 import { applyGrade } from './grade.js';
 
+const FRAME_BAND = 420; // painting rows that hold the HUD frame
+const VIEW2_ZOOM = 1.45;
 const artUrl = (base, f) => (window.__ART_URLS__ && window.__ART_URLS__[f]) || base + f; // single-file build embeds images
 
 export function loadTexture(url) {
@@ -48,6 +50,24 @@ export class Stage {
     field.renderOrder = -1e6;
     this.artGroup.add(field);
     this.calib = null;
+    // camera view 2: the painted HUD frame band stays put while the table zooms and follows the ball
+    this.view = 1;
+    this.cam = { z: 1, cx: ART_W / 2, cy: ART_H / 2 };
+    this.jolt = [0, 0];
+    this.frameGroup = new THREE.Group();
+    const bandTex = art.playfield.clone();
+    bandTex.repeat.set(1, FRAME_BAND / ART_H);
+    bandTex.offset.set(0, 1 - FRAME_BAND / ART_H);
+    bandTex.needsUpdate = true;
+    const bandMat = mat(bandTex);
+    bandMat.transparent = true; // sorted with the sprites (transparent pass), so it really sits on top of the zoomed table
+    const band = new THREE.Mesh(new THREE.PlaneGeometry(ART_W, FRAME_BAND), bandMat);
+    band.position.set(ART_W / 2, -FRAME_BAND / 2, 0);
+    band.renderOrder = 2e5;
+    this.frameGroup.add(band);
+    this.frameGroup.visible = false;
+    this.scene.add(this.frameGroup);
+    this.tableXf = { x: 0, y: 0, s: 1 }; // current table transform (screen px), for screenToArt / DOM layers
   }
 
   static async load(canvas, base = 'art/') {
@@ -77,20 +97,62 @@ export class Stage {
     const texH = (tex.image.height / tex.image.width) * w;
     tex.repeat.set(1, Math.min(1, bh / texH));
     tex.offset.set(0, 1 - Math.min(1, bh / texH));
-    this.artGroup.scale.set(s, s, 1);
-    this.artGroup.position.set(left, -top, 0);
+    this.frameGroup.scale.set(s, s, 1);
+    this.frameGroup.position.set(left, -top, 0);
+    this.updateCamera(0, null, true);
     return this.layout;
   }
 
   /** shift the painted table by (dx, dy) painting pixels – the table "jolts" on big hits */
-  setJolt(dx, dy) {
-    const L = this.layout;
-    this.artGroup.position.set(L.left + dx * L.s, -(L.top + dy * L.s), 0);
+  setJolt(dx, dy) { this.jolt[0] = dx; this.jolt[1] = dy; this._applyTable(); }
+
+  setView(v) {
+    this.view = v;
+    this.frameGroup.visible = v === 2;
+    // view 2: the strip above the painting also covers the zoomed table
+    this.quadTop.material.transparent = v === 2;
+    this.quadTop.renderOrder = v === 2 ? 2e5 : -1e6;
+    this.quadTop.material.needsUpdate = true;
+    this.updateCamera(0, null, true);
+  }
+
+  /** follow a point of the painting (view 2) – smooth, clamped to the table */
+  updateCamera(dt, focus, snap = false) {
+    const L = this.layout, c = this.cam;
+    const zT = this.view === 2 ? VIEW2_ZOOM : 1;
+    const k = snap ? 1 : Math.min(1, dt * 4);
+    c.z += (zT - c.z) * k;
+    if (this.view === 2 && focus) {
+      const bandBottom = L.top + FRAME_BAND * L.s;
+      const visH = (L.H - bandBottom) / (L.s * c.z), visW = L.W / (L.s * c.z);
+      const tx = Math.max(visW / 2, Math.min(ART_W - visW / 2, focus[0]));
+      const ty = Math.max(FRAME_BAND + visH / 2 - 40, Math.min(ART_H - visH / 2, focus[1] - visH * 0.08));
+      c.cx += (tx - c.cx) * k; c.cy += (ty - c.cy) * k;
+    } else if (this.view === 1) { c.cx += (ART_W / 2 - c.cx) * k; c.cy += (ART_H / 2 - c.cy) * k; }
+    this._applyTable();
+  }
+
+  _applyTable() {
+    const L = this.layout, c = this.cam;
+    const sc = L.s * c.z;
+    let x, y;
+    if (c.z < 1.001) { x = L.left; y = L.top; } // exact fit
+    else {
+      const bandBottom = L.top + FRAME_BAND * L.s;
+      x = L.W / 2 - c.cx * sc;
+      y = (bandBottom + L.H) / 2 - c.cy * sc;
+    }
+    x += this.jolt[0] * L.s; y += this.jolt[1] * L.s;
+    this.tableXf = { x, y, s: sc };
+    this.artGroup.scale.set(sc, sc, 1);
+    this.artGroup.position.set(x, -y, 0);
   }
 
   /** painting pixels -> CSS pixels on screen, and back */
-  artToScreen(x, y) { const L = this.layout; return [L.left + x * L.s, L.top + y * L.s]; }
-  screenToArt(x, y) { const L = this.layout; return [(x - L.left) / L.s, (y - L.top) / L.s]; }
+  artToScreen(x, y) { const T = this.tableXf; return [T.x + x * T.s, T.y + y * T.s]; }
+  screenToArt(x, y) { const T = this.tableXf; return [(x - T.x) / T.s, (y - T.y) / T.s]; }
+
+  setPixelRatio(r) { this.renderer.setPixelRatio(r); }
 
   render() { this.renderer.render(this.scene, this.camera); }
 

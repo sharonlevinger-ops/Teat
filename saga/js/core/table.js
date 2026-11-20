@@ -41,7 +41,10 @@ function rail(artPts, heights) {
   dense.push(pts[pts.length - 1]);
   const cum = [0];
   for (let i = 1; i < dense.length; i++) cum.push(cum[i - 1] + Math.hypot(dense[i][0] - dense[i - 1][0], dense[i][1] - dense[i - 1][1]));
-  return { pts: dense, cum, length: cum[cum.length - 1] };
+  // arc length at each control point (so features along the ramp can be placed by control point)
+  const at = [0];
+  for (let i = 1; i < pts.length; i++) at.push(at[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  return { pts: dense, cum, length: cum[cum.length - 1], at };
 }
 
 export function buildTable() {
@@ -126,8 +129,8 @@ export function buildTable() {
   const sensors = [
     R('shooterExit', [1213, 860], 1.2, 0.9),
     R('skillTurn', [215, 700], 4.2, 1.2),
-    R('rampA', [1012, 1262], 1.5, 0.8),
-    R('rampB', [286, 1048], 1.4, 0.8),
+    R('rampA', [796, 660], 1.6, 0.9), // crystal ramp entrance, beside the tower (right)
+    R('rampB', [494, 724], 2.4, 1.2), // golden wire ramp entrance: the corridor between mushroom 3 and the tower
     R('orbitL', [190, 900], 2.4, 0.6),
     R('orbitR', [1142, 900], 1.6, 0.6),
     { id: 'towerIn', type: 'circle', x: tower.x, y: tower.y - 0.9, r: 0.9, toggle: 'doorOpen' },
@@ -138,8 +141,21 @@ export function buildTable() {
 
   // ramps: the crystal ramp climbs to the potion, the wire orbit on the left climbs past mushroom 3
   const ramps = {
-    rampA: { name: 'Crystal Ramp', path: rail([[1012, 1255], [1030, 1150], [1046, 1000], [1052, 850], [1040, 750], [1012, 712]], [0, 1, 2, 2.6, 2.4, 1.6]), exitVel: [0, 5] },
-    rampB: { name: 'Golden Orbit', path: rail([[286, 1045], [264, 950], [262, 860], [290, 760], [350, 685], [440, 630], [520, 628]], [0, 1, 1.8, 2.4, 2.6, 2.2, 1.4]), exitVel: [3, -7] },
+    // the whole painted crystal ramp: from the tower, round past the potion, down the glass, down the wire to the right inlane
+    rampA: {
+      name: 'Crystal Ramp',
+      path: rail([[796, 660], [850, 610], [930, 596], [1000, 640], [1040, 720], [1062, 830], [1062, 960], [1046, 1080], [1016, 1190], [1004, 1250],
+        [1030, 1330], [1062, 1420], [1074, 1500], [1068, 1572]], [0.3, 1.2, 2.0, 2.4, 2.6, 2.6, 2.4, 2.1, 1.8, 1.5, 1.1, 0.7, 0.35, 0.1]),
+      exitVel: [-0.5, -8],
+      touches: [{ at: 3, id: 'potion' }], // rolling past the potion counts as a potion hit
+    },
+    // the whole painted golden wire ramp: from beside the tower, round mushroom 3, down the left side to the left inlane
+    rampB: {
+      name: 'Golden Ramp',
+      path: rail([[482, 706], [420, 680], [350, 700], [292, 770], [262, 870], [246, 990], [238, 1110], [246, 1230], [238, 1350], [228, 1460], [232, 1560]],
+        [0.3, 1.2, 2.0, 2.4, 2.4, 2.2, 1.9, 1.5, 1.0, 0.5, 0.1]),
+      exitVel: [0.6, -8],
+    },
   };
 
   const pt = (art) => F(art);
@@ -151,6 +167,7 @@ export function buildTable() {
     portal: pt([200, 760]),
     rescue: pt([200, 820]),
     kickback: pt([138, 1900]),
+    kickbackR: pt([1142, 1900]),
   };
 
   return {

@@ -45,7 +45,7 @@ export class GameRules {
     this.doorTicks = 0;
     this.multiball = false;
     this.mbTicks = 0;
-    this.kickbackLit = true;
+    this.kickLit = { L: true, R: true }; // a kickback on each outlane
     this.skillAvailable = false;
     this.skillArmed = false;
     this.skillTicks = 0;
@@ -61,6 +61,7 @@ export class GameRules {
   // ---------------------------------------------------------------- derived state
   get stage() { return STAGES[this.stageIndex]; }
   get rushActive() { return this.rushTicks > 0; }
+  get kickbackLit() { return this.kickLit.L; }
   get doorOpen() { return this.doorTicks > 0; }
   get multiplier() { return this.stage.mult * (this.rushActive ? RUSH_MULT : 1); }
   get skillLit() { return this.skillAvailable && this.skillPhase % T.SKILL_PERIOD < T.SKILL_LIT; }
@@ -80,7 +81,7 @@ export class GameRules {
     this.skillAvailable = true;
     this.skillArmed = false;
     this.skillPhase = 0;
-    this.kickbackLit = true;
+    this.kickLit.L = this.kickLit.R = true;
     this.bus.emit('ballServed', { ball: this.ball });
     this.bus.emit('kickback', { lit: true });
   }
@@ -186,8 +187,8 @@ export class GameRules {
     this.award(SCORE.ELEMENT, id, x, y);
     this.bus.emit('element', { id, x, y });
     this._chainHit(x, y);
-    if (id === 'potion' && !this.kickbackLit) {
-      this.kickbackLit = true;
+    if (id === 'potion' && !(this.kickLit.L && this.kickLit.R)) { // the potion relights both kickbacks
+      this.kickLit.L = this.kickLit.R = true;
       this.bus.emit('kickback', { lit: true });
     }
     if (!this.rushActive && RUSH_ELEMENTS.includes(id) && !this.combo.has(id)) {
@@ -277,10 +278,10 @@ export class GameRules {
   }
 
   onOutlane(ball, side) {
-    if (side === 'L' && this.kickbackLit) {
-      this.kickbackLit = false;
-      this.ctl.kickback(ball);
-      this.bus.emit('kickback', { lit: false, fired: true });
+    if (this.kickLit[side]) {
+      this.kickLit[side] = false;
+      this.ctl.kickback(ball, side);
+      this.bus.emit('kickback', { lit: false, fired: true, side });
     } else {
       this.bus.emit('outlane', { side });
     }
