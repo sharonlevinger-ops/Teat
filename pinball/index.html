@@ -21,53 +21,55 @@
 <body>
   <canvas id="game" aria-label="Forest Pinball Saga playfield"></canvas>
 
-  <!-- top HUD: dark carved wood and gold -->
+  <!-- top HUD: carved dark wood and gold, like the concept art -->
   <header id="hud" class="hud">
-    <div class="hud-frame">
-      <div class="hud-side hud-left">
-        <button id="btn-pause" class="orb-btn" aria-label="Pause">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg>
-        </button>
-        <div class="stat"><span class="stat-label">Ball</span><span id="hud-ball" class="stat-value">1</span></div>
-      </div>
-      <div class="hud-center">
-        <div class="hud-title">Forest Pinball Saga</div>
-        <div id="hud-score" class="hud-score">000000</div>
+    <div class="plaque"><span>Forest Pinball Saga</span></div>
+    <div class="board">
+      <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+      <div class="screen">
+        <div id="hud-score" class="hud-score">0</div>
         <div id="hud-mode" class="hud-mode" aria-live="polite"></div>
         <div id="hud-combo" class="hud-combo" aria-label="Rush combo progress">
           <i data-id="mush1"></i><i data-id="mush2"></i><i data-id="mush3"></i><i data-id="crystal1" class="gem"></i><i data-id="crystal2" class="gem"></i><i data-id="potion" class="potion"></i>
         </div>
       </div>
-      <div class="hud-side hud-right">
-        <button id="btn-settings" class="orb-btn" aria-label="Camera and settings">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6l1.5 2H20a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3.5z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12.5" r="3.6" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-        </button>
-        <div class="stat"><span class="stat-label">Score multiplier</span><span id="hud-mult" class="stat-value">1.0X</span></div>
-        <div class="stat"><span class="stat-label">Guests</span><span id="hud-guests" class="stat-value">0</span></div>
+      <div class="stats">
+        <div class="cell">Ball: <b id="hud-ball">1</b></div>
+        <div class="cell">Score multiplier: <b id="hud-mult">1.0X</b></div>
+        <div class="cell">Guests: <b id="hud-guests">0</b></div>
       </div>
     </div>
   </header>
+  <button id="btn-pause" class="orb-btn left" aria-label="Pause">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2l2.6 3.4 4.2-.9.9 4.2 3.8 2-1.7 3.9 1.7 3.9-3.8 2-.9 4.2-4.2-.9L16 30l-2.6-3.4-4.2.9-.9-4.2-3.8-2 1.7-3.9-1.7-3.9 3.8-2 .9-4.2 4.2.9z" fill="#fff"/><rect x="11.5" y="10.5" width="3" height="11" rx="1" fill="#6a2a9a"/><rect x="17.5" y="10.5" width="3" height="11" rx="1" fill="#6a2a9a"/></svg>
+  </button>
+  <button id="btn-camera" class="orb-btn right" aria-label="Change camera">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="9" cy="9" r="4" fill="#fff"/><circle cx="18" cy="8" r="4.5" fill="#fff"/><rect x="4" y="13" width="18" height="12" rx="2.5" fill="#fff"/><path d="M22 17l7-4v12l-7-4z" fill="#fff"/></svg>
+    <span id="cam-num" class="cam-num">1</span>
+  </button>
 
   <div id="banner" class="banner" aria-live="assertive"></div>
   <div id="popups" class="popups"></div>
 
-  <div id="launch-hint" class="launch-hint hidden">TOUCH TO LAUNCH</div>
+  <div id="launch-hint" class="launch-hint hidden">
+    <svg viewBox="0 0 60 60" aria-hidden="true"><path d="M10 52 C 14 30, 26 18, 44 12" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M34 6 L50 10 L42 24" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>TOUCH TO<br>LAUNCH</span>
+  </div>
   <div id="plunger-meter" class="plunger-meter hidden"><div class="fill"></div><div class="skill-now">NOW!</div></div>
   <div id="fps" class="fps hidden"></div>
 
-  <!-- title screen -->
+  <!-- title screen: the live table in attract mode -->
   <section id="title" class="overlay title">
-    <div class="title-art">
-      <div class="title-sub">A magical pinball tale</div>
-      <h1>Forest<br>Pinball Saga</h1>
+    <div class="how-card">
+      <div class="how-title">How to play</div>
+      <ul class="how">
+        <li><b>Left / right half</b> of the screen: flippers</li>
+        <li><b>Hold &amp; release</b> the plunger corner to launch. Release while <span class="hl">the skill light glows</span>: Skill Shot +5,000</li>
+        <li><b>3 mushrooms + 2 crystals + the potion</b>: RUSH COMBO ×2</li>
+        <li>Charge the <b>Wizard</b> ×3, shoot the open tower door: MULTIBALL</li>
+      </ul>
       <div id="title-best" class="title-best"></div>
     </div>
-    <ul class="how">
-      <li><b>Left / right half</b> of the screen: flippers</li>
-      <li><b>Hold &amp; release</b> bottom-right to launch. Release while <span class="hl">the skill light glows</span> for a 5,000 Skill Shot</li>
-      <li>Hit all <b>3 mushrooms, 2 crystals and the potion</b> for RUSH COMBO</li>
-      <li>Charge the <b>White Wizard</b> 3 times, then shoot the open tower door for MULTIBALL</li>
-    </ul>
     <div class="tap-to-play">TAP FLIPPERS TO PLAY</div>
   </section>
 

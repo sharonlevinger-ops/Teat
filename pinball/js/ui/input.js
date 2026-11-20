@@ -30,7 +30,8 @@ export class Input {
 
   zoneFor(x, y) {
     const w = window.innerWidth, h = window.innerHeight;
-    if (this.sim.canLaunch() && x > w * 0.62 && y > h * 0.5) return 'P';
+    // the plunger corner only (bottom-right, around the launch lane and its TOUCH TO LAUNCH hint)
+    if (this.sim.canLaunch() && x > w * 0.7 && y > h * 0.68) return 'P';
     return x < w / 2 ? 'L' : 'R';
   }
 

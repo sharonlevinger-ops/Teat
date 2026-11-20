@@ -24,9 +24,11 @@ async function boot() {
 
   const hudEl = $('hud');
   const renderer = new GameRenderer($('game'), sim, {
-    getTopInset: () => hudEl.getBoundingClientRect().bottom + 4,
-    getBottomInset: () => 26,
+    getTopInset: () => hudEl.getBoundingClientRect().bottom + 2,
+    getBottomInset: () => 0,
   });
+  const syncHudVar = () => document.documentElement.style.setProperty('--hud-bottom', `${Math.round(hudEl.getBoundingClientRect().bottom)}px`);
+  syncHudVar();
   renderer.bind(bus);
   const hud = new Hud(sim, renderer);
   hud.bind(bus);
@@ -133,7 +135,14 @@ async function boot() {
   tapBtn('btn-resume', () => setPaused(false));
   tapBtn('btn-restart', () => { setPaused(false); startGame(); });
   const openSettings = () => { input.releaseAll(); show('settings', true); };
-  tapBtn('btn-settings', openSettings);
+  const segSync = [];
+  tapBtn('btn-camera', () => {
+    settings.camera = settings.camera === 'classic' ? 'top' : 'classic';
+    renderer.setCameraMode(settings.camera);
+    $('cam-num').textContent = settings.camera === 'classic' ? '1' : '2';
+    segSync.forEach((f) => f());
+    store.set('settings', settings);
+  });
   tapBtn('btn-pause-settings', openSettings);
   tapBtn('btn-settings-close', () => { show('settings', false); store.set('settings', settings); });
 
@@ -142,13 +151,16 @@ async function boot() {
     const sync = () => el.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.v === settings[key]));
     el.querySelectorAll('button').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); settings[key] = b.dataset.v; sync(); apply(); }));
     sync();
+    segSync.push(sync);
   };
-  seg('set-camera', 'camera', () => renderer.setCameraMode(settings.camera));
+  seg('set-camera', 'camera', () => { renderer.setCameraMode(settings.camera); $('cam-num').textContent = settings.camera === 'classic' ? '1' : '2'; });
+  $('cam-num').textContent = settings.camera === 'classic' ? '1' : '2';
   const applyQuality = () => {
     renderer.maxPixelRatio = settings.quality === 'saver' ? 1 : Math.min(window.devicePixelRatio || 1, 2);
     renderer.pixelRatio = Math.min(renderer.pixelRatio, renderer.maxPixelRatio);
     if (settings.quality === 'saver') renderer.pixelRatio = 1;
-    renderer.renderer.setPixelRatio(renderer.pixelRatio);
+    renderer.setBloom(settings.quality !== 'saver');
+    renderer.setShadows(settings.quality !== 'saver');
     renderer.resize();
   };
   seg('set-quality', 'quality', applyQuality);
@@ -167,7 +179,7 @@ async function boot() {
     if (document.hidden) { if (sim.rules.state === 'playing') setPaused(true); else audio.suspend(); }
     else if (!paused) audio.resume();
   });
-  const onResize = () => renderer.resize();
+  const onResize = () => { syncHudVar(); renderer.resize(); };
   window.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', () => setTimeout(onResize, 300));
 

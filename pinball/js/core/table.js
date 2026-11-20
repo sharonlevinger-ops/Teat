@@ -71,8 +71,8 @@ export function buildTable() {
   // lower lane guides (inlane / outlane separators)
   // the guide ends just above the flipper's top surface, so the ball always rolls onto the flipper
   const guideL = [[2.0, 12.5], [2.0, 8.6], [5.6, 5.95]];
-  wall(guideL, { visual: 'rail', h: 1.0 });
-  wall(mirror(guideL), { visual: 'rail', h: 1.0 });
+  wall(guideL, { visual: 'runeRail', h: 1.0 });
+  wall(mirror(guideL), { visual: 'runeRail', h: 1.0 });
 
   // slingshots (two passive edges + one kicking hypotenuse)
   const slingL = { top: [3.5, 12.0], low: [3.5, 9.15], tip: [5.6, 7.55] };

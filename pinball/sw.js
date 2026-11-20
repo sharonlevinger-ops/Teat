@@ -1,8 +1,12 @@
 // Forest Pinball Saga – offline support: the whole game (code, fonts, icons) is cached; cache-first.
-const VERSION = 'pinball-saga-v1';
+const VERSION = 'pinball-saga-v2';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/style.css',
   './js/main.js', './js/vendor/three.module.min.js',
+  './js/vendor/jsm/postprocessing/EffectComposer.js', './js/vendor/jsm/postprocessing/RenderPass.js', './js/vendor/jsm/postprocessing/ShaderPass.js',
+  './js/vendor/jsm/postprocessing/UnrealBloomPass.js', './js/vendor/jsm/postprocessing/OutputPass.js', './js/vendor/jsm/postprocessing/Pass.js',
+  './js/vendor/jsm/postprocessing/MaskPass.js', './js/vendor/jsm/shaders/CopyShader.js', './js/vendor/jsm/shaders/LuminosityHighPassShader.js',
+  './js/vendor/jsm/shaders/OutputShader.js',
   './js/core/config.js', './js/core/events.js', './js/core/physics.js', './js/core/rules.js', './js/core/sim.js', './js/core/table.js',
   './js/render/scene.js', './js/render/textures.js', './js/render/themes.js', './js/render/particles.js',
   './js/audio/audio.js', './js/ui/hud.js', './js/ui/input.js',

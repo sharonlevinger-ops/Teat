@@ -15,6 +15,7 @@ export const SCORE = Object.freeze({
   DOOR_OPEN: 1000,
   TOWER_ENTRY: 15000,
   SUPER_JACKPOT: 25000,
+  COMBO_CHAIN: 250, // × (chain level − 1) for each chained hit
 });
 
 export const TIMING = Object.freeze({
@@ -33,7 +34,9 @@ export const TIMING = Object.freeze({
   FLIPPER_SCORE_COOLDOWN: 0.25,
   DOOR_HIT_COOLDOWN: 0.5,
   LOOP_WINDOW: 4.0,
+  COMBO_WINDOW: 3.0, // ramps / loops / elements hit within this time chain into a combo
 });
+export const COMBO_MAX = 9;
 
 export const STAGES = Object.freeze([
   { id: 1, min: 0, mult: 1.0, title: 'CHAPTER 1: ENCHANTED FOREST' },

@@ -50,6 +50,7 @@ export class Hud {
     bus.on('ballLost', ({ nextBall }) => this.banner(`BALL ${nextBall}`));
     bus.on('ballRescue', () => this.banner('<small>MAGIC RESCUE</small>'));
     bus.on('loop', () => this.banner('<small>LOOP +500</small>'));
+    bus.on('comboChain', ({ level }) => { if (level === 3 || level === 5 || level === 9) this.banner(`COMBO x${level}!`); });
   }
 
   /** priority banners (chapter, multiball, jackpots) interrupt whatever is showing */
@@ -90,7 +91,7 @@ export class Hud {
     const target = r.score;
     if (this.displayScore < target) this.displayScore = Math.min(target, this.displayScore + Math.max(10, (target - this.displayScore) * Math.min(1, dt * 10)));
     else this.displayScore = target;
-    this._set('score', this.el.score, String(Math.floor(this.displayScore)).padStart(6, '0'));
+    this._set('score', this.el.score, fmt(this.displayScore));
     this._set('ball', this.el.ball, String(r.ball));
     this._set('mult', this.el.mult, r.stage.mult.toFixed(1) + 'X');
     this._set('guests', this.el.guests, String(r.guests));
@@ -101,6 +102,7 @@ export class Hud {
       else if (r.multiball) mode = `MULTIBALL · ${Math.ceil(r.mbTicks / HZ)}`;
       else if (r.doorOpen) mode = `TOWER OPEN · ${Math.ceil(r.doorTicks / HZ)}`;
       else if (r.wizardCharge > 0) mode = `WIZARD ${'✦'.repeat(r.wizardCharge)}${'·'.repeat(3 - r.wizardCharge)}`;
+      if (r.chain >= 2) mode = mode ? `${mode} · COMBO x${r.chain}` : `COMBO CHAIN x${r.chain}`;
       if (r.multiball && r.rushActive) mode = `RUSH X2 ${Math.ceil(r.rushTicks / HZ)} · MB ${Math.ceil(r.mbTicks / HZ)}`;
     }
     this._set('mode', this.el.mode, mode);

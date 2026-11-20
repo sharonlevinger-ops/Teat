@@ -5,7 +5,7 @@
 // All timers are integer tick counters at the fixed simulation rate, so "30 seconds" is exactly 3600 ticks.
 
 import {
-  SCORE, TIMING, STAGES, RUSH_MULT, BALLS_PER_GAME, WIZARD_CHARGES, RUSH_ELEMENTS, SKILL_TARGET, secToTicks,
+  SCORE, TIMING, STAGES, RUSH_MULT, BALLS_PER_GAME, WIZARD_CHARGES, RUSH_ELEMENTS, SKILL_TARGET, secToTicks, COMBO_MAX,
 } from './config.js';
 
 const T = {
@@ -19,6 +19,7 @@ const T = {
   FLIPPER_CD: secToTicks(TIMING.FLIPPER_SCORE_COOLDOWN),
   DOOR_CD: secToTicks(TIMING.DOOR_HIT_COOLDOWN),
   LOOP: secToTicks(TIMING.LOOP_WINDOW),
+  COMBO: secToTicks(TIMING.COMBO_WINDOW),
   SERVE_DELAY: secToTicks(1.4),
 };
 export const RULE_TICKS = T;
@@ -53,6 +54,8 @@ export class GameRules {
     this.cooldowns = new Map();
     this.loopStart = new Map();
     this.lastAward = null;
+    this.chain = 0;
+    this.chainTicks = 0;
   }
 
   // ---------------------------------------------------------------- derived state
@@ -130,6 +133,21 @@ export class GameRules {
     if (this.multiball && --this.mbTicks <= 0) this._endMultiball('timeout');
 
     if (this.skillArmed && --this.skillTicks <= 0) this.skillArmed = false;
+
+    if (this.chainTicks > 0 && --this.chainTicks === 0) {
+      if (this.chain >= 2) this.bus.emit('comboChainEnd', { level: this.chain });
+      this.chain = 0;
+    }
+  }
+
+  /** Combo Chain: ramps, loops and elements hit in quick succession build x2, x3… with a growing bonus. */
+  _chainHit(x = null, y = null) {
+    this.chain = this.chainTicks > 0 ? Math.min(COMBO_MAX, this.chain + 1) : 1;
+    this.chainTicks = T.COMBO;
+    if (this.chain >= 2) {
+      this.award(SCORE.COMBO_CHAIN * (this.chain - 1), 'comboChain', x, y);
+      this.bus.emit('comboChain', { level: this.chain });
+    }
   }
 
   // ---------------------------------------------------------------- plunger / skill shot
@@ -166,6 +184,7 @@ export class GameRules {
     }
     this.award(SCORE.ELEMENT, id, x, y);
     this.bus.emit('element', { id, x, y });
+    this._chainHit(x, y);
     if (id === 'potion' && !this.kickbackLit) {
       this.kickbackLit = true;
       this.bus.emit('kickback', { lit: true });
@@ -237,6 +256,7 @@ export class GameRules {
   onRamp(id) {
     this.award(SCORE.RAMP, id);
     this.bus.emit('ramp', { id });
+    this._chainHit();
   }
 
   onOrbit(ball, side, vy) {
@@ -246,6 +266,7 @@ export class GameRules {
       this.loopStart.delete(ball.id);
       this.award(SCORE.LOOP, 'loop');
       this.bus.emit('loop', { side });
+      this._chainHit();
     }
   }
 
@@ -272,6 +293,7 @@ export class GameRules {
     this.bus.emit('drain', { left, multiball: false });
     if (left > 0 || this.serveTicks > 0) return;
     // lost the ball
+    this.chain = 0; this.chainTicks = 0;
     if (this.rushActive) { this.rushTicks = 0; this.bus.emit('rushEnd', {}); }
     if (this.doorOpen) {
       this.doorTicks = 0;

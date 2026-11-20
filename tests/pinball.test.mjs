@@ -163,26 +163,26 @@ test('RUSH COMBO: all 6 elements activate exactly 30 s of x2; cannot re-trigger 
   assert.equal(sim.tick - start, secs(TIMING.RUSH), 'RUSH lasts exactly 30 s');
   assert.equal(count('rushStart'), 1);
   assert.equal(count('rushEnd'), 1);
-  assert.equal(r.multiplier, 1.0);
+  assert.equal(r.multiplier, r.stage.mult, 'only the chapter multiplier is left after RUSH');
 });
 
 test('scoring: chapter multiplier × RUSH multiplier, chapter change applies from the next award', () => {
   const { sim } = newGame();
   const r = sim.rules;
-  r.onElementHit('mush1', 0, 0);
+  r.chainTicks = 0; r.onElementHit('mush1', 0, 0);
   assert.equal(r.lastAward.points, 100);
   r.score = 14990;
   run(sim, 30);
-  r.onElementHit('mush1', 0, 0); // crosses 15,000 with the old multiplier
+  r.chainTicks = 0; r.onElementHit('mush1', 0, 0); // crosses 15,000 with the old multiplier
   assert.equal(r.lastAward.points, 100);
   assert.equal(r.score, 15090, 'no score jump at the chapter change');
   assert.equal(r.stage.id, 2);
   run(sim, 30);
-  r.onElementHit('mush1', 0, 0);
+  r.chainTicks = 0; r.onElementHit('mush1', 0, 0);
   assert.equal(r.lastAward.points, 150);
   r.rushTicks = 100;
   run(sim, 30);
-  r.onElementHit('mush1', 0, 0);
+  r.chainTicks = 0; r.onElementHit('mush1', 0, 0);
   assert.equal(r.lastAward.points, 300, '100 × 1.5 × 2');
   r.score = 40000; r._checkStage();
   assert.equal(r.stage.id, 3);
@@ -190,6 +190,26 @@ test('scoring: chapter multiplier × RUSH multiplier, chapter change applies fro
   r.onWizardHit(0, 0);
   assert.equal(r.lastAward.points, 1000, '250 × 2.0 × 2');
   assert.deepEqual(STAGES.map((s) => s.mult), [1, 1.5, 2]);
+});
+
+test('Combo Chain: hits within 3 s build x2, x3… with a growing bonus, then reset', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  r.onElementHit('mush1', 0, 0);
+  assert.equal(r.chain, 1);
+  run(sim, secs(1));
+  r.onRamp('rampA');
+  assert.equal(r.chain, 2);
+  assert.equal(r.lastAward.reason, 'comboChain');
+  assert.equal(r.lastAward.points, 250);
+  run(sim, secs(2));
+  r.onElementHit('crystal1', 0, 0);
+  assert.equal(r.chain, 3);
+  assert.equal(r.lastAward.points, 500);
+  run(sim, secs(TIMING.COMBO_WINDOW) + 1);
+  assert.equal(r.chain, 0, 'chain expires after 3 s without a hit');
+  assert.equal(count('comboChain'), 2);
+  assert.equal(count('comboChainEnd'), 1);
 });
 
 test('Wizard: 3 hits open the tower door for exactly 20 s, then it closes and the charge resets', () => {
