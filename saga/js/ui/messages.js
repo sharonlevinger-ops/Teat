@@ -1,7 +1,7 @@
 // Step 4 – what the player is told: banners (just under the HUD frame, clear of the ball and flippers),
 // floating score pop-ups at the hit point, RUSH COMBO progress icons and the mode line in the score panel.
 // Lives inside the HUD layer, so it is laid out in painting pixels. DOM nodes are pooled.
-import { STAGES, HZ } from '../core/config.js';
+import { STAGES, HZ, TIMING } from '../core/config.js';
 import { flatToArt } from '../core/artmap.js';
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -61,7 +61,7 @@ export class Messages {
     bus.on('stage', ({ index, initial }) => { if (!initial) this.show(STAGES[index].title.replace(': ', ':<br>'), true); });
     bus.on('rushStart', () => this.show('RUSH COMBO!<small>X2 SCORING · 30 SECONDS</small>', true));
     bus.on('rushEnd', () => this.show('<small>RUSH COMBO OVER</small>'));
-    bus.on('doorOpen', () => this.show('THE TOWER OPENS!<small>SHOOT THE DOOR · 20 SECONDS</small>', true));
+    bus.on('doorOpen', () => this.show(`THE TOWER OPENS!<small>SHOOT THE DOOR · ${TIMING.DOOR_OPEN} SECONDS</small>`, true));
     bus.on('doorClose', ({ entered }) => { if (!entered) this.show('<small>THE TOWER DOOR CLOSES</small>'); });
     bus.on('towerEnter', () => this.show("WIZARD'S TOWER<br>MULTIBALL!<small>+15,000</small>", true));
     bus.on('superJackpot', () => this.show('SUPER JACKPOT!', true));

@@ -76,3 +76,15 @@ html, body {
 .pop.live { animation: pop 1s ease-out forwards; }
 @keyframes pop { 0% { opacity: 0; transform: scale(0.6); } 15% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: translateY(-90px); } }
 @media (prefers-reduced-motion: reduce) { .banner.show, .pop.live, #hud-mode.flash, .rush-row i.rush { animation-duration: 0.01s; } }
+
+/* ---------------- pause screen (screen space) ---------------- */
+.pause { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(3, 6, 4, 0.55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+.pause .card {
+  width: min(78vw, 320px); padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 12px; text-align: center; border-radius: 14px;
+  background: linear-gradient(180deg, #4a2a12, #1e0e05); border: 2px solid #e8bf62; box-shadow: 0 0 0 3px #7a5216, 0 14px 40px rgba(0, 0, 0, 0.8);
+  font-family: "Cinzel", Georgia, serif;
+}
+.pause h2 { margin: 0 0 4px; font-family: "Cinzel Decorative", "Cinzel", serif; font-size: 28px; color: #fff0c0; text-shadow: 0 0 14px rgba(255, 190, 70, 0.6); }
+.gold-btn { font: 700 18px "Cinzel", Georgia, serif; padding: 12px; border-radius: 10px; cursor: pointer; color: #2a1404; background: linear-gradient(180deg, #fff0b8, #e8bf62 50%, #b07a22); border: 1px solid #fff3c4; box-shadow: 0 3px 0 #6a4210; }
+.gold-btn.ghost { background: transparent; color: #fff0c0; border-color: #e8bf62; box-shadow: none; }
+.gold-btn:active { transform: translateY(2px); }

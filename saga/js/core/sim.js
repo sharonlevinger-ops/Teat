@@ -303,6 +303,9 @@ export class Simulation {
       case 'door':
         if (impact > 1) r.onDoorHit(b.x, b.y);
         break;
+      case 'sling':
+        if (impact > PHYS.SLING_MIN_IMPACT) r.onSlingHit(c.id, b.x, b.y);
+        break;
       default:
         break;
     }

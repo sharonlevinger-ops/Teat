@@ -3,6 +3,7 @@
 // is added to it, so it lines up with the painting at any screen size.
 import * as THREE from '../vendor/three.module.min.js';
 import { ART_W, ART_H, flatToArt } from '../core/artmap.js';
+import { applyGrade } from './grade.js';
 
 const artUrl = (base, f) => (window.__ART_URLS__ && window.__ART_URLS__[f]) || base + f; // single-file build embeds images
 
@@ -34,7 +35,7 @@ export class Stage {
     this.camera = new THREE.OrthographicCamera(0, 1, 0, -1, -1000, 1000);
     this.layout = { s: 1, left: 0, top: 0, w: ART_W, h: ART_H };
     this.art = art;
-    const mat = (tex) => new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, depthTest: false, depthWrite: false });
+    const mat = (tex) => applyGrade(new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, depthTest: false, depthWrite: false })); // chapter grade
     this.quadTop = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat(art.extTop));
     this.quadBottom = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat(art.extBottom));
     this.quadTop.renderOrder = this.quadBottom.renderOrder = -1e6;
@@ -79,6 +80,12 @@ export class Stage {
     this.artGroup.scale.set(s, s, 1);
     this.artGroup.position.set(left, -top, 0);
     return this.layout;
+  }
+
+  /** shift the painted table by (dx, dy) painting pixels – the table "jolts" on big hits */
+  setJolt(dx, dy) {
+    const L = this.layout;
+    this.artGroup.position.set(L.left + dx * L.s, -(L.top + dy * L.s), 0);
   }
 
   /** painting pixels -> CSS pixels on screen, and back */

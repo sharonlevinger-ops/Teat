@@ -110,13 +110,16 @@ export function buildTable() {
 
   // inlane / outlane guides (the carved rune rails). Each ends just above its flipper's top surface, so a
   // ball always rolls onto the flipper instead of settling in a notch beside the pivot.
-  for (const [f, top, bend] of [[flippers[0], [180, 1640], [182, 1745]], [flippers[1], [1100, 1640], [1098, 1745]]]) {
+  // the vertical-to-diagonal bend is rounded (like a real inlane) so a falling ball keeps its speed
+  const bendL = [[180, 1640], [181, 1700], [184, 1735], [194, 1760], [214, 1777]];
+  const bendR = bendL.map(([x, y]) => [1280 - x, y]);
+  for (const [f, top, bend] of [[flippers[0], bendL, null], [flippers[1], bendR, null]]) {
     const s = f.side === 'L' ? 1 : -1;
     const ca = Math.cos(f.rest), sa = Math.sin(f.rest);
     const nx = -sa * s, ny = ca * s; // upward normal of the flipper's top surface
     const sx = f.px + nx * f.r1, sy = f.py + ny * f.r1; // top surface at the pivot
     const end = [sx - ca * 0.35 + nx * 0.14, sy - sa * 0.35 + ny * 0.14];
-    walls.push({ pts: [...P([top, bend]), end], kind: 'wall', e: 0.45, fr: 0.04 });
+    walls.push({ pts: [...P(top), end], kind: 'wall', e: 0.45, fr: 0.04 });
   }
 
   const R = (id, art, w, h, o = {}) => { const [x, y] = F(art); return { id, type: 'rect', x, y, w, h, ...o }; };

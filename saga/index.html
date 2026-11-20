@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Forest Pinball Saga</title>
   <meta name="theme-color" content="#05070a">
-  <meta name="app-version" content="0.4.0">
+  <meta name="app-version" content="0.5.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -17,6 +17,13 @@
   <canvas id="stage" aria-label="Forest Pinball Saga table"></canvas>
   <div id="hud-layer" class="hud-layer"></div>
   <button id="calib-toggle" class="calib-toggle" aria-pressed="false">Calibration</button>
+  <section id="pause" class="pause hidden" role="dialog" aria-label="Paused">
+    <div class="card">
+      <h2>Paused</h2>
+      <button id="btn-resume" class="gold-btn">Resume</button>
+      <button id="btn-newgame" class="gold-btn ghost">New game</button>
+    </div>
+  </section>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

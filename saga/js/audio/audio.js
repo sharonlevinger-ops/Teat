@@ -165,8 +165,8 @@ export class AudioEngine {
 
   thud(impact) {
     if (!this._ok(30)) return;
-    const t = this.ctx.currentTime, v = Math.min(1, impact / 40);
-    this.tone(this.sfx, 'sine', 110, t, 0.002, 0.25 + v * 0.5, 0.12, { glideTo: 45 });
+    const t = this.ctx.currentTime, v = Math.min(1, impact / 40), j = 0.88 + Math.random() * 0.24; // no two hits sound identical
+    this.tone(this.sfx, 'sine', 110 * j, t, 0.002, 0.25 + v * 0.5, 0.12, { glideTo: 45 });
     this.noiseHit(this.sfx, t, { type: 'lowpass', freq: 500 + v * 800, peak: 0.12 + v * 0.25, d: 0.06 });
   }
 
@@ -179,15 +179,15 @@ export class AudioEngine {
 
   sling() {
     if (!this._ok()) return;
-    const t = this.ctx.currentTime;
-    this.noiseHit(this.sfx, t, { freq: 2200, q: 2, peak: 0.45, d: 0.05 });
-    this.tone(this.sfx, 'sine', 160, t, 0.002, 0.5, 0.1, { glideTo: 55 });
+    const t = this.ctx.currentTime, j = 0.9 + Math.random() * 0.2;
+    this.noiseHit(this.sfx, t, { freq: 2200 * j, q: 2, peak: 0.45, d: 0.05 });
+    this.tone(this.sfx, 'sine', 160 * j, t, 0.002, 0.5, 0.1, { glideTo: 55 });
   }
 
   bumperThump() {
     if (!this._ok()) return;
-    const t = this.ctx.currentTime;
-    this.tone(this.sfx, 'sine', 95, t, 0.002, 0.7, 0.16, { glideTo: 40 });
+    const t = this.ctx.currentTime, j = 0.9 + Math.random() * 0.2;
+    this.tone(this.sfx, 'sine', 95 * j, t, 0.002, 0.7, 0.16, { glideTo: 40 });
     this.noiseHit(this.sfx, t, { type: 'lowpass', freq: 900, peak: 0.25, d: 0.05 });
   }
 

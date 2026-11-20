@@ -1,4 +1,4 @@
-// Forest Pinball Saga – Step 4: modes, banners and messages on the living painted table.
+// Forest Pinball Saga – Step 5: the three story chapters on the living painted table.
 // core/ (simulation, no DOM) --EventBus--> render/ audio/ ui/ (presentation)
 import { Stage } from './render/stage.js';
 import { TableLayers } from './render/layers.js';
@@ -10,6 +10,7 @@ import { AudioEngine } from './audio/audio.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
 import { Messages } from './ui/messages.js';
+import { ChapterLook } from './render/chapters.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -20,6 +21,8 @@ async function boot() {
   await layers.load();
   const effects = new Effects(stage, sim, layers);
   effects.bind(bus);
+  const chapters = new ChapterLook(stage, effects);
+  chapters.bind(bus);
   const hud = new HudLayer(document.getElementById('hud-layer'));
   if (window.__ART_URLS__) {
     hud.el('btn-pause').style.backgroundImage = `url(${window.__ART_URLS__['btn-pause.png']})`;
@@ -45,6 +48,7 @@ async function boot() {
     const L = stage.resize();
     hud.fit(L);
     effects.setScale(L.s * stage.renderer.getPixelRatio());
+    chapters.setScale(L.s * stage.renderer.getPixelRatio());
   };
   layout();
   window.addEventListener('resize', layout);
@@ -64,15 +68,19 @@ async function boot() {
   const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused, isPlungerZone });
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
-  hud.el('btn-pause').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (sim.rules.state !== 'playing') return;
-    paused = !paused;
-    if (paused) { input.releaseAll(); audio.suspend(); } else audio.resume();
-    messages.paused = paused;
-  });
+  const pauseCard = document.getElementById('pause');
+  const setPaused = (on) => {
+    if (on && sim.rules.state !== 'playing') return;
+    paused = on;
+    pauseCard.classList.toggle('hidden', !on);
+    if (on) { input.releaseAll(); audio.suspend(); } else audio.resume();
+    messages.paused = on;
+  };
+  hud.el('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); setPaused(!paused); });
+  document.getElementById('btn-resume').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); });
+  document.getElementById('btn-newgame').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); startGame(); });
   hud.el('btn-camera').addEventListener('click', (e) => { e.stopPropagation(); hud.set('cam-num', hud.el('cam-num').textContent === '1' ? '2' : '1'); });
-  document.addEventListener('visibilitychange', () => { if (document.hidden && sim.rules.state === 'playing' && !paused) hud.el('btn-pause').click(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && sim.rules.state === 'playing' && !paused) setPaused(true); });
 
   const toggle = document.getElementById('calib-toggle');
   const setCalib = (on) => { stage.setCalibration(on, sim.table); toggle.setAttribute('aria-pressed', String(on)); };
@@ -112,7 +120,7 @@ async function boot() {
   bus.on('loop', () => audio.rampDone());
 
   // ------------------------------------------------------------------ loop: fixed 120 Hz physics, interpolated drawing
-  let last = performance.now(), acc = 0;
+  let last = performance.now(), acc = 0, jolted = false;
   function frame(now) {
     requestAnimationFrame(frame);
     let dt = (now - last) / 1000;
@@ -125,7 +133,14 @@ async function boot() {
       if (n === 14) acc = 0;
     }
     layers.update(paused ? 1 : acc / STEP);
+    chapters.update(paused ? 0 : dt);
     effects.update(paused ? 0 : dt);
+    if (effects.shake > 0 || jolted) { // the painted table and its HUD frame move together
+      jolted = effects.shake > 0;
+      const L = stage.layout;
+      stage.setJolt(effects.shakeX, effects.shakeY);
+      hud.fit({ s: L.s, left: L.left + effects.shakeX * L.s, top: L.top + effects.shakeY * L.s });
+    }
     messages.update(dt);
     const r = sim.rules;
     hud.set('hud-score', r.score.toLocaleString('en-US'));
@@ -141,7 +156,7 @@ async function boot() {
     stage.render();
   }
   requestAnimationFrame(frame);
-  window.__saga = { sim, stage, layers, effects, hud, messages, startGame, version: APP_VERSION };
+  window.__saga = { sim, stage, layers, effects, chapters, hud, messages, startGame, version: APP_VERSION };
 }
 
 boot().catch((e) => {

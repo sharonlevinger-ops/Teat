@@ -197,7 +197,11 @@ export class PhysicsWorld {
     const tx = -ny, ty = nx;
     const vt = rvx * tx + rvy * ty;
     let vnOut = impact < PHYS.REST_SPEED ? 0 : impact * e;
-    let vtOut = vt * (1 - fr);
+    // friction only on real impacts: a ball rolling along a rail or a flipper must not be braked every step
+    let vtOut = impact > PHYS.REST_SPEED * 2 ? vt * (1 - fr) : vt;
+    // real tables are never perfectly repeatable (spin, rubber wear, exact contact point): hard impacts scatter
+    // by a couple of percent, which keeps rallies alive and stops the ball repeating the same loop forever
+    if (impact > 6 && !kick) vtOut += (this._rand() - 0.5) * impact * 0.06;
     // a ball can't balance on the tip of a post or a wall corner: break the unstable equilibrium
     if (point && ny > 0.97 && Math.abs(vtOut) < 0.5) vtOut += this._rand() < 0.5 ? -0.8 : 0.8;
     // active kickers vary a little in strength and direction, like real solenoids (also breaks
@@ -282,7 +286,8 @@ export class PhysicsWorld {
       b.x = cx + nx * lim; b.y = cy + ny * lim;
       // surface velocity of the rotating flipper at the contact point
       const qx = cx + nx * rr - f.px, qy = cy + ny * rr - f.py;
-      const svx = -f.omega * qy, svy = f.omega * qx;
+      const pop = f.omega !== 0 ? 0.96 + this._rand() * 0.08 : 1; // every flip is a little different
+      const svx = -f.omega * qy * pop, svy = f.omega * qx * pop;
       this._bounce(b, nx, ny, 0.3, 0.02, svx, svy, f, null);
     }
   }

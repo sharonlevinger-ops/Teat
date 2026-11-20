@@ -6,12 +6,13 @@ import { flatToArt, artToFlat, unitScaleAt } from '../core/artmap.js';
 import { FLIPPER_STRETCH } from '../core/table.js';
 import { SPRITES } from './sprite-meta.js';
 import { PHYS } from '../core/config.js';
+import { applyGrade } from './grade.js';
 
 const R = PHYS.BALL_R;
 const depth = (flatY) => -flatY * 10; // nearer the player (smaller flat y) = drawn later
 
 function spriteMesh(tex, w, h) {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), applyGrade(new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false })));
   return m;
 }
 

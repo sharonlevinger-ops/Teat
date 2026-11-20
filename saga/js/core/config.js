@@ -15,12 +15,13 @@ export const SCORE = Object.freeze({
   DOOR_OPEN: 1000,
   TOWER_ENTRY: 15000,
   SUPER_JACKPOT: 25000,
+  SLING: 500, // every slingshot kick
   COMBO_CHAIN: 250, // × (chain level − 1) for each chained hit
 });
 
 export const TIMING = Object.freeze({
   RUSH: 30,
-  DOOR_OPEN: 20,
+  DOOR_OPEN: 10, // the tower door stays open 10 s after the wizard is fully charged
   MULTIBALL: 60,
   SKILL_PERIOD: 1.6, // skill-shot indicator cycle
   SKILL_LIT: 0.6, // indicator is lit for this long at the start of each cycle

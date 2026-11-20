@@ -105,6 +105,20 @@ test('slingshots kick: a ball touching the painted rubber is fired back hard (bo
   }
 });
 
+test('slingshot kick scores 500 (x chapter multiplier), once per kick', () => {
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  r.onSlingHit('slingL', 3, 9);
+  r.onSlingHit('slingL', 3, 9); // same contact repeating within the cooldown
+  const awards = events.filter((e) => e.type === 'score' && e.p.reason === 'sling');
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].p.points, SCORE.SLING);
+  assert.equal(SCORE.SLING, 500);
+  r.score = 15000; r._checkStage(); run(sim, 30);
+  r.onSlingHit('slingR', 17, 9);
+  assert.equal(r.lastAward.points, 750, '500 x 1.5 in chapter 2');
+});
+
 test('kickback saves the left outlane once', () => {
   const { sim, count } = newGame();
   const b = sim.heldBall(); b.mode = 'free';
@@ -130,7 +144,7 @@ test('soak: 15 minutes of bot play on the painted table – no escapes, every ta
   sim.rules.startGame();
   for (let i = 0; i < secs(15 * 60); i++) {
     if (sim.rules.state !== 'playing') sim.rules.startGame();
-    botFlippers(sim, hold, rnd);
+    botFlippers(sim, hold, rnd, 0.65); // a human-like spread of flip timings
     if (sim.heldBall() && sim.canLaunch()) {
       if (!sim.plunger.pulling) { sim.pressLaunch(); pull = 20 + Math.floor(rnd() * 100); } else if (--pull <= 0) sim.releaseLaunch();
     }
@@ -147,11 +161,12 @@ test('soak: 15 minutes of bot play on the painted table – no escapes, every ta
   assert.ok(rescues < 15, `too many stuck-ball rescues: ${rescues}`);
 });
 
-test('timers are exact on the painted table too (door 20 s, RUSH 30 s)', () => {
+test('timers are exact on the painted table too (tower door open exactly 10 s)', () => {
   const { sim } = newGame();
   const r = sim.rules;
   for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
   const start = sim.tick;
   while (r.doorOpen) sim.step();
-  assert.equal(sim.tick - start, secs(TIMING.DOOR_OPEN));
+  assert.equal(TIMING.DOOR_OPEN, 10);
+  assert.equal(sim.tick - start, secs(10));
 });

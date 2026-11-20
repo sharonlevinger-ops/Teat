@@ -204,6 +204,11 @@ export class GameRules {
     this.bus.emit('comboProgress', { ids: [], count: 0 });
   }
 
+  onSlingHit(id, x, y) {
+    if (!this._cool(id, T.ELEMENT_CD)) return;
+    this.award(SCORE.SLING, 'sling', x, y);
+  }
+
   onWizardHit(x, y) {
     if (!this._cool('wizard', T.ELEMENT_CD)) return;
     this.award(SCORE.WIZARD, 'wizard', x, y);

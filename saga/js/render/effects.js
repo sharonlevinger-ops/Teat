@@ -120,16 +120,19 @@ function fireflies(count) {
   geo.setAttribute('seed', new THREE.BufferAttribute(seed, 4));
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uScale: { value: 1 }, uColor: { value: new THREE.Color(0xd8ff7a) } },
+    uniforms: { uTime: { value: 0 }, uScale: { value: 1 }, uColor: { value: new THREE.Color(0xd8ff7a) }, uMode: { value: 0 } },
     vertexShader: `
-      attribute vec4 seed; uniform float uTime, uScale; varying float vA;
+      attribute vec4 seed; uniform float uTime, uScale, uMode; varying float vA;
       void main() {
         float t = uTime * (0.08 + seed.w * 0.1);
         vec2 p = vec2(80.0 + seed.x * 1120.0, 440.0 + seed.y * 1700.0);
         p.x += sin(t * 6.3 + seed.y * 40.0) * 60.0;
         p.y += cos(t * 5.1 + seed.x * 40.0) * 45.0;
         float blink = 0.5 + 0.5 * sin(uTime * (1.6 + seed.z * 2.5) + seed.x * 30.0);
-        vA = blink * blink;
+        // chapter 3: embers rise from the table and fade as they climb
+        float rise = fract(seed.y + uTime * (0.05 + seed.w * 0.07));
+        p.y = mix(p.y, 2150.0 - rise * 1750.0, uMode);
+        vA = mix(blink * blink, (1.0 - rise) * (0.55 + 0.45 * blink), uMode);
         gl_PointSize = (10.0 + seed.w * 10.0) * uScale;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(p.x, -p.y, 0.0, 1.0);
       }`,
@@ -242,6 +245,33 @@ export class Effects {
     this.group.add(quad(this.fallMat, 60, 110, 802, 452, FX_ORDER - 40), quad(this.fallMat, 80, 150, 1205, 205, FX_ORDER - 40));
     this.pending = []; // queued firework shells
     this.scale = 1;
+    // "alive" layer: table jolt, flipper rune glow, ball trails, ambient flicker
+    this.shake = 0; this.shakeX = 0; this.shakeY = 0;
+    this.windows = [[642, 612, 46], [600, 708, 38], [674, 710, 38], [694, 800, 30]].map(([x, y, r]) => {
+      const m = quad(additive(glow, 0xffc060, 0), r * 2, r * 2, x, y, FX_ORDER - 30);
+      this.group.add(m);
+      return { mesh: m, phase: Math.random() * 10 };
+    });
+    this.flipGlow = this.layers.flippers.map((fl) => {
+      const len = Math.hypot(fl.f.tipArt[0] - fl.f.pivotArt[0], fl.f.tipArt[1] - fl.f.pivotArt[1]) * 1.15;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(len * 1.25, 70), additive(glow, 0x7dff8a, 0));
+      m.position.set(len / 2, 0, 0);
+      m.renderOrder = FX_ORDER;
+      fl.spin.add(m); // rotates with the flipper
+      return { mesh: m, f: fl.f, level: 0 };
+    });
+    this.trailT = 0;
+  }
+
+  jolt(px) { this.shake = Math.max(this.shake, px); }
+
+  /** chapter atmosphere (from ChapterLook) */
+  setLook(look) {
+    this.glowBoost = look.glow;
+    this.flies.material.uniforms.uColor.value.copy(look.fly);
+    this.flies.material.uniforms.uMode.value = look.flyMode;
+    this.poolMat.uniforms.uColor.value.copy(look.pool);
+    this.fallMat.uniforms.uColor.value.copy(look.fall);
   }
 
   setScale(s) { this.scale = s; this.particles.material.uniforms.uScale.value = s; this.flies.material.uniforms.uScale.value = s; }
@@ -258,7 +288,7 @@ export class Effects {
       const occ = this.layers.occ[id];
       if (occ) occ.hit = 1;
     };
-    bus.on('element', ({ id }) => hit(id));
+    bus.on('element', ({ id }) => { hit(id); this.jolt(id.startsWith('mush') ? 5 : 3); });
     bus.on('contact', (e) => {
       if (e.kind !== 'sling' || !this.glows[e.id]) return;
       this.glows[e.id].flash = 1;
@@ -267,7 +297,10 @@ export class Effects {
       if (occ) occ.hit = 1;
       const [bx, by] = flatToArt(e.x, e.y);
       P.burst(bx, by, green, 18, 300, 15, 0.45);
+      this.jolt(6);
     });
+    bus.on('launch', ({ power }) => this.jolt(2 + power * 5));
+    bus.on('flipper', ({ pressed }) => { if (pressed) this.jolt(1.5); });
     bus.on('wizardHit', () => hit('wizard', 30, 220));
     bus.on('doorOpen', () => {
       this.door.target = 1;
@@ -275,10 +308,10 @@ export class Effects {
       for (let k = 0; k < 40; k++) { const t = k / 40; P.spawn(s.x + (DOOR.x - s.x) * t, s.y + (DOOR.y - s.y) * t - Math.sin(t * Math.PI) * 60, 0, -20, gold, 16, 0.5 + t * 0.8, 0); }
     });
     bus.on('doorClose', () => { this.door.target = 0; });
-    bus.on('towerEnter', () => this.fireworks(5, 2.4));
-    bus.on('superJackpot', () => { this.fireworks(3, 1.2); P.burst(DOOR.x, DOOR.y + 40, gold, 60, 420, 22, 1); });
+    bus.on('towerEnter', () => { this.fireworks(5, 2.4); this.jolt(18); });
+    bus.on('superJackpot', () => { this.fireworks(3, 1.2); this.jolt(16); P.burst(DOOR.x, DOOR.y + 40, gold, 60, 420, 22, 1); });
     bus.on('skillShot', () => { hit('mush3', 50, 380); this.fireworks(1, 0); });
-    bus.on('kickbackFire', ({ x, y }) => { const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, green, 30, 360, 18, 0.6, -100); });
+    bus.on('kickbackFire', ({ x, y }) => { this.jolt(9); const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, green, 30, 360, 18, 0.6, -100); });
     bus.on('railEnter', ({ id }) => { const s = id === 'rampA' ? [1012, 1255] : [286, 1045]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 16, 200, 14, 0.5); });
     bus.on('ramp', ({ id }) => { const s = id === 'rampA' ? [1012, 712] : [520, 628]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 30, 280, 16, 0.8); });
     bus.on('towerEject', ({ x, y }) => { const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, gold, 24, 240, 16, 0.6); });
@@ -308,10 +341,11 @@ export class Effects {
       if (RUSH_IDS.includes(id)) { // RUSH COMBO progress lives on the table itself
         if (rules.rushActive) base = 0.45 + 0.35 * Math.sin(t * 9 + RUSH_IDS.indexOf(id));
         else if (rules.combo.has(id)) base = 0.22 + 0.06 * Math.sin(t * 2.5);
+        else if (id.startsWith('mush')) base = 0.05 + 0.04 * Math.sin(t * 1.7 + RUSH_IDS.indexOf(id) * 2); // gentle breathing
       } else if (id === 'kickback') base = rules.state === 'playing' && rules.kickbackLit ? 0.45 + 0.15 * Math.sin(t * 4) : 0;
       if (id === 'plunger') base = waiting ? 0.35 + 0.25 * Math.sin(t * 5) : 0;
-      else if (id === 'wizard') base = charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0);
-      g.mesh.material.opacity = Math.min(1, base + g.flash * 0.95);
+      else if (id === 'wizard') base = 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0);
+      g.mesh.material.opacity = Math.min(1, (base + g.flash * 0.95) * (this.glowBoost || 1));
       const s = 1 + g.flash * 0.25 + (id === 'wizard' ? charge * 0.12 : 0);
       g.mesh.scale.set(s, s, 1);
     }
@@ -355,6 +389,33 @@ export class Effects {
           this.particles.firework(TOWER_TOP.x + (Math.random() - 0.5) * 420, TOWER_TOP.y + (Math.random() - 0.5) * 220, new THREE.Color().setHSL(hue, 1, 0.62));
           this.particles.firework(TOWER_TOP.x + (Math.random() - 0.5) * 380, TOWER_TOP.y + (Math.random() - 0.5) * 160, new THREE.Color().setHSL((hue + 0.15) % 1, 1, 0.72), 40, 220);
         }
+      }
+    }
+    // ---- alive: table jolt, flipper glow, tower windows, potion bubbles, crystal twinkles, ball trails
+    this.shake = Math.max(0, this.shake - dt * Math.max(20, this.shake * 9));
+    this.shakeX = (Math.random() - 0.5) * this.shake;
+    this.shakeY = (Math.random() - 0.5) * this.shake * 0.6;
+    for (const g of this.flipGlow) {
+      g.level = g.f.pressed ? Math.min(1, g.level + dt * 12) : Math.max(0, g.level - dt * 3);
+      g.mesh.material.opacity = g.level * 0.55;
+    }
+    for (const w of this.windows) {
+      const n = Math.sin(t * 2.1 + w.phase) * 0.5 + Math.sin(t * 7.3 + w.phase * 3) * 0.25 + Math.sin(t * 13.7 + w.phase) * 0.12;
+      w.mesh.material.opacity = 0.16 + 0.1 * n + (rules.multiball ? 0.2 : 0);
+    }
+    if (Math.random() < dt * 3) this.particles.spawn(992 + Math.random() * 16, 560, (Math.random() - 0.5) * 10, -40 - Math.random() * 30, new THREE.Color(0.75, 0.4, 1), 9 + Math.random() * 6, 1.4, -10);
+    if (Math.random() < dt * 2.5) {
+      const spots = [[230, 1080, 60], [1140, 1320, 50], [128, 1310, 30]];
+      const [cx, cy, r] = spots[Math.floor(Math.random() * spots.length)];
+      this.particles.spawn(cx + (Math.random() - 0.5) * r * 2, cy + (Math.random() - 0.5) * r * 2, 0, 0, new THREE.Color(1, 1, 1), 22, 0.35, 0);
+    }
+    if ((this.trailT += dt) > 0.025) {
+      this.trailT = 0;
+      for (const b of this.sim.world.balls) {
+        if (!b.active || (b.mode !== 'free' && b.mode !== 'rail')) continue;
+        if (b.mode === 'free' && Math.hypot(b.vx, b.vy) < 28) continue;
+        const [ax, ay] = flatToArt(b.x, b.y);
+        this.particles.spawn(ax, ay, 0, 0, new THREE.Color(0.55, 0.62, 0.75), 18, 0.22, 0);
       }
     }
     this.poolMat.uniforms.uTime.value = t;
