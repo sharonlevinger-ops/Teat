@@ -52,6 +52,8 @@ export const SKILL_TARGET = 'mush3';
 export const MAX_BALLS = 4;
 
 export const PHYS = Object.freeze({
+  // Physics runs at 75% of real time: same trajectories, calmer ball. Game timers stay real time.
+  TIME_SCALE: 0.75,
   BALL_R: 0.5,
   GRAVITY: 50, // table units / s² along the (tilted) playfield
   MAX_SPEED: 95,

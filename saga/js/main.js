@@ -1,4 +1,4 @@
-// Forest Pinball Saga – Step 2: real physics on the painted table.
+// Forest Pinball Saga – Step 3: the living painting (effects) on top of the physics.
 // core/ (simulation, no DOM) --EventBus--> render/ audio/ ui/ (presentation)
 import { Stage } from './render/stage.js';
 import { TableLayers } from './render/layers.js';
@@ -7,6 +7,8 @@ import { Input } from './ui/input.js';
 import { Simulation } from './core/sim.js';
 import { STEP } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
+import { Effects } from './render/effects.js';
+import { APP_VERSION } from './version.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -15,6 +17,8 @@ async function boot() {
   const stage = await Stage.load(document.getElementById('stage'), window.__ART_BASE__ || 'art/');
   const layers = new TableLayers(stage, sim);
   await layers.load();
+  const effects = new Effects(stage, sim, layers);
+  effects.bind(bus);
   const hud = new HudLayer(document.getElementById('hud-layer'));
   if (window.__ART_URLS__) {
     hud.el('btn-pause').style.backgroundImage = `url(${window.__ART_URLS__['btn-pause.png']})`;
@@ -22,7 +26,11 @@ async function boot() {
   }
   const audio = new AudioEngine();
 
-  const layout = () => { hud.fit(stage.resize()); };
+  const layout = () => {
+    const L = stage.resize();
+    hud.fit(L);
+    effects.setScale(L.s * stage.renderer.getPixelRatio());
+  };
   layout();
   window.addEventListener('resize', layout);
   window.addEventListener('orientationchange', () => setTimeout(layout, 300));
@@ -93,6 +101,7 @@ async function boot() {
       if (n === 14) acc = 0;
     }
     layers.update(paused ? 1 : acc / STEP);
+    effects.update(paused ? 0 : dt);
     const r = sim.rules;
     hud.set('hud-score', r.score.toLocaleString('en-US'));
     hud.set('hud-ball', String(r.ball));
@@ -107,7 +116,7 @@ async function boot() {
     stage.render();
   }
   requestAnimationFrame(frame);
-  window.__saga = { sim, stage, layers, hud, startGame };
+  window.__saga = { sim, stage, layers, effects, hud, startGame, version: APP_VERSION };
 }
 
 boot().catch((e) => {

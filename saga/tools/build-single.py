@@ -16,7 +16,10 @@ body = html[html.index('<body>') + 6:html.index('</body>')]
 body = re.sub(r'\s*<script type="module" src="js/main.js"></script>', '', body)
 js = open(js_path).read().replace('</script', '<\\/script')
 import json
+import re as _re
+ver = _re.search(r"APP_VERSION = '([^']+)'", open('js/version.js').read()).group(1)
 page = f'''<title>Forest Pinball Saga</title>
+<meta name="app-version" content="{ver}">
 <meta name="theme-color" content="#05070a">
 <style>
 {css}

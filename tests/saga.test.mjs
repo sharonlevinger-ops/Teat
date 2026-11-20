@@ -60,7 +60,7 @@ test('launch: only from the plunger, never twice in a row; a full plunge reaches
   sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch();
   assert.equal(sim.pressLaunch(), false);
   let maxY = 0, cameDown = false;
-  run(sim, secs(4), () => { maxY = Math.max(maxY, b.y); if (b.x < 15 && b.y < 30 && maxY > 37) cameDown = true; });
+  run(sim, secs(6), () => { maxY = Math.max(maxY, b.y); if (b.x < 15 && b.y < 30 && maxY > 37) cameDown = true; });
   assert.ok(maxY > 37, `ball reached the top arc (max y ${maxY.toFixed(1)})`);
   assert.ok(cameDown, 'ball came round the top and into the playfield');
   assert.equal(count('launch'), 1);
@@ -70,7 +70,7 @@ test('weak plunge falls back onto the plunger and can be launched again (no skil
   const { sim } = newGame();
   sim.rules.skillPhase = secs(TIMING.SKILL_LIT) + 5; // indicator dark: a plain weak launch
   sim.pressLaunch(); run(sim, 2); sim.releaseLaunch(); // 25% power
-  run(sim, secs(4));
+  run(sim, secs(6));
   assert.ok(sim.heldBall(), 'back on the plunger');
   assert.equal(sim.rules.skillAvailable, false);
 });
@@ -81,7 +81,7 @@ test('skill shot on the painted table: released in the lit window, the ball is s
   sim.pressLaunch();
   while (!sim.rules.skillLit || sim.plunger.power < 0.6) sim.step();
   sim.releaseLaunch();
-  run(sim, secs(6));
+  run(sim, secs(8)); // physics runs at 75% speed: the ball needs longer to come round
   assert.equal(count('skillShot'), 1);
   assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'skillShot').p.points, SCORE.SKILL_SHOT);
 });
@@ -91,7 +91,7 @@ test('kickback saves the left outlane once', () => {
   const b = sim.heldBall(); b.mode = 'free';
   const [x, y] = sim.table.points.kickback;
   sim._place(b, x, y + 3, 0, -15, 'free');
-  run(sim, secs(0.6));
+  run(sim, secs(1));
   assert.equal(count('kickbackFire'), 1);
   assert.ok(b.y > y, 'ball sent back up');
 });

@@ -120,7 +120,7 @@ export function buildTable() {
   const R = (id, art, w, h, o = {}) => { const [x, y] = F(art); return { id, type: 'rect', x, y, w, h, ...o }; };
   const sensors = [
     R('shooterExit', [1213, 860], 1.2, 0.9),
-    R('skillTurn', [190, 700], 2.4, 0.8),
+    R('skillTurn', [215, 700], 4.2, 1.2),
     R('rampA', [1012, 1262], 1.5, 0.8),
     R('rampB', [286, 1048], 1.4, 0.8),
     R('orbitL', [190, 900], 2.4, 0.6),

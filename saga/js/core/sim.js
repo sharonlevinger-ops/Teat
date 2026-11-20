@@ -8,6 +8,7 @@ import { GameRules } from './rules.js';
 import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks } from './config.js';
 
 const LAUNCH_CD = secToTicks(TIMING.LAUNCH_COOLDOWN);
+const PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step
 const AUTO_TICKS = secToTicks(TIMING.MB_AUTOLAUNCH);
 const STUCK_TICKS = secToTicks(PHYS.STUCK_TIME);
 
@@ -168,7 +169,7 @@ export class Simulation {
     if (pl.pulling) pl.power = Math.min(1, pl.power + STEP / TIMING.PLUNGER_FULL);
     pl.pos += ((pl.pulling ? pl.power : 0) - pl.pos) * (pl.pulling ? 0.5 : 0.6);
 
-    this.world.step(STEP);
+    this.world.step(PHYS_DT);
 
     const balls = this.world.balls;
     for (let i = 0; i < balls.length; i++) {
@@ -254,8 +255,8 @@ export class Simulation {
     const j = Math.min(i + 1, pts.length - 1);
     const seg = cum[j] - cum[i] || 1;
     const slope = (pts[j][2] - pts[i][2]) / seg;
-    b.railV = Math.max(13, Math.min(38, b.railV - 30 * slope * STEP));
-    b.railS += b.railV * STEP;
+    b.railV = Math.max(13, Math.min(38, b.railV - 30 * slope * PHYS_DT));
+    b.railS += b.railV * PHYS_DT;
     if (b.railS >= length) {
       const end = pts[pts.length - 1];
       const [vx, vy] = b.rail.exitVel;
@@ -272,7 +273,7 @@ export class Simulation {
     b.x = a[0] + (c[0] - a[0]) * t;
     b.y = a[1] + (c[1] - a[1]) * t;
     b.z = a[2] + (c[2] - a[2]) * t;
-    b.rollX += b.railV * STEP;
+    b.rollX += b.railV * PHYS_DT;
   }
 
   _updateTower(b) {

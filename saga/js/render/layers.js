@@ -15,6 +15,34 @@ function spriteMesh(tex, w, h) {
   return m;
 }
 
+/** A classic chrome pinball: steel body, the dark playfield reflected below the horizon, sky above, hot highlights. */
+function steelBallTexture() {
+  const N = 128, c = document.createElement('canvas');
+  c.width = c.height = N;
+  const g = c.getContext('2d');
+  g.save();
+  g.beginPath(); g.arc(N / 2, N / 2, N / 2 - 1, 0, Math.PI * 2); g.clip();
+  const body = g.createLinearGradient(0, 0, 0, N); // sky -> horizon -> reflected playfield
+  body.addColorStop(0, '#f4f6fa'); body.addColorStop(0.38, '#aeb6c2'); body.addColorStop(0.5, '#3e4652');
+  body.addColorStop(0.56, '#5d6a5a'); body.addColorStop(0.8, '#2c3428'); body.addColorStop(1, '#151a14');
+  g.fillStyle = body; g.fillRect(0, 0, N, N);
+  const shade = g.createRadialGradient(N * 0.4, N * 0.36, N * 0.1, N / 2, N / 2, N * 0.52); // spherical falloff
+  shade.addColorStop(0, 'rgba(255,255,255,0.15)'); shade.addColorStop(0.7, 'rgba(0,0,0,0.05)'); shade.addColorStop(1, 'rgba(0,0,0,0.6)');
+  g.fillStyle = shade; g.fillRect(0, 0, N, N);
+  const hot = g.createRadialGradient(N * 0.36, N * 0.28, 0, N * 0.36, N * 0.28, N * 0.2); // key light
+  hot.addColorStop(0, 'rgba(255,255,255,1)'); hot.addColorStop(0.35, 'rgba(255,255,255,0.75)'); hot.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = hot; g.fillRect(0, 0, N, N);
+  g.fillStyle = 'rgba(255,255,255,0.55)'; // small secondary highlight
+  g.beginPath(); g.ellipse(N * 0.66, N * 0.2, N * 0.05, N * 0.025, -0.5, 0, Math.PI * 2); g.fill();
+  const rim = g.createRadialGradient(N / 2, N / 2, N * 0.42, N / 2, N / 2, N * 0.5); // warm bounce light from the forest
+  rim.addColorStop(0, 'rgba(255,220,150,0)'); rim.addColorStop(1, 'rgba(255,220,150,0.35)');
+  g.fillStyle = rim; g.fillRect(0, 0, N, N);
+  g.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function shadowTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -35,7 +63,8 @@ export class TableLayers {
   async load() {
     const names = ['tower', 'wizard', 'mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'pedestal'];
     const tex = {};
-    await Promise.all([...names.map((n) => `sprites/${n}.png`), 'flipper-l.png', 'flipper-r.png', 'sprites/ball.png'].map(async (f) => { tex[f] = await this.stage.texture(f); }));
+    await Promise.all([...names.map((n) => `sprites/${n}.png`), 'flipper-l.png', 'flipper-r.png'].map(async (f) => { tex[f] = await this.stage.texture(f); }));
+    this.occ = {};
     // occluders
     for (const n of names) {
       const { box, base } = SPRITES[n];
@@ -45,6 +74,7 @@ export class TableLayers {
       const flat = this._flatOf(base);
       m.renderOrder = depth(flat[1]);
       this.group.add(m);
+      this.occ[n] = { mesh: m, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, base };
     }
     // flippers: the painted flipper sprite, rotated about its pivot (and stretched to the physics length)
     this.flippers = this.sim.world.flippers.map((f) => {
@@ -71,8 +101,9 @@ export class TableLayers {
     });
     // balls + shadows (pooled: one per physics ball)
     const shadowTex = shadowTexture();
+    const ballTex = steelBallTexture();
     this.balls = this.sim.world.balls.map((b) => {
-      const mesh = spriteMesh(tex['sprites/ball.png'], 1, 1);
+      const mesh = spriteMesh(ballTex, 1, 1);
       const shadow = spriteMesh(shadowTex, 1, 1);
       mesh.visible = shadow.visible = false;
       this.group.add(shadow, mesh);
@@ -100,14 +131,9 @@ export class TableLayers {
       let [ax, ay] = flatToArt(x, y);
       const unit = unitScaleAt(x, y);
       if (b.mode === 'held') ay += plungerPull * 26; // pulled down with the plunger
-      const size = unit * 2 * R * 1.08 * (1 + z * 0.06);
+      const size = unit * 2 * R * (1 + z * 0.06);
       bl.mesh.scale.set(size, size, 1);
       bl.mesh.position.set(ax, -ay, 0);
-      // roll: spin the orb by the distance travelled
-      const d = Math.hypot(ax - bl.lastX, ay - bl.lastY);
-      if (d < 200) bl.roll += (d / (size / 2)) * Math.sign((ax - bl.lastX) || 1);
-      bl.lastX = ax; bl.lastY = ay;
-      bl.mesh.rotation.z = -bl.roll;
       const lift = z * unit * 0.5;
       bl.shadow.scale.set(size * 1.25, size * 0.8, 1);
       bl.shadow.position.set(ax + size * 0.18 + lift * 0.4, -(ay + size * 0.32 + lift), 0);
