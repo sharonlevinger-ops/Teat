@@ -1,7 +1,7 @@
 // Forest Pinball Saga (painted table) – physics and flow QA on the table traced from the painting.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Simulation, findDeadSpots, outsideOrEnclosed } from './helpers/saga-sim.mjs';
+import { Simulation, findDeadSpots, outsideOrEnclosed, insideCabinet } from './helpers/saga-sim.mjs';
 import { HZ, PHYS, SCORE, TIMING } from '../saga/js/core/config.js';
 import { botFlippers } from './helpers/pinball-bot.mjs';
 import { flatToArt, artToFlat } from '../saga/js/core/artmap.js';
@@ -86,6 +86,25 @@ test('skill shot on the painted table: released in the lit window, the ball is s
   assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'skillShot').p.points, SCORE.SKILL_SHOT);
 });
 
+test('slingshots kick: a ball touching the painted rubber is fired back hard (both sides)', () => {
+  for (const id of ['slingL', 'slingR']) {
+    const sim = new Simulation();
+    const w = sim.world, b = w.balls[0];
+    const seg = w.segs.find((s) => s.kind === 'sling' && s.id === id);
+    const mx = (seg.ax + seg.bx) / 2, my = (seg.ay + seg.by) / 2;
+    const toCentre = Math.sign(10.5 - mx);
+    let n = [-seg.dy, seg.dx]; const l = Math.hypot(...n); n = [n[0] / l, n[1] / l];
+    if (n[0] * toCentre < 0) n = [-n[0], -n[1]]; // the rubber's outward normal points to the table centre
+    sim._place(b, mx + n[0] * 1.2, my + n[1] * 1.2, -n[0] * 4, -n[1] * 4, 'free'); // a gentle roll into the rubber
+    let kicks = 0;
+    sim.bus.on('contact', (c) => { if (c.kind === 'sling') kicks++; });
+    for (let i = 0; i < 40 && !kicks; i++) w.step(1 / HZ);
+    assert.ok(kicks > 0, `${id} was touched`);
+    const v = Math.hypot(b.vx, b.vy), out = b.vx * n[0] + b.vy * n[1];
+    assert.ok(v > PHYS.SLING_KICK * 0.7 && out > 0, `${id} kicked the ball away (speed ${v.toFixed(1)})`);
+  }
+});
+
 test('kickback saves the left outlane once', () => {
   const { sim, count } = newGame();
   const b = sim.heldBall(); b.mode = 'free';
@@ -119,7 +138,7 @@ test('soak: 15 minutes of bot play on the painted table – no escapes, every ta
     for (const b of sim.world.balls) {
       if (!b.active) continue;
       assert.ok(Number.isFinite(b.x) && Number.isFinite(b.y));
-      if (b.mode === 'free' && b.y > 0.5 && outsideOrEnclosed(b.x, b.y, sim) && !sim.table.walls.some((w) => w.solid)) escapes++;
+      if (b.mode === 'free' && !insideCabinet(b.x, b.y, sim)) escapes++;
     }
   }
   console.log(`  targets seen: ${[...seen].sort().join(', ')}; rescues: ${rescues}`);

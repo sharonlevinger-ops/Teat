@@ -1,4 +1,4 @@
-// Forest Pinball Saga – Step 3: the living painting (effects) on top of the physics.
+// Forest Pinball Saga – Step 4: modes, banners and messages on the living painted table.
 // core/ (simulation, no DOM) --EventBus--> render/ audio/ ui/ (presentation)
 import { Stage } from './render/stage.js';
 import { TableLayers } from './render/layers.js';
@@ -9,6 +9,7 @@ import { STEP } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
+import { Messages } from './ui/messages.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -24,7 +25,21 @@ async function boot() {
     hud.el('btn-pause').style.backgroundImage = `url(${window.__ART_URLS__['btn-pause.png']})`;
     hud.el('btn-camera').style.backgroundImage = `url(${window.__ART_URLS__['btn-camera.png']})`;
   }
+  const messages = new Messages(hud, sim);
+  messages.bind(bus);
   const audio = new AudioEngine();
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('saga.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
+  };
+  sim.rules.highScore = store.get('high', 0);
+  // music follows the game: chapter track, multiball track, RUSH drum layer on top
+  const refreshMusic = () => {
+    if (!audio.ready) return;
+    const r = sim.rules;
+    audio.playMusic(r.state !== 'playing' ? 'ch1' : r.multiball ? 'multiball' : 'ch' + r.stage.id);
+    audio.setRushLayer(r.state === 'playing' && r.rushActive);
+  };
 
   const layout = () => {
     const L = stage.resize();
@@ -38,7 +53,7 @@ async function boot() {
   // ------------------------------------------------------------------ flow
   let paused = false;
   const show = (id, on) => hud.el(id).classList.toggle('hidden', !on);
-  const startGame = () => { audio.unlock(); show('tap-to-play', false); sim.rules.startGame(); audio.playMusic('ch1'); };
+  const startGame = () => { audio.unlock(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
     if (sim.rules.state !== 'playing') { startGame(); return true; } // the starting tap never flips or launches
@@ -54,7 +69,7 @@ async function boot() {
     if (sim.rules.state !== 'playing') return;
     paused = !paused;
     if (paused) { input.releaseAll(); audio.suspend(); } else audio.resume();
-    hud.set('hud-mode', paused ? 'PAUSED' : '');
+    messages.paused = paused;
   });
   hud.el('btn-camera').addEventListener('click', (e) => { e.stopPropagation(); hud.set('cam-num', hud.el('cam-num').textContent === '1' ? '2' : '1'); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && sim.rules.state === 'playing' && !paused) hud.el('btn-pause').click(); });
@@ -85,7 +100,16 @@ async function boot() {
   bus.on('skillShot', () => audio.skillShot());
   bus.on('drain', () => audio.drain());
   bus.on('ballLost', () => audio.ballLost());
-  bus.on('gameOver', () => { audio.gameOver(); setTimeout(() => show('tap-to-play', true), 900); });
+  bus.on('gameOver', ({ high }) => { audio.gameOver(); store.set('high', high); refreshMusic(); setTimeout(() => show('tap-to-play', true), 1600); });
+  bus.on('doorOpen', () => audio.towerOpen());
+  bus.on('doorThud', () => audio.doorThud());
+  bus.on('towerEnter', () => audio.towerEnter());
+  bus.on('superJackpot', () => audio.superJackpot());
+  bus.on('rushStart', () => { audio.rushStart(); refreshMusic(); });
+  bus.on('stage', ({ initial }) => { if (!initial) audio.chapter(); refreshMusic(); });
+  for (const ev of ['rushEnd', 'multiballStart', 'multiballEnd']) bus.on(ev, refreshMusic);
+  bus.on('ballDissolve', () => audio.bell(1568, 0.08));
+  bus.on('loop', () => audio.rampDone());
 
   // ------------------------------------------------------------------ loop: fixed 120 Hz physics, interpolated drawing
   let last = performance.now(), acc = 0;
@@ -102,6 +126,7 @@ async function boot() {
     }
     layers.update(paused ? 1 : acc / STEP);
     effects.update(paused ? 0 : dt);
+    messages.update(dt);
     const r = sim.rules;
     hud.set('hud-score', r.score.toLocaleString('en-US'));
     hud.set('hud-ball', String(r.ball));
@@ -116,7 +141,7 @@ async function boot() {
     stage.render();
   }
   requestAnimationFrame(frame);
-  window.__saga = { sim, stage, layers, effects, hud, startGame, version: APP_VERSION };
+  window.__saga = { sim, stage, layers, effects, hud, messages, startGame, version: APP_VERSION };
 }
 
 boot().catch((e) => {

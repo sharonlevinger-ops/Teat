@@ -61,7 +61,7 @@ export class TableLayers {
   }
 
   async load() {
-    const names = ['tower', 'wizard', 'mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'pedestal'];
+    const names = ['tower', 'wizard', 'mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'pedestal', 'slingL', 'slingR'];
     const tex = {};
     await Promise.all([...names.map((n) => `sprites/${n}.png`), 'flipper-l.png', 'flipper-r.png'].map(async (f) => { tex[f] = await this.stage.texture(f); }));
     this.occ = {};

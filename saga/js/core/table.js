@@ -59,17 +59,19 @@ export function buildTable() {
   walls.push({ pts: P([[1185, 745], [1238, 700]]), kind: 'gate', oneWay: true, e: 0.2, fr: 0.04 });
 
   // slingshots: the painted bottom edge runs parallel to the rune rail (keeps the inlane wide open)
-  const slingL = { top: [300, 1592], low: [292, 1700], tip: [414, 1806] };
-  const slingR = { top: [980, 1592], low: [988, 1700], tip: [866, 1806] };
+  // measured on the painted slingshots: the long inner edge (top -> tip) is the kicking rubber
+  const slingL = { top: [333, 1572], low: [290, 1752], tip: [406, 1778] };
+  const slingR = { top: [945, 1572], low: [988, 1752], tip: [872, 1778] };
   for (const [s, id] of [[slingL, 'slingL'], [slingR, 'slingR']]) {
-    wall([s.top, s.low, s.tip, s.top], { solid: true });
+    // passive sides only (top -> low -> tip); the inner edge is the kicking rubber below, never a plain wall
+    wall([s.top, s.low, s.tip], { solidPoly: P([s.top, s.low, s.tip]) });
     walls.push({ pts: P([s.top, s.tip]), kind: 'sling', id, e: 0.6, fr: 0.02, kick: 'sling' });
   }
 
   // the clear crystal on its pedestal, joined to the left wall with a sloped top
-  wall([[95, 1392], [168, 1424], [170, 1462], [95, 1494]], { e: 0.5, solid: true });
+  wall([[95, 1392], [168, 1424], [170, 1462], [95, 1494]], { e: 0.5, solidPoly: P([[95, 1392], [168, 1424], [170, 1462], [95, 1494]]) });
   // the yellow crystal: a wedge attached to the launch-lane wall (its faces count as crystal hits)
-  walls.push({ pts: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]), kind: 'element', id: 'crystal2', e: 0.7, fr: 0.02, solid: true });
+  walls.push({ pts: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]), kind: 'element', id: 'crystal2', e: 0.7, fr: 0.02, solidPoly: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]) });
 
   // the mushroom tower: a round wall with a door facing the flippers
   const [tx, ty] = F([632, 968]);

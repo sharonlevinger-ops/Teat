@@ -154,10 +154,12 @@ const SPOTS = {
   crystal2: { x: 1140, y: 1320, r: 140, color: 0xffe060 },
   potion: { x: 1000, y: 605, r: 140, color: 0xb070ff },
   wizard: { x: 760, y: 946, r: 90, color: 0xfff2a0 },
-  slingL: { x: 345, y: 1700, r: 150, color: 0x7dff8a },
-  slingR: { x: 935, y: 1700, r: 150, color: 0x7dff8a },
+  slingL: { x: 352, y: 1690, r: 170, color: 0x7dff8a },
+  slingR: { x: 928, y: 1690, r: 170, color: 0x7dff8a },
+  kickback: { x: 138, y: 1840, r: 110, color: 0x50ff80 },
   plunger: { x: 1186, y: 1760, r: 120, color: 0x40ff90 },
 };
+const RUSH_IDS = ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'];
 const DOOR = { x: 636, y: 921, w: 64, h: 84 };
 const POOL = { x: 630, y: 1425, rx: 162, ry: 50 };
 const TOWER_TOP = { x: 632, y: 610 }; // fireworks burst below the HUD frame, around the roof
@@ -179,6 +181,15 @@ export class Effects {
       const m = quad(additive(glow, s.color, 0), s.r * 2, s.r * 2, s.x, s.y);
       this.group.add(m);
       this.glows[id] = { mesh: m, flash: 0, base: 0, color: new THREE.Color(s.color) };
+    }
+    // slingshot rubbers: a bright streak along the kicking edge when they fire
+    this.rubbers = {};
+    for (const [id, a, b] of [['slingL', [333, 1572], [406, 1778]], ['slingR', [945, 1572], [872, 1778]]]) {
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const m = quad(additive(glow, 0xc8ffb0, 0), len * 1.15, 60, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+      m.rotation.z = -Math.atan2(b[1] - a[1], b[0] - a[0]);
+      this.group.add(m);
+      this.rubbers[id] = { mesh: m, flash: 0 };
     }
     // the tower door
     this.door = { open: 0, target: 0 };
@@ -248,7 +259,15 @@ export class Effects {
       if (occ) occ.hit = 1;
     };
     bus.on('element', ({ id }) => hit(id));
-    bus.on('contact', (e) => { if (e.kind === 'sling' && this.glows[e.id]) { this.glows[e.id].flash = 1; P.burst(SPOTS[e.id].x, SPOTS[e.id].y, green, 12, 200, 14, 0.4); } });
+    bus.on('contact', (e) => {
+      if (e.kind !== 'sling' || !this.glows[e.id]) return;
+      this.glows[e.id].flash = 1;
+      this.rubbers[e.id].flash = 1;
+      const occ = this.layers.occ[e.id];
+      if (occ) occ.hit = 1;
+      const [bx, by] = flatToArt(e.x, e.y);
+      P.burst(bx, by, green, 18, 300, 15, 0.45);
+    });
     bus.on('wizardHit', () => hit('wizard', 30, 220));
     bus.on('doorOpen', () => {
       this.door.target = 1;
@@ -284,8 +303,12 @@ export class Effects {
     const waiting = rules.state === 'playing' && this.sim.canLaunch();
     const charge = rules.doorOpen ? 3 : rules.wizardCharge;
     for (const [id, g] of Object.entries(this.glows)) {
-      g.flash = Math.max(0, g.flash - dt * 3.2);
+      g.flash = Math.max(0, g.flash - dt * 2.0); // a hit glows for about half a second
       let base = 0;
+      if (RUSH_IDS.includes(id)) { // RUSH COMBO progress lives on the table itself
+        if (rules.rushActive) base = 0.45 + 0.35 * Math.sin(t * 9 + RUSH_IDS.indexOf(id));
+        else if (rules.combo.has(id)) base = 0.22 + 0.06 * Math.sin(t * 2.5);
+      } else if (id === 'kickback') base = rules.state === 'playing' && rules.kickbackLit ? 0.45 + 0.15 * Math.sin(t * 4) : 0;
       if (id === 'plunger') base = waiting ? 0.35 + 0.25 * Math.sin(t * 5) : 0;
       else if (id === 'wizard') base = charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0);
       g.mesh.material.opacity = Math.min(1, base + g.flash * 0.95);
@@ -299,15 +322,20 @@ export class Effects {
     // painted objects react: mushrooms squash and bounce, everything hit brightens for a moment
     for (const [id, o] of Object.entries(this.layers.occ)) {
       if (!o.hit) continue;
-      o.hit = Math.max(0, o.hit - dt * 3.5);
+      o.hit = Math.max(0, o.hit - dt * (id.startsWith('sling') ? 4.5 : 2.2));
       const k = o.hit, bright = 1 + k * 0.9;
       o.mesh.material.color.setRGB(bright, bright, bright);
-      if (id.startsWith('mush')) {
+      if (id.startsWith('sling')) { // the rubber snaps out toward the table centre, then settles
+        const dir = id === 'slingL' ? 1 : -1;
+        o.mesh.scale.set(1 + k * 0.05, 1 + k * 0.02, 1);
+        o.mesh.position.x = o.cx + dir * k * 9;
+      } else if (id.startsWith('mush')) {
         const sx = 1 + k * 0.08, sy = 1 - k * 0.1;
         o.mesh.scale.set(sx, sy, 1);
         o.mesh.position.y = -(o.base[1] + (o.cy - o.base[1]) * sy);
       }
     }
+    for (const r of Object.values(this.rubbers)) { r.flash = Math.max(0, r.flash - dt * 4); r.mesh.material.opacity = r.flash; }
     // tower door
     const d = this.door;
     d.open += (d.target - d.open) * Math.min(1, dt * 5);

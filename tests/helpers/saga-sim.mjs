@@ -38,9 +38,9 @@ export function outsideOrEnclosed(x, y, sim) {
   const t = sim.table.decor.tower;
   if (Math.hypot(x - t.x, y - t.y) < t.r + 0.5) return true;
   // outside the boundary polygon (outer wall + lane floor): ray casting against the first wall
-  if (!pointInPoly(x, y, sim.table.walls[0].pts)) return true;
+  if (!insideCabinet(x, y, sim)) return true;
   for (const c of sim.table.circles) if (Math.hypot(x - c.x, y - c.y) < c.r + 0.3) return true;
-  for (const w of sim.table.walls) if (w.solid && pointInPoly(x, y, w.pts)) return true;
+  for (const w of sim.table.walls) if (w.solidPoly && pointInPoly(x, y, w.solidPoly)) return true;
   return false;
 }
 
@@ -51,4 +51,13 @@ function pointInPoly(x, y, poly) {
     if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
   }
   return inside;
+}
+
+import { artToFlat } from '../../saga/js/core/artmap.js';
+const cabinetCache = new WeakMap();
+/** inside the outer wall (closed underneath the drain, launch lane included) */
+export function insideCabinet(x, y, sim) {
+  let poly = cabinetCache.get(sim.table);
+  if (!poly) { poly = [...sim.table.walls[0].pts, artToFlat(1245, 2400), artToFlat(98, 2400)]; cabinetCache.set(sim.table, poly); }
+  return pointInPoly(x, y, poly);
 }

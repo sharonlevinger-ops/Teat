@@ -64,8 +64,8 @@ export const PHYS = Object.freeze({
   PLUNGER_MIN: 34,
   PLUNGER_MAX: 72,
   BUMPER_KICK: 27,
-  SLING_KICK: 24,
-  SLING_MIN_IMPACT: 3,
+  SLING_KICK: 30,
+  SLING_MIN_IMPACT: 1.2, // any real touch fires the slingshot
   KICKBACK_SPEED: 54,
   FLIPPER_UP_SPEED: 26, // rad/s
   FLIPPER_DOWN_SPEED: 16,

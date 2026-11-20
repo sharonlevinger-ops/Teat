@@ -50,3 +50,29 @@ html, body {
 }
 .calib-toggle[aria-pressed="true"] { background: #2a6; color: #fff; }
 .hidden { display: none !important; }
+
+/* ---------------- Step 4: messages (all sizes in painting pixels) ---------------- */
+.score { font-size: 104px; line-height: 120px; }
+#hud-score { top: 166px !important; }
+#hud-mode { top: 288px !important; font-size: 27px; line-height: 32px; letter-spacing: 0.04em; color: #c8f2ff; white-space: nowrap; }
+#hud-mode.flash { color: #ffe36a; text-shadow: 0 0 14px rgba(255, 200, 60, 0.9); animation: modeflash 0.5s steps(2) infinite; }
+@keyframes modeflash { 50% { opacity: 0.3; } }
+.rush-row { left: 0; top: 214px; width: 1284px; height: 50px; }
+.rush-row i { position: absolute; top: 0; width: 44px; height: 44px; color: #3a3226; opacity: 0.9; filter: drop-shadow(0 2px 2px #000); transition: color 0.2s; }
+.rush-row i svg { width: 100%; height: 100%; fill: currentColor; stroke: #6a5530; stroke-width: 1.2; }
+.rush-row i.on { color: var(--c); filter: drop-shadow(0 0 10px var(--c)) drop-shadow(0 2px 2px #000); }
+.rush-row i.rush { color: var(--c); animation: rushpulse 0.4s ease-in-out infinite alternate; }
+@keyframes rushpulse { from { filter: drop-shadow(0 0 4px var(--c)); transform: scale(0.9); } to { filter: drop-shadow(0 0 18px var(--c)); transform: scale(1.12); } }
+.banner {
+  left: 60px; top: 448px; width: 1164px; text-align: center; font-family: "Cinzel Decorative", "Cinzel", serif; font-weight: 700;
+  font-size: 84px; line-height: 92px; color: #ffe9a6; -webkit-text-stroke: 2px #3a2208;
+  text-shadow: 0 0 30px rgba(255, 190, 70, 0.85), 0 6px 4px rgba(0, 0, 0, 0.95); opacity: 0; transform: scale(0.7);
+}
+.banner small { display: block; font-family: "Cinzel", serif; font-size: 38px; line-height: 50px; letter-spacing: 0.06em; -webkit-text-stroke: 1px #3a2208; color: #fff4cc; }
+.banner.show { animation: banner 2.4s ease-out forwards; }
+@keyframes banner { 0% { opacity: 0; transform: scale(0.6); } 12% { opacity: 1; transform: scale(1.06); } 20% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-24px); } }
+.pop { width: 300px; text-align: center; font-weight: 700; font-size: 46px; color: #fff3c0; -webkit-text-stroke: 1.5px #3a2208; text-shadow: 0 0 14px rgba(255, 190, 70, 0.8), 0 3px 3px #000; opacity: 0; }
+.pop.big { font-size: 64px; color: #fff; }
+.pop.live { animation: pop 1s ease-out forwards; }
+@keyframes pop { 0% { opacity: 0; transform: scale(0.6); } 15% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0; transform: translateY(-90px); } }
+@media (prefers-reduced-motion: reduce) { .banner.show, .pop.live, #hud-mode.flash, .rush-row i.rush { animation-duration: 0.01s; } }
