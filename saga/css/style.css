@@ -1,0 +1,51 @@
+/* Forest Pinball Saga – Step 1 styles. Fonts bundled locally (SIL Open Font License). */
+@font-face { font-family: "Cinzel"; font-weight: 600 700; font-display: swap; src: url(../fonts/cinzel-700.woff2) format("woff2"); }
+@font-face { font-family: "Cinzel Decorative"; font-weight: 700; font-display: swap; src: url(../fonts/cinzel-decorative-700.woff2) format("woff2"); }
+
+:root { --gold-1: #fff6d2; --gold-2: #edc35c; --gold-3: #9c6a1c; color-scheme: dark; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden; background: #05070a; color: #fff;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
+}
+#stage { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; }
+
+/* the UI layer is laid out in painting pixels and scaled onto the painting */
+.hud-layer { position: fixed; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; font-family: "Cinzel", Georgia, serif; }
+.hud-layer > * { position: absolute; }
+.gold-text {
+  background: linear-gradient(180deg, var(--gold-1), var(--gold-2) 52%, var(--gold-3)); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.plaque-title {
+  text-align: center; font-weight: 700; font-size: 46px; line-height: 68px; letter-spacing: 0.03em; white-space: nowrap;
+  background: linear-gradient(180deg, var(--gold-1), var(--gold-2) 52%, var(--gold-3)); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.85));
+}
+.score {
+  width: 800px; text-align: center; font-weight: 700; font-size: 118px; line-height: 140px; letter-spacing: 0.02em; font-variant-numeric: tabular-nums;
+  background: linear-gradient(180deg, #fff3c0, #f0c048 50%, #b07a1c); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 14px rgba(255, 190, 60, 0.55)) drop-shadow(0 4px 2px rgba(0, 0, 0, 0.9));
+}
+.mode { width: 800px; text-align: center; font-weight: 700; font-size: 30px; color: #bff0ff; text-shadow: 0 0 12px rgba(120, 220, 255, 0.8); }
+.val { font-weight: 700; font-size: 36px; line-height: 44px; text-shadow: 0 2px 2px rgba(0, 0, 0, 0.8); }
+.val.ball { color: #c6ecb0; }
+.val.mult { color: #f6e2a8; }
+.val.guests { color: #9fb6ff; }
+.art-btn { pointer-events: auto; border: 0; padding: 0; border-radius: 50%; background: center / contain no-repeat transparent; cursor: pointer; }
+.art-btn:active { transform: scale(0.93); }
+#cam-num { position: absolute; left: 0; right: 0; top: 62px; text-align: center; font: 700 38px "Cinzel", serif; color: #4a1878; }
+.tap-to-play {
+  width: 1040px; text-align: center; font-weight: 700; font-size: 70px; line-height: 92px; letter-spacing: -0.01em; color: #f3dda2;
+  -webkit-text-stroke: 2.5px #2a1806; text-shadow: 0 0 26px rgba(255, 205, 110, 0.6), 0 6px 4px rgba(0, 0, 0, 0.95);
+  animation: glow 1.4s ease-in-out infinite alternate;
+}
+.touch-launch { width: 260px; text-align: center; color: #f3dda2; font-weight: 700; font-size: 38px; line-height: 42px; text-shadow: 0 0 14px rgba(255, 200, 100, 0.6), 0 3px 3px #000; animation: glow 1.4s ease-in-out infinite alternate; }
+.touch-launch svg { display: block; width: 110px; height: 140px; margin: 0 0 6px 40px; filter: drop-shadow(0 0 8px rgba(255, 200, 100, 0.7)) drop-shadow(0 3px 2px #000); }
+@keyframes glow { from { opacity: 0.72; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .tap-to-play, .touch-launch { animation: none; } }
+
+.calib-toggle {
+  position: fixed; left: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); z-index: 5;
+  font: 600 12px -apple-system, system-ui, sans-serif; color: #dfe; background: rgba(0, 0, 0, 0.55); border: 1px solid #4a6; border-radius: 14px; padding: 6px 12px;
+}
+.calib-toggle[aria-pressed="true"] { background: #2a6; color: #fff; }

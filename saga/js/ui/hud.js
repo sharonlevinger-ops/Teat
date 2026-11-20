@@ -1,0 +1,33 @@
+// Live UI drawn over the painted HUD frame. The layer is laid out in painting pixels (1284 x 2281)
+// and scaled onto the painting, so every label sits exactly where the painting expects it.
+import { ART_W, ART_H, UI } from '../core/artmap.js';
+
+export class HudLayer {
+  constructor(root) {
+    this.root = root;
+    root.style.width = `${ART_W}px`;
+    root.style.height = `${ART_H}px`;
+    root.innerHTML = `
+      <div class="plaque-title" style="left:${UI.plaque.cx - UI.plaque.w / 2}px;top:${UI.plaque.cy - 34}px;width:${UI.plaque.w}px">Forest Pinball Saga</div>
+      <div class="score" id="hud-score" style="left:${UI.score.cx - 400}px;top:${UI.score.cy - 70}px">0</div>
+      <div class="mode" id="hud-mode" style="left:${UI.score.cx - 400}px;top:${UI.score.cy + 52}px"></div>
+      <div class="val ball" id="hud-ball" style="left:${UI.values.ball[0]}px;top:${UI.values.ball[1] - 22}px">1</div>
+      <div class="val mult" id="hud-mult" style="left:${UI.values.mult[0]}px;top:${UI.values.mult[1] - 22}px">1.0X</div>
+      <div class="val guests" id="hud-guests" style="left:${UI.values.guests[0]}px;top:${UI.values.guests[1] - 22}px">0</div>
+      <button class="art-btn" id="btn-pause" aria-label="Pause" style="left:${UI.pause.cx - UI.pause.size / 2}px;top:${UI.pause.cy - UI.pause.size / 2}px;width:${UI.pause.size}px;height:${UI.pause.size}px;background-image:url(art/btn-pause.png)"></button>
+      <button class="art-btn" id="btn-camera" aria-label="Camera view" style="left:${UI.camera.cx - UI.camera.size / 2}px;top:${UI.camera.cy - UI.camera.size / 2}px;width:${UI.camera.size}px;height:${UI.camera.size}px;background-image:url(art/btn-camera.png)"><span id="cam-num">1</span></button>
+      <div class="tap-to-play" id="tap-to-play" style="left:${UI.tapToPlay.cx - 590}px;top:${UI.tapToPlay.cy - 46}px">TAP FLIPPERS TO PLAY</div>
+      <div class="touch-launch" id="touch-launch" style="left:${UI.touchToLaunch.cx - 130}px;top:${UI.touchToLaunch.cy - 205}px">
+        <svg viewBox="0 0 120 150" aria-hidden="true"><path d="M30 145 C 30 90, 50 55, 86 30" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/><path d="M58 22 L92 24 L84 58" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>TOUCH TO<br>LAUNCH</span>
+      </div>`;
+    this.el = (id) => root.querySelector('#' + id);
+  }
+
+  /** place the layer onto the painting (stage layout in CSS px) */
+  fit({ s, left, top }) {
+    this.root.style.transform = `translate(${left}px, ${top}px) scale(${s})`;
+  }
+
+  set(id, text) { const e = this.el(id); if (e && e.textContent !== text) e.textContent = text; }
+}
