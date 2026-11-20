@@ -49,3 +49,4 @@ html, body {
   font: 600 12px -apple-system, system-ui, sans-serif; color: #dfe; background: rgba(0, 0, 0, 0.55); border: 1px solid #4a6; border-radius: 14px; padding: 6px 12px;
 }
 .calib-toggle[aria-pressed="true"] { background: #2a6; color: #fff; }
+.hidden { display: none !important; }
