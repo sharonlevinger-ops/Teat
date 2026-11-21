@@ -12,7 +12,7 @@ import { APP_VERSION } from './version.js';
 import { Messages } from './ui/messages.js';
 import { ChapterLook } from './render/chapters.js';
 import { flatToArt } from './core/artmap.js';
-import { EventLog, buildReport, shareReport } from './ui/report.js';
+import { EventLog, buildReport, shareReport, initViewerDownloads } from './ui/report.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -36,6 +36,7 @@ async function boot() {
   messages.bind(bus);
   const audio = new AudioEngine();
   const eventLog = new EventLog(sim);
+  initViewerDownloads();
   const store = {
     get(k, d) { try { const v = localStorage.getItem('saga.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
@@ -93,7 +94,7 @@ async function boot() {
   btnReport.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!report) captureReport();
-    shareReport(report.data, report.shot).then((res) => { if (res !== 'cancelled') btnReport.textContent = 'Report ready ✓'; });
+    shareReport(report.data, report.shot).then((res) => { btnReport.textContent = res === 'failed' ? 'Report unavailable here' : res === 'cancelled' ? 'Report a problem' : 'Report ready ✓'; });
   });
   const setPaused = (on) => {
     if (on && sim.rules.state !== 'playing') return;

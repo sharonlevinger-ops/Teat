@@ -64,9 +64,23 @@ function dataUrlToFile(url, name) {
   return new File([bytes], name, { type: mime });
 }
 
+// Inside the claude.ai artifact viewer, files go out through its `downloads` capability (plain downloads
+// and the share sheet are blocked there). Resolved once at start-up; null everywhere else.
+let viewerDownloads = null;
+export function initViewerDownloads() {
+  try {
+    const c = typeof window !== 'undefined' ? window.claude : null;
+    if (c && typeof c.use === 'function') c.use('downloads').then((d) => { viewerDownloads = d; }, () => {});
+  } catch { /* not in the artifact viewer */ }
+}
+
 /** Called from the button tap (keeps the user gesture: no awaits before navigator.share). */
 export function shareReport(rep, screenshotUrl) {
   const stamp = rep.time.replace(/[:.]/g, '-').slice(0, 19);
+  if (viewerDownloads) { // one file: the report with the screenshot embedded
+    const data = JSON.stringify({ ...rep, screenshot: screenshotUrl || null }, null, 2);
+    return viewerDownloads.save({ filename: `saga-report-${stamp}.json`, data }).then(() => 'shared', (e) => (e && e.code === 'declined' ? 'cancelled' : 'failed'));
+  }
   const json = new File([JSON.stringify(rep, null, 2)], `saga-report-${stamp}.json`, { type: 'application/json' });
   const files = [json];
   if (screenshotUrl) { try { files.unshift(dataUrlToFile(screenshotUrl, `saga-report-${stamp}.jpg`)); } catch { /* no screenshot */ } }
