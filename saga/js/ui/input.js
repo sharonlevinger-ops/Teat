@@ -52,7 +52,7 @@ export class Input {
     if (this.isBlocked()) return;
     for (const t of e.changedTouches) {
       const s = this.swipes.get(t.identifier);
-      if (!s || s.used) continue;
+      if (!s || s.used || this.touches.get(t.identifier) === 'P') continue; // pulling the plunger is not a nudge
       const dy = s.y - t.clientY, dx = t.clientX - s.x;
       if (performance.now() - s.t > SWIPE_MS) { s.used = true; continue; }
       if (dy > SWIPE_PX && dy > Math.abs(dx)) {
@@ -86,6 +86,7 @@ export class Input {
   }
 
   _key(e, down) {
+    if (e.target && e.target.closest && e.target.closest(UI_SEL)) return; // keys on a focused button/slider belong to it
     const k = e.code;
     let side = null;
     if (k === 'ArrowLeft' || k === 'KeyZ' || k === 'ShiftLeft') side = 'L';

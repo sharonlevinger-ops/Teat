@@ -379,3 +379,44 @@ test('achievements unlock once; score table keeps the best 10 in order', async (
   assert.equal(p.recordScore(50000, 3), 2);
   assert.equal(p.recordScore(10, 1), 0, 'too low for the table');
 });
+
+test('progress survives corrupt or tampered storage (no crash, no HTML from storage)', async () => {
+  const { Progress } = await import('../saga/js/core/progress.js');
+  const bad = { progress: { day: 5, missions: [{ id: 'gone', count: 'x' }], streak: 'lots', achievements: ['x'], scores: [{ score: '<img src=x onerror=alert(1)>', chapter: '<b>' }, { score: 1200, chapter: 9, day: '<script>' }, null, 7], bestChapter: 99, chapterVisits: 'no' } };
+  const storage = { get: (k, d) => (k in bad ? bad[k] : d), set: () => {} };
+  const p = new Progress(storage, () => '2026-11-21');
+  assert.equal(p.missions.length, 3);
+  assert.ok(p.missions.every((m) => typeof m.text === 'string' && m.count === 0));
+  assert.deepEqual(p.scores, [{ score: 1200, chapter: 3, day: '' }]);
+  assert.equal(p.streak, 0);
+  assert.equal(p.bestChapter, 3);
+  assert.deepEqual(p.chapterVisits, [0, 0, 0]);
+});
+
+test('saga map remembers the furthest chapter; game stats count one game', async () => {
+  const { Progress, GameStats } = await import('../saga/js/core/progress.js');
+  const { EventBus } = await import('../saga/js/core/events.js');
+  const mem = {}; const storage = { get: (k, d) => (k in mem ? JSON.parse(mem[k]) : d), set: (k, v) => { mem[k] = JSON.stringify(v); } };
+  const bus = new EventBus();
+  const p = new Progress(storage, () => '2026-11-21'); p.bind(bus);
+  const st = new GameStats(bus);
+  const seen = []; p.onUnlock = (k, i) => { if (k === 'chapter') seen.push(i.chapter); };
+  bus.emit('gameStart', {}); bus.emit('stage', { index: 0, initial: true });
+  bus.emit('wizardHit', {}); bus.emit('ramp', { id: 'rampA' }); bus.emit('loop', {}); bus.emit('comboChain', { level: 3 }); bus.emit('comboChain', { level: 2 });
+  bus.emit('stage', { index: 1 });
+  assert.equal(p.bestChapter, 2);
+  assert.deepEqual(seen, [2]);
+  assert.deepEqual({ w: st.wizard, r: st.ramps, c: st.bestCombo, ch: st.chapter }, { w: 1, r: 2, c: 3, ch: 2 });
+  bus.emit('gameStart', {});
+  assert.equal(st.wizard, 0, 'stats reset each game');
+  bus.emit('stage', { index: 1 });
+  assert.deepEqual(seen, [2], 'the record is announced only once');
+  assert.deepEqual(new Progress(storage, () => '2026-11-21').chapterVisits, [2, 2, 0]);
+});
+
+test('no nudge (and so no tilt) while the ball waits on the plunger', () => {
+  const { sim, count } = newGame();
+  for (let i = 0; i < 10; i++) { run(sim, secs(0.3)); assert.equal(sim.nudge(0), false); }
+  assert.equal(count('nudge'), 0);
+  assert.equal(sim.rules.tilted, false);
+});

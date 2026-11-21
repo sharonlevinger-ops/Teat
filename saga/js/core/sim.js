@@ -107,6 +107,7 @@ export class Simulation {
   // ================================================================ input
   /** Swipe up = shove the table: free balls get a small push (dirX: -1 left, 0 straight, 1 right). */
   nudge(dirX = 0) {
+    if (!this.world.balls.some((b) => b.active && b.mode === 'free')) return false; // nothing to shove: never tilt on the plunger
     if (!this.rules.onNudge()) return false;
     for (const b of this.world.balls) {
       if (!b.active || b.mode !== 'free') continue;

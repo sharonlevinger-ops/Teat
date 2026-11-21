@@ -109,7 +109,7 @@ html, body {
 .journal-card { width: min(100%, 400px); height: min(86vh, 640px); padding: 16px 16px 18px; text-align: left; }
 .card-head { display: flex; align-items: center; justify-content: space-between; }
 .icon-btn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(232, 191, 98, 0.6); background: rgba(0, 0, 0, 0.25); color: var(--ink); font-size: 18px; cursor: pointer; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); }
 .tabs button { min-height: 40px; border: 0; border-radius: 9px; background: none; color: var(--ink-soft); font: 700 13px "Cinzel", Georgia, serif; cursor: pointer; }
 .tabs button[aria-selected="true"] { background: linear-gradient(180deg, #fff0b8, #e8bf62 60%, #c08a2a); color: #2a1404; }
 .tab-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding: 2px; }
@@ -161,3 +161,30 @@ html, body {
 .tune-row { display: flex; gap: 8px; margin: 10px 0 8px; }
 .tune-row .gold-btn { flex: 1; }
 .tune-card textarea { width: 100%; font: 11px ui-monospace, monospace; color: #dfe; background: #120a04; border: 1px solid #6a4a1a; border-radius: 8px; padding: 6px; resize: none; }
+
+/* saga map (journal) */
+.saga { list-style: none; margin: 6px 0 0; padding: 0 0 0 4px; display: grid; gap: 0; }
+.saga li { position: relative; display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 12px; padding: 12px 0; }
+.saga li:not(:last-child)::after { content: ""; position: absolute; left: 25px; top: 62px; bottom: -12px; width: 2px; background: rgba(232, 191, 98, 0.25); }
+.saga li.reached:not(:last-child)::after { background: var(--accent); }
+.saga .node { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font: 700 22px "Cinzel Decorative", "Cinzel", serif; color: var(--ink-dim); border: 2px dashed rgba(232, 191, 98, 0.35); background: rgba(0, 0, 0, 0.3); }
+.saga li.reached .node { color: #2a1404; border: 2px solid #fff3c4; background: linear-gradient(180deg, #fff0b8, #e8bf62 60%, #b07a22); }
+.saga li.current .node { box-shadow: 0 0 0 4px rgba(255, 211, 106, 0.25), 0 0 18px rgba(255, 211, 106, 0.6); }
+.saga b { display: block; font-size: 15px; color: var(--ink); }
+.saga li.locked b { color: var(--ink-dim); }
+.saga span:not(.node) { display: block; margin-top: 2px; font-size: 12px; color: var(--ink-soft); }
+
+/* end-of-game summary */
+.summary { z-index: 22; }
+.summary-card { width: min(100%, 360px); padding: 20px 18px 16px; display: flex; flex-direction: column; gap: 10px; text-align: center; border-radius: var(--radius); background: var(--card-bg); border: 2px solid var(--card-line); box-shadow: 0 0 0 3px var(--card-ring), 0 18px 48px rgba(0, 0, 0, 0.8); font-family: "Cinzel", Georgia, serif; color: var(--ink); }
+.summary-card h2 { margin: 0; font-family: "Cinzel Decorative", "Cinzel", serif; font-size: 26px; color: var(--ink); }
+.sum-score { font-size: 46px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; background: linear-gradient(180deg, #fff3c0, #f0c048 55%, #b07a1c); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 10px rgba(255, 190, 60, 0.45)); }
+.sum-place { font-size: 13px; color: var(--ink-soft); }
+.sum-place.best { color: #2a1404; background: var(--accent); align-self: center; padding: 4px 12px; border-radius: 999px; font-weight: 700; }
+.sum-chapter { font-size: 14px; color: var(--accent); }
+.sum-stats { margin: 4px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sum-stats div { padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); text-align: left; }
+.sum-stats dt { font-size: 11px; color: var(--ink-dim); }
+.sum-stats dd { margin: 2px 0 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sum-missions { font-size: 12px; color: var(--ink-soft); padding: 2px 0 4px; }
+.tune-note { margin: 0; font-size: 12px; color: #ffb36a; }

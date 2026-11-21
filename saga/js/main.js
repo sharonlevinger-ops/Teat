@@ -5,7 +5,7 @@ import { TableLayers } from './render/layers.js';
 import { HudLayer } from './ui/hud.js';
 import { Input } from './ui/input.js';
 import { Simulation } from './core/sim.js';
-import { STEP } from './core/config.js';
+import { STEP, PHYS, PHYS_DEFAULTS } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
@@ -14,7 +14,8 @@ import { ChapterLook } from './render/chapters.js';
 import { flatToArt, UI } from './core/artmap.js';
 import { EventLog, buildReport, shareReport, initViewerDownloads } from './ui/report.js';
 import { TuningPanel, loadSavedTune } from './ui/tuning.js';
-import { Progress } from './core/progress.js';
+import { Progress, GameStats } from './core/progress.js';
+import { Summary } from './ui/summary.js';
 import { Journal } from './ui/journal.js';
 
 async function boot() {
@@ -50,10 +51,13 @@ async function boot() {
   const progress = new Progress(store);
   progress.bind(bus);
   const journal = new Journal(progress);
+  const stats = new GameStats(bus);
+  const summary = new Summary(progress, stats);
   progress.onUnlock = (kind, item) => {
     if (kind === 'mission') messages.show(`MISSION COMPLETE<small>${item.text.toUpperCase()}</small>`);
     else if (kind === 'daily') messages.show(`ALL MISSIONS DONE!<small>STREAK: ${item.streak} ${item.streak === 1 ? 'DAY' : 'DAYS'}</small>`, true);
     else if (kind === 'achievement') messages.show(`ACHIEVEMENT<small>${item.name.toUpperCase()}</small>`);
+    else if (kind === 'chapter') messages.show(`NEW SAGA RECORD<small>CHAPTER ${item.chapter} REACHED FOR THE FIRST TIME</small>`);
     if (audio.ready) audio.rampDone();
   };
   // music follows the game: chapter track, multiball track, RUSH drum layer on top
@@ -77,10 +81,10 @@ async function boot() {
   // ------------------------------------------------------------------ flow
   let paused = false;
   const show = (id, on) => hud.el(id).classList.toggle('hidden', !on);
-  const startGame = () => { audio.unlock(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
+  const startGame = () => { audio.unlock(); summary.hide(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
-    if (journal.open) return true; // the journal is on top: taps belong to it
+    if (journal.open || summary.open) return true; // a card is on top: taps belong to it
     if (sim.rules.state !== 'playing') { startGame(); return true; } // the starting tap never flips or launches
     return false;
   };
@@ -88,7 +92,7 @@ async function boot() {
   // (screen space, from the un-zoomed fit, so it is the same corner in both camera views)
   const isPlungerZone = (x, y) => { const L = stage.layout; return x > L.left + 1030 * L.s && y > L.top + 1560 * L.s; };
   const tuning = new TuningPanel(sim.world);
-  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open || journal.open, isPlungerZone });
+  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open || journal.open || summary.open, isPlungerZone });
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
   const pauseCard = document.getElementById('pause');
@@ -141,6 +145,12 @@ async function boot() {
     return c.toDataURL('image/jpeg', 0.82);
   };
   const btnReport = document.getElementById('btn-report');
+  // reliability: tell the designer when saved tuning values (not the defaults) are in play
+  const tuneNote = document.createElement('p');
+  tuneNote.className = 'tune-note hidden';
+  tuneNote.textContent = 'Custom tuning is active (hold "Paused" to change).';
+  btnReport.before(tuneNote);
+  const tuningActive = () => Object.keys(PHYS_DEFAULTS).some((k) => PHYS[k] !== PHYS_DEFAULTS[k]);
   btnReport.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!report) captureReport();
@@ -153,13 +163,25 @@ async function boot() {
   for (const t of ['pointerdown']) pauseTitle.addEventListener(t, startHold);
   for (const t of ['pointerup', 'pointerleave', 'pointercancel']) pauseTitle.addEventListener(t, endHold);
   if (location.hash === '#tune') tuning.show(true);
+  document.getElementById('btn-again').addEventListener('click', () => startGame());
+  document.getElementById('btn-sum-journal').addEventListener('click', () => journal.show(true, 'scores'));
+  document.getElementById('btn-sum-close').addEventListener('click', () => { summary.hide(); show('tap-to-play', true); });
+  // Escape closes the top-most card (keyboard users)
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (tuning.open) tuning.show(false);
+    else if (journal.open) journal.show(false);
+    else if (summary.open) { summary.hide(); show('tap-to-play', true); }
+    else if (paused) setPaused(false);
+  });
   const setPaused = (on) => {
     if (on && sim.rules.state !== 'playing') return;
-    if (on) captureReport();
+    report = null; // taken when "Report a problem" is tapped: the game is frozen, so it is still this moment
     btnReport.textContent = 'Report a problem';
+    tuneNote.classList.toggle('hidden', !on || !tuningActive());
     paused = on;
     pauseCard.classList.toggle('hidden', !on);
-    if (on) { input.releaseAll(); audio.suspend(); } else audio.resume();
+    if (on) { input.releaseAll(); audio.suspend(); document.getElementById('btn-resume').focus({ preventScroll: true }); } else audio.resume();
     messages.paused = on;
   };
   // between games the pause button opens the Journal (missions, achievements, scores)
@@ -200,12 +222,11 @@ async function boot() {
   bus.on('skillShot', () => audio.skillShot());
   bus.on('drain', () => audio.drain());
   bus.on('ballLost', () => audio.ballLost());
-  bus.on('gameOver', ({ high, score }) => {
+  bus.on('gameOver', ({ high, score, newHigh }) => {
     audio.gameOver(); store.set('high', high); refreshMusic();
     const place = progress.recordScore(score, sim.rules.stage.id);
     journal.highlight = place;
-    if (place > 1) setTimeout(() => messages.show(`#${place} IN YOUR SCORE TABLE`), 600);
-    setTimeout(() => show('tap-to-play', true), 1600);
+    setTimeout(() => { if (sim.rules.state !== 'playing') summary.show({ score, high, newHigh, place }); }, 1800);
   });
   bus.on('nudge', () => audio.thud(26));
   bus.on('tiltWarning', () => audio.doorThud());
@@ -288,7 +309,10 @@ async function boot() {
 
 boot().catch((e) => {
   console.error(e);
-  document.body.insertAdjacentHTML('beforeend', `<p style="position:fixed;inset:auto 0 40% 0;text-align:center;color:#fff;font:16px sans-serif">Could not start: ${String(e && e.message || e)}</p>`);
+  const p = document.createElement('p');
+  p.style.cssText = 'position:fixed;inset:auto 0 40% 0;text-align:center;color:#fff;font:16px sans-serif';
+  p.textContent = `Could not start: ${String((e && e.message) || e)}`;
+  document.body.appendChild(p);
 });
 
 // offline + home-screen install (not in the single-file build, where service workers are unavailable)

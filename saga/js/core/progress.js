@@ -70,8 +70,21 @@ export class Progress {
       day: '', missions: [], streak: 0, lastFullDay: '', achievements: {}, scores: [],
       ...(s && typeof s === 'object' ? s : {}),
     };
-    if (!Array.isArray(this.state.scores)) this.state.scores = [];
-    if (!this.state.achievements || typeof this.state.achievements !== 'object') this.state.achievements = {};
+    // never trust what comes back from storage: keep only well-formed entries
+    const num = (v, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+    this.state.scores = (Array.isArray(this.state.scores) ? this.state.scores : [])
+      .filter((r) => r && num(r.score) > 0)
+      .map((r) => ({ score: Math.round(num(r.score)), chapter: Math.min(3, Math.max(1, Math.round(num(r.chapter, 1)))), day: /^\d{4}-\d{2}-\d{2}$/.test(r.day) ? r.day : '' }))
+      .sort((a, b) => b.score - a.score).slice(0, MAX_SCORES);
+    if (!this.state.achievements || typeof this.state.achievements !== 'object' || Array.isArray(this.state.achievements)) this.state.achievements = {};
+    for (const k of Object.keys(this.state.achievements)) if (!ACHIEVEMENTS.some((a) => a.id === k)) delete this.state.achievements[k];
+    this.state.streak = Math.max(0, Math.round(num(this.state.streak)));
+    this.state.bestChapter = Math.min(3, Math.max(1, Math.round(num(this.state.bestChapter, 1))));
+    const v = this.state.chapterVisits;
+    this.state.chapterVisits = [1, 2, 3].map((i) => Math.max(0, Math.round(num(Array.isArray(v) ? v[i - 1] : 0))));
+    const okMissions = Array.isArray(this.state.missions) && this.state.missions.length === 3
+      && this.state.missions.every((m) => m && MISSION_POOL.some((x) => x.id === m.id) && Number.isFinite(m.count));
+    if (!okMissions) { this.state.missions = []; this.state.day = ''; }
     this._checkDay();
   }
 
@@ -93,6 +106,9 @@ export class Progress {
   }
 
   get streak() { return this.state.streak; }
+  /** furthest chapter ever reached (1–3) and how many games reached each chapter */
+  get bestChapter() { return this.state.bestChapter; }
+  get chapterVisits() { return this.state.chapterVisits; }
   get scores() { return this.state.scores; }
   hasAchievement(id) { return !!this.state.achievements[id]; }
 
@@ -101,8 +117,13 @@ export class Progress {
   }
 
   onEvent(type, p) {
-    if (type === 'gameStart') this._checkDay();
     let changed = false;
+    if (type === 'gameStart') { this._checkDay(); this.state.chapterVisits[0]++; changed = true; }
+    if (type === 'stage' && !p.initial && p.index >= 1 && p.index <= 2) {
+      this.state.chapterVisits[p.index]++;
+      if (p.index + 1 > this.state.bestChapter) { this.state.bestChapter = p.index + 1; this.onUnlock('chapter', { chapter: p.index + 1 }); }
+      changed = true;
+    }
     for (const m of this.state.missions) {
       if (m.done) continue;
       const def = MISSION_POOL.find((x) => x.id === m.id);
@@ -144,4 +165,23 @@ export class Progress {
     const i = list.indexOf(entry);
     return i < 0 ? 0 : i + 1;
   }
+}
+
+/** What happened in one game (for the end-of-game summary). */
+export class GameStats {
+  constructor(bus) {
+    this.reset();
+    bus.on('gameStart', () => this.reset());
+    bus.on('wizardHit', () => this.wizard++);
+    bus.on('towerEnter', () => this.tower++);
+    bus.on('superJackpot', () => this.jackpots++);
+    bus.on('ramp', () => this.ramps++);
+    bus.on('loop', () => this.ramps++);
+    bus.on('skillShot', () => this.skill++);
+    bus.on('rushStart', () => this.rush++);
+    bus.on('comboChain', ({ level }) => { this.bestCombo = Math.max(this.bestCombo, level); });
+    bus.on('stage', ({ index }) => { this.chapter = Math.max(this.chapter, index + 1); });
+  }
+
+  reset() { Object.assign(this, { wizard: 0, tower: 0, jackpots: 0, ramps: 0, skill: 0, rush: 0, bestCombo: 0, chapter: 1 }); }
 }

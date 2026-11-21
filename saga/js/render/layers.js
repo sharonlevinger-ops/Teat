@@ -127,7 +127,8 @@ export class TableLayers {
 
   _animateOccluders(dt) {
     this.time += dt;
-    for (const [id, o] of Object.entries(this.occ)) {
+    if (!this.occList) this.occList = Object.entries(this.occ);
+    for (const [id, o] of this.occList) {
       if (o.k !== 0 || o.v !== 0) { // damped spring: k'' = -w²k - 2ζw k'
         const w = 26, z = 0.32;
         o.v += (-w * w * o.k - 2 * z * w * o.v) * dt;
