@@ -9,15 +9,17 @@ import { STEP } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
-import { Messages } from './ui/messages.js';
+import { Messages, GOAL_AT } from './ui/messages.js';
 import { ChapterLook } from './render/chapters.js';
-import { flatToArt } from './core/artmap.js';
+import { flatToArt, UI } from './core/artmap.js';
 import { EventLog, buildReport, shareReport, initViewerDownloads } from './ui/report.js';
+import { TuningPanel, loadSavedTune } from './ui/tuning.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
   const sim = new Simulation();
   const bus = sim.bus;
+  loadSavedTune(sim.world); // designer values saved on this device (if any)
   const stage = await Stage.load(document.getElementById('stage'), window.__ART_BASE__ || 'art/');
   const layers = new TableLayers(stage, sim);
   await layers.load();
@@ -72,7 +74,8 @@ async function boot() {
   // launch area: the painted plunger and the TOUCH TO LAUNCH hint (bottom-right of the painting)
   // (screen space, from the un-zoomed fit, so it is the same corner in both camera views)
   const isPlungerZone = (x, y) => { const L = stage.layout; return x > L.left + 1030 * L.s && y > L.top + 1560 * L.s; };
-  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused, isPlungerZone });
+  const tuning = new TuningPanel(sim.world);
+  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open, isPlungerZone });
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
   const pauseCard = document.getElementById('pause');
@@ -80,7 +83,7 @@ async function boot() {
   let report = null;
   const captureReport = () => {
     let shot = null;
-    try { stage.render(); shot = stage.renderer.domElement.toDataURL('image/jpeg', 0.8); } catch { /* screenshot unavailable */ }
+    try { stage.render(); shot = composeShot(); } catch { /* screenshot unavailable */ }
     const L = stage.layout;
     report = {
       shot,
@@ -90,12 +93,53 @@ async function boot() {
       }),
     };
   };
+  // the WebGL table plus the live HUD (score, values, mode, goal line, goal arrow), as the player saw it
+  const composeShot = () => {
+    const gl = stage.renderer.domElement, c = document.createElement('canvas');
+    c.width = gl.width; c.height = gl.height;
+    const g = c.getContext('2d');
+    g.drawImage(gl, 0, 0);
+    const L = stage.layout, k = gl.width / L.W; // CSS px -> canvas px
+    const at = (x, y) => [(L.left + x * L.s) * k, (L.top + y * L.s) * k];
+    const text = (str, x, y, px, color, align = 'center') => {
+      if (!str) return;
+      const [sx, sy] = at(x, y);
+      g.font = `700 ${px * L.s * k}px Cinzel, Georgia, serif`;
+      g.textAlign = align; g.textBaseline = 'middle';
+      g.lineWidth = 3 * L.s * k; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(str, sx, sy);
+      g.fillStyle = color; g.fillText(str, sx, sy);
+    };
+    const r = sim.rules;
+    text('Forest Pinball Saga', UI.plaque.cx, UI.plaque.cy, 46, '#edc35c');
+    text(r.score.toLocaleString('en-US'), UI.score.cx, 226, 104, '#f6cf5a');
+    text(hud.el('hud-mode').textContent, UI.score.cx, 304, 27, '#c8f2ff');
+    text(String(r.ball), UI.values.ball[0], UI.values.ball[1], 36, '#c6ecb0', 'left');
+    text(r.stage.mult.toFixed(1) + 'X', UI.values.mult[0], UI.values.mult[1], 36, '#f6e2a8', 'left');
+    text(String(r.guests), UI.values.guests[0], UI.values.guests[1], 36, '#9fb6ff', 'left');
+    const goal = r.goal;
+    if (goal) {
+      text(goal.text, 565, UI.tapToPlay.cy - 26, 36, '#f3dda2');
+      text(goal.sub, 565, UI.tapToPlay.cy + 16, 28, '#c8f2ff');
+      const [ax, ay] = stage.artToScreen(...GOAL_AT[goal.target]), s = stage.tableXf.s * k; // arrow rides on the table
+      g.save(); g.translate(ax * k, ay * k); g.scale(s, s);
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(-34, -44); g.lineTo(-14, -44); g.lineTo(-14, -92); g.lineTo(14, -92); g.lineTo(14, -44); g.lineTo(34, -44); g.closePath();
+      g.fillStyle = '#ffe27a'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#3a2208'; g.stroke(); g.restore();
+    }
+    return c.toDataURL('image/jpeg', 0.82);
+  };
   const btnReport = document.getElementById('btn-report');
   btnReport.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!report) captureReport();
     shareReport(report.data, report.shot).then((res) => { btnReport.textContent = res === 'failed' ? 'Report unavailable here' : res === 'cancelled' ? 'Report a problem' : 'Report ready ✓'; });
   });
+  let holdTimer = 0;
+  const pauseTitle = pauseCard.querySelector('h2');
+  const startHold = () => { clearTimeout(holdTimer); holdTimer = setTimeout(() => tuning.show(true), 1200); };
+  const endHold = () => clearTimeout(holdTimer);
+  for (const t of ['pointerdown']) pauseTitle.addEventListener(t, startHold);
+  for (const t of ['pointerup', 'pointerleave', 'pointercancel']) pauseTitle.addEventListener(t, endHold);
+  if (location.hash === '#tune') tuning.show(true);
   const setPaused = (on) => {
     if (on && sim.rules.state !== 'playing') return;
     if (on) captureReport();
@@ -166,7 +210,7 @@ async function boot() {
       while (acc >= STEP && n < 14) { sim.step(); acc -= STEP; n++; }
       if (n === 14) acc = 0;
     }
-    layers.update(paused ? 1 : acc / STEP);
+    layers.update(paused ? 1 : acc / STEP, paused ? 0 : dt);
     chapters.update(paused ? 0 : dt);
     effects.update(paused ? 0 : dt);
     // camera: follow the ball nearest the flippers (view 2), apply the table jolt

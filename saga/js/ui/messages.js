@@ -11,7 +11,7 @@ const ICONS = { // tiny inline icons for the RUSH progress row
   potion: '<svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5l5 7a5 5 0 0 1-4 7H9a5 5 0 0 1-4-7l5-7V4H9z"/></svg>',
 };
 // where the goal arrow points (painting pixels: the tip of the arrow)
-const GOAL_AT = { wizard: [834, 930], door: [640, 880] };
+export const GOAL_AT = { wizard: [834, 930], door: [640, 880] };
 const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
   ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
 

@@ -1,7 +1,7 @@
 // Touch + keyboard input. Left half = left flipper, right half = right flipper,
 // bottom-right corner = plunger (only while a ball waits on it). Full multi-touch.
 
-const UI_SEL = 'button, input, label, .card';
+const UI_SEL = 'button, input, label, textarea, .card, .tune-card';
 
 export class Input {
   constructor(target, sim, { onAnyTap = () => {}, isBlocked = () => false, isPlungerZone = () => false } = {}) {

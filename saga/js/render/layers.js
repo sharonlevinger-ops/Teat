@@ -9,6 +9,10 @@ import { PHYS } from '../core/config.js';
 import { applyGrade } from './grade.js';
 
 const R = PHYS.BALL_R;
+const KNOB = [1190, 1711]; // top of the painted green plunger gem (painting pixels): the waiting ball rests here
+// squash-and-stretch springs: what bounces when it is hit, and how hard
+const BOUNCE = { mush1: 1, mush2: 1, mush3: 1, crystal1: 0.6, crystal2: 0.6, potion: 0.8, wizard: 0.45, slingL: 0.5, slingR: 0.5, tower: 0.25 };
+const BREATHE = { mush1: 0.012, mush2: 0.014, mush3: 0.011, potion: 0.008, wizard: 0.006 }; // idle "alive" motion
 const depth = (flatY) => -flatY * 10; // nearer the player (smaller flat y) = drawn later
 
 function spriteMesh(tex, w, h) {
@@ -75,7 +79,7 @@ export class TableLayers {
       const flat = this._flatOf(base);
       m.renderOrder = depth(flat[1]);
       this.group.add(m);
-      this.occ[n] = { mesh: m, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, base };
+      this.occ[n] = { mesh: m, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, base, k: 0, v: 0, phase: Math.random() * 6.28 };
     }
     // flippers: the painted flipper sprite, rotated about its pivot (and stretched to the physics length)
     this.flippers = this.sim.world.flippers.map((f) => {
@@ -108,13 +112,42 @@ export class TableLayers {
       const shadow = spriteMesh(shadowTex, 1, 1);
       mesh.visible = shadow.visible = false;
       this.group.add(shadow, mesh);
-      return { b, mesh, shadow, roll: 0, lastX: 0, lastY: 0 };
+      return { b, mesh, shadow, roll: 0, lastX: 0, lastY: 0, ox: 0, oy: 0 };
     });
+    // every hit makes the object bounce (squash, then wobble back)
+    const kick = (id, amount) => { const o = this.occ[id]; if (o) o.v += 2.6 * amount * (BOUNCE[id] || 0.5); };
+    this.sim.bus.on('element', ({ id }) => kick(id, 1));
+    this.sim.bus.on('wizardHit', () => kick('wizard', 1));
+    this.sim.bus.on('doorThud', () => kick('tower', 1));
+    this.sim.bus.on('superJackpot', () => kick('tower', 2));
+    this.sim.bus.on('contact', (c) => { if (c.kind === 'sling') kick(c.id, Math.min(1.4, c.impact / 20)); });
+    this.time = 0;
+    this.lastNow = 0;
+  }
+
+  _animateOccluders(dt) {
+    this.time += dt;
+    for (const [id, o] of Object.entries(this.occ)) {
+      if (o.k !== 0 || o.v !== 0) { // damped spring: k'' = -w²k - 2ζw k'
+        const w = 26, z = 0.32;
+        o.v += (-w * w * o.k - 2 * z * w * o.v) * dt;
+        o.k += o.v * dt;
+        if (Math.abs(o.k) < 1e-4 && Math.abs(o.v) < 1e-3) { o.k = 0; o.v = 0; }
+      }
+      const br = BREATHE[id] ? Math.sin(this.time * 1.6 + o.phase) * BREATHE[id] : 0;
+      if (o.k === 0 && br === 0 && !o.moved) continue;
+      const sx = 1 + o.k * 0.9 - br * 0.5, sy = 1 - o.k + br;
+      o.mesh.scale.set(sx, sy, 1);
+      // scale about the object's base so it squashes onto the table
+      o.mesh.position.set(o.base[0] + (o.cx - o.base[0]) * sx, -(o.base[1] + (o.cy - o.base[1]) * sy), 0);
+      o.moved = o.k !== 0 || br !== 0;
+    }
   }
 
   _flatOf([x, y]) { return artToFlat(x, y); }
 
-  update(alpha) {
+  update(alpha, dt = 1 / 60) {
+    this._animateOccluders(Math.min(dt, 0.05));
     for (const fl of this.flippers) {
       const f = fl.f;
       const [pvx, pvy] = f.pivotArt;
@@ -131,8 +164,16 @@ export class TableLayers {
       const x = b.px + (b.x - b.px) * alpha, y = b.py + (b.y - b.py) * alpha, z = b.pz + (b.z - b.pz) * alpha;
       let [ax, ay] = flatToArt(x, y);
       const unit = unitScaleAt(x, y);
-      if (b.mode === 'held') ay += plungerPull * 26; // pulled down with the plunger
       const size = unit * 2 * R * (1 + z * 0.06);
+      // the waiting ball sits centred on the painted plunger gem; after launch it blends back onto its physics path
+      if (b.mode === 'held') { bl.ox = KNOB[0] - ax; bl.oy = KNOB[1] - size * 0.47 - ay; }
+      else if (bl.ox !== 0 || bl.oy !== 0) {
+        const f = Math.exp(-dt * 14);
+        bl.ox *= f; bl.oy *= f;
+        if (Math.abs(bl.ox) < 0.2 && Math.abs(bl.oy) < 0.2) bl.ox = bl.oy = 0;
+      }
+      ax += bl.ox; ay += bl.oy;
+      if (b.mode === 'held') ay += plungerPull * 26; // pulled down with the plunger
       bl.mesh.scale.set(size, size, 1);
       bl.mesh.position.set(ax, -ay, 0);
       const lift = z * unit * 0.5;

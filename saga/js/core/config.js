@@ -53,7 +53,8 @@ export const RUSH_ELEMENTS = Object.freeze(['mush1', 'mush2', 'mush3', 'crystal1
 export const SKILL_TARGET = 'mush3';
 export const MAX_BALLS = 4;
 
-export const PHYS = Object.freeze({
+// Not frozen: the hidden designer tuning panel (ui/tuning.js) adjusts a few of these live.
+export const PHYS = {
   // Physics runs at 75% of real time: same trajectories, calmer ball. Game timers stay real time.
   TIME_SCALE: 0.75,
   BALL_R: 0.5,
@@ -73,4 +74,7 @@ export const PHYS = Object.freeze({
   FLIPPER_DOWN_SPEED: 16,
   STUCK_SPEED: 0.6,
   STUCK_TIME: 3.0,
-});
+};
+
+/** Defaults of the values the tuning panel can change (for reset / export). */
+export const PHYS_DEFAULTS = Object.freeze({ ...PHYS });

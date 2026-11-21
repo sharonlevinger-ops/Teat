@@ -8,7 +8,7 @@ import { GameRules } from './rules.js';
 import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks } from './config.js';
 
 const LAUNCH_CD = secToTicks(TIMING.LAUNCH_COOLDOWN);
-const PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step
+let PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step (re-read each step: the tuning panel can change it)
 const AUTO_TICKS = secToTicks(TIMING.MB_AUTOLAUNCH);
 const STUCK_TICKS = secToTicks(PHYS.STUCK_TIME);
 
@@ -169,6 +169,7 @@ export class Simulation {
     if (pl.pulling) pl.power = Math.min(1, pl.power + STEP / TIMING.PLUNGER_FULL);
     pl.pos += ((pl.pulling ? pl.power : 0) - pl.pos) * (pl.pulling ? 0.5 : 0.6);
 
+    PHYS_DT = STEP * PHYS.TIME_SCALE;
     this.world.step(PHYS_DT);
 
     const balls = this.world.balls;
@@ -290,7 +291,7 @@ export class Simulation {
     for (const o of this.world.balls) {
       if (o !== b && o.active && o.mode === 'free' && Math.hypot(o.x - x, o.y - y) < 1.3) { b.timer = 12; return; }
     }
-    this._place(b, x, y, (Math.random() - 0.5) * 6, -12, 'free');
+    this._place(b, x, y, (this.world._rand() - 0.5) * 6, -12, 'free');
     this.bus.emit('towerEject', { id: b.id, x, y });
   }
 

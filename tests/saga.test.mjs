@@ -267,3 +267,30 @@ test('problem report: plain JSON with version, balls, rules and the recent event
   assert.ok(!rep.events.some((e) => e.type === 'contact'));
   assert.match(summary(rep), /0\.7\.0/);
 });
+
+test('deterministic: the same inputs give the same game, multiball tower ejects included', () => {
+  const play = () => {
+    const { sim } = newGame();
+    sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, secs(2));
+    const r = sim.rules;
+    for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+    const b = sim.world.balls.find((x) => x.active); r.onTowerEnter(b);
+    run(sim, secs(4));
+    return sim.world.balls.filter((x) => x.active).map((x) => [x.x.toFixed(6), x.y.toFixed(6)]).join('|');
+  };
+  assert.equal(play(), play());
+});
+
+test('tuning panel values: applied live within range, out-of-range ignored, defaults restorable', async () => {
+  const { applyTune, currentTune } = await import('../saga/js/ui/tuning.js');
+  const { PHYS_DEFAULTS } = await import('../saga/js/core/config.js');
+  const sim = new Simulation();
+  applyTune({ GRAVITY: 60, SLING_KICK: 999, TIME_SCALE: 0.9 }, sim.world);
+  assert.equal(PHYS.GRAVITY, 60);
+  assert.equal(sim.world.gravity, 60);
+  assert.equal(PHYS.SLING_KICK, PHYS_DEFAULTS.SLING_KICK, 'out of range ignored');
+  assert.equal(currentTune().TIME_SCALE, 0.9);
+  applyTune(PHYS_DEFAULTS, sim.world);
+  assert.equal(PHYS.GRAVITY, PHYS_DEFAULTS.GRAVITY);
+  assert.equal(PHYS.TIME_SCALE, PHYS_DEFAULTS.TIME_SCALE);
+});
