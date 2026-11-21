@@ -12,6 +12,7 @@ import { APP_VERSION } from './version.js';
 import { Messages } from './ui/messages.js';
 import { ChapterLook } from './render/chapters.js';
 import { flatToArt } from './core/artmap.js';
+import { EventLog, buildReport, shareReport } from './ui/report.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -34,6 +35,7 @@ async function boot() {
   const messages = new Messages(hud, sim, tableLayer);
   messages.bind(bus);
   const audio = new AudioEngine();
+  const eventLog = new EventLog(sim);
   const store = {
     get(k, d) { try { const v = localStorage.getItem('saga.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
@@ -73,8 +75,30 @@ async function boot() {
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
   const pauseCard = document.getElementById('pause');
+  // report a problem: frozen at the moment of pausing, so it shows exactly what the player saw
+  let report = null;
+  const captureReport = () => {
+    let shot = null;
+    try { stage.render(); shot = stage.renderer.domElement.toDataURL('image/jpeg', 0.8); } catch { /* screenshot unavailable */ }
+    const L = stage.layout;
+    report = {
+      shot,
+      data: buildReport(sim, {
+        version: APP_VERSION, view, events: eventLog.items.slice(),
+        device: { ua: navigator.userAgent, screen: `${window.innerWidth}x${window.innerHeight}@${window.devicePixelRatio}`, safe: L.safe, pixelRatio: stage.renderer.getPixelRatio() },
+      }),
+    };
+  };
+  const btnReport = document.getElementById('btn-report');
+  btnReport.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!report) captureReport();
+    shareReport(report.data, report.shot).then((res) => { if (res !== 'cancelled') btnReport.textContent = 'Report ready ✓'; });
+  });
   const setPaused = (on) => {
     if (on && sim.rules.state !== 'playing') return;
+    if (on) captureReport();
+    btnReport.textContent = 'Report a problem';
     paused = on;
     pauseCard.classList.toggle('hidden', !on);
     if (on) { input.releaseAll(); audio.suspend(); } else audio.resume();

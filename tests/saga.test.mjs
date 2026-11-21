@@ -200,3 +200,70 @@ test('timers are exact on the painted table too (tower door open exactly 10 s)',
   assert.equal(TIMING.DOOR_OPEN, 10);
   assert.equal(sim.tick - start, secs(10));
 });
+
+test('Ball Save: a ball lost within 6 s of reaching the playfield comes back once; later it is lost', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch();
+  run(sim, secs(1.5));
+  assert.ok(r.ballSaveActive, 'Ball Save running after the ball left the shooter lane');
+  const drainNow = () => { const b = sim.world.balls.find((x) => x.active && x.mode !== 'held'); sim._place(b, 10.5, -2, 0, -10, 'free'); sim.step(); };
+  drainNow();
+  assert.equal(count('ballSaved'), 1);
+  assert.equal(count('ballLost'), 0);
+  assert.equal(r.ball, 1, 'still ball 1');
+  assert.ok(sim.heldBall(), 'ball back on the plunger');
+  assert.equal(r.ballSaveActive, false);
+  // second launch of the same ball: no new Ball Save
+  run(sim, secs(1)); sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, secs(1.5));
+  assert.equal(r.ballSaveActive, false, 'only one save per ball');
+  drainNow(); run(sim, 2);
+  assert.equal(count('ballLost'), 1);
+  assert.equal(r.ball, 2);
+});
+
+test('Ball Save expires after exactly 6 s', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  r.onShooterExit();
+  assert.equal(r.saveTicks, secs(TIMING.BALL_SAVE));
+  run(sim, secs(TIMING.BALL_SAVE) - 1);
+  assert.ok(r.ballSaveActive);
+  run(sim, 1);
+  assert.equal(r.ballSaveActive, false);
+  assert.equal(count('ballSaveEnd'), 1);
+});
+
+test('next goal follows the game: wizard -> open tower -> super jackpot, with chapter distance', () => {
+  const { sim } = newGame();
+  const r = sim.rules;
+  assert.deepEqual(r.goal, { text: 'WIZARD · 3 MORE HITS OPEN THE TOWER', target: 'wizard', sub: 'CHAPTER 2 IN 15,000' });
+  r.onWizardHit(0, 0);
+  assert.match(r.goal.text, /2 MORE HITS/);
+  for (let i = 0; i < 2; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+  assert.equal(r.goal.target, 'door');
+  assert.match(r.goal.text, /OPEN TOWER/);
+  const b = sim.heldBall(); b.mode = 'free';
+  r.onTowerEnter(b);
+  assert.match(r.goal.text, /SUPER JACKPOT/);
+  r.score = 50000; r._checkStage();
+  assert.equal(r.goal.sub, 'FINAL CHAPTER');
+  r.state = 'gameover';
+  assert.equal(r.goal, null);
+});
+
+test('problem report: plain JSON with version, balls, rules and the recent events', async () => {
+  const { EventLog, buildReport, summary } = await import('../saga/js/ui/report.js');
+  const sim = new Simulation();
+  const log = new EventLog(sim);
+  sim.rules.startGame();
+  sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, secs(2));
+  const rep = JSON.parse(JSON.stringify(buildReport(sim, { version: '0.7.0', events: log.items.slice() })));
+  assert.equal(rep.version, '0.7.0');
+  assert.equal(rep.balls.length, 1);
+  assert.ok(Number.isFinite(rep.balls[0].x) && Number.isFinite(rep.balls[0].speed));
+  assert.equal(rep.rules.ball, 1);
+  assert.ok(rep.events.some((e) => e.type === 'launch'));
+  assert.ok(!rep.events.some((e) => e.type === 'contact'));
+  assert.match(summary(rep), /0\.7\.0/);
+});

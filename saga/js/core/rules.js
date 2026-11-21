@@ -21,6 +21,7 @@ const T = {
   LOOP: secToTicks(TIMING.LOOP_WINDOW),
   COMBO: secToTicks(TIMING.COMBO_WINDOW),
   SERVE_DELAY: secToTicks(1.4),
+  SAVE: secToTicks(TIMING.BALL_SAVE),
 };
 export const RULE_TICKS = T;
 
@@ -56,6 +57,8 @@ export class GameRules {
     this.lastAward = null;
     this.chain = 0;
     this.chainTicks = 0;
+    this.saveTicks = 0;
+    this.saveStarted = false;
   }
 
   // ---------------------------------------------------------------- derived state
@@ -64,6 +67,24 @@ export class GameRules {
   get kickbackLit() { return this.kickLit.L; }
   get doorOpen() { return this.doorTicks > 0; }
   get multiplier() { return this.stage.mult * (this.rushActive ? RUSH_MULT : 1); }
+  get ballSaveActive() { return this.saveTicks > 0; }
+
+  /** What the player should go for right now (shown under the table, with an arrow on the target). */
+  get goal() {
+    if (this.state !== 'playing') return null;
+    let text, target;
+    if (this.multiball) { text = 'SHOOT THE TOWER DOOR · SUPER JACKPOT'; target = 'door'; }
+    else if (this.doorOpen) { text = 'SHOOT INTO THE OPEN TOWER!'; target = 'door'; }
+    else {
+      const left = WIZARD_CHARGES - this.wizardCharge;
+      text = left === 1 ? 'WIZARD · 1 MORE HIT OPENS THE TOWER' : `WIZARD · ${left} MORE HITS OPEN THE TOWER`;
+      target = 'wizard';
+    }
+    const next = STAGES[this.stageIndex + 1];
+    const sub = next ? `CHAPTER ${next.id} IN ${(next.min - this.score).toLocaleString('en-US')}` : 'FINAL CHAPTER';
+    return { text, target, sub };
+  }
+
   get skillLit() { return this.skillAvailable && this.skillPhase % T.SKILL_PERIOD < T.SKILL_LIT; }
 
   // ---------------------------------------------------------------- flow
@@ -82,6 +103,8 @@ export class GameRules {
     this.skillArmed = false;
     this.skillPhase = 0;
     this.kickLit.L = this.kickLit.R = true;
+    this.saveTicks = 0;
+    this.saveStarted = false;
     this.bus.emit('ballServed', { ball: this.ball });
     this.bus.emit('kickback', { lit: true });
   }
@@ -135,6 +158,8 @@ export class GameRules {
 
     if (this.skillArmed && --this.skillTicks <= 0) this.skillArmed = false;
 
+    if (this.saveTicks > 0 && --this.saveTicks === 0) this.bus.emit('ballSaveEnd', {});
+
     if (this.chainTicks > 0 && --this.chainTicks === 0) {
       if (this.chain >= 2) this.bus.emit('comboChainEnd', { level: this.chain });
       this.chain = 0;
@@ -163,6 +188,11 @@ export class GameRules {
 
   /** Ball reached the top of the shooter lane. Returns true when the table should steer it to the skill target. */
   onShooterExit() {
+    if (!this.saveStarted && !this.multiball) { // Ball Save starts when the served ball reaches the playfield
+      this.saveStarted = true;
+      this.saveTicks = T.SAVE;
+      this.bus.emit('ballSaveStart', { seconds: TIMING.BALL_SAVE });
+    }
     if (!this.skillArmed) return false;
     this.skillTicks = T.SKILL_TIMEOUT + secToTicks(2); // time to come round the top of the table
     return true;
@@ -299,6 +329,13 @@ export class GameRules {
     }
     this.bus.emit('drain', { left, multiball: false });
     if (left > 0 || this.serveTicks > 0) return;
+    if (this.saveTicks > 0) { // Ball Save: the ball comes straight back, nothing is lost (once per ball)
+      this.saveTicks = 0;
+      this.skillAvailable = false;
+      this.ctl.serveBall();
+      this.bus.emit('ballSaved', {});
+      return;
+    }
     // lost the ball
     this.chain = 0; this.chainTicks = 0;
     if (this.rushActive) { this.rushTicks = 0; this.bus.emit('rushEnd', {}); }

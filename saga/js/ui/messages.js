@@ -10,6 +10,8 @@ const ICONS = { // tiny inline icons for the RUSH progress row
   gem: '<svg viewBox="0 0 24 24"><path d="M12 1l7 9-7 13-7-13z"/></svg>',
   potion: '<svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5l5 7a5 5 0 0 1-4 7H9a5 5 0 0 1-4-7l5-7V4H9z"/></svg>',
 };
+// where the goal arrow points (painting pixels: the tip of the arrow)
+const GOAL_AT = { wizard: [834, 930], door: [640, 880] };
 const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
   ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
 
@@ -33,6 +35,11 @@ export class Messages {
       this.pops.push(d);
     }
     this.popIdx = 0;
+    // the goal arrow rides on the table (follows the camera) and bobs over the current target
+    this.arrow = document.createElement('div');
+    this.arrow.className = 'goal-arrow hidden';
+    this.arrow.innerHTML = '<svg viewBox="0 0 80 100" aria-hidden="true"><path d="M40 96 L6 52 H26 V4 H54 V52 H74 Z"/></svg>';
+    tableLayer.appendChild(this.arrow);
     this.last = {};
     this.paused = false;
   }
@@ -73,6 +80,7 @@ export class Messages {
     bus.on('ramp', ({ id }) => this.show(`<small>${id === 'rampA' ? 'CRYSTAL RAMP' : 'GOLDEN ORBIT'} +500</small>`));
     bus.on('comboChain', ({ level }) => { if (level >= 3) this.show(`COMBO x${level}!`); });
     bus.on('ballLost', ({ nextBall }) => this.show(`BALL ${nextBall}`, true));
+    bus.on('ballSaved', () => this.show('BALL SAVED!<small>LAUNCH AGAIN</small>', true));
     bus.on('ballRescue', () => this.show('<small>MAGIC RESCUE</small>'));
     bus.on('gameOver', ({ score, high, newHigh }) => this.show(`GAME OVER<small>${fmt(score)}${newHigh ? ' · NEW HIGH SCORE!' : ` · BEST ${fmt(high)}`}</small>`, true));
     bus.on('gameStart', () => { this.queue = []; this.busy = 0; this.banner.classList.remove('show'); });
@@ -87,6 +95,7 @@ export class Messages {
       const sec = (t) => Math.ceil(t / HZ);
       const parts = [];
       if (r.rushActive) { parts.push(`RUSH COMBO! X2 · ${sec(r.rushTicks)}`); flash = true; }
+      if (r.ballSaveActive) parts.push(`BALL SAVE · ${sec(r.saveTicks)}`);
       if (r.multiball) parts.push(`MULTIBALL · ${sec(r.mbTicks)}`);
       if (r.doorOpen) parts.push(`TOWER OPEN · ${sec(r.doorTicks)}`);
       if (!r.multiball && !r.doorOpen && r.wizardCharge > 0) parts.push(`WIZARD ${'✦'.repeat(r.wizardCharge)}${'·'.repeat(3 - r.wizardCharge)}`);
@@ -95,6 +104,20 @@ export class Messages {
     }
     if (this.last.mode !== mode) { this.last.mode = mode; this.hud.set('hud-mode', mode); }
     if (this.last.flash !== flash) { this.last.flash = flash; this.hud.el('hud-mode').classList.toggle('flash', flash); }
+    // next goal line (bottom of the painting) + arrow on the target
+    const g = r.goal;
+    const gk = g ? g.text + '|' + g.sub : '';
+    if (this.last.goal !== gk) {
+      this.last.goal = gk;
+      this.hud.el('hud-goal').classList.toggle('hidden', !g);
+      if (g) { this.hud.set('goal-text', g.text); this.hud.set('goal-sub', g.sub); }
+    }
+    const tgt = g ? g.target : '';
+    if (this.last.target !== tgt) {
+      this.last.target = tgt;
+      this.arrow.classList.toggle('hidden', !g);
+      if (g) { const [x, y] = GOAL_AT[g.target]; this.arrow.style.left = `${x - 40}px`; this.arrow.style.top = `${y - 100}px`; }
+    }
     // RUSH progress icons
     const key = r.rushActive ? 'rush' : [...r.combo].join();
     if (this.last.rush !== key) {

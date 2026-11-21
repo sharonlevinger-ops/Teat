@@ -17,6 +17,7 @@ export class HudLayer {
       <button class="art-btn" id="btn-pause" aria-label="Pause" style="left:${UI.pause.cx - UI.pause.size / 2}px;top:${UI.pause.cy - UI.pause.size / 2}px;width:${UI.pause.size}px;height:${UI.pause.size}px;background-image:url(art/btn-pause.png)"></button>
       <button class="art-btn" id="btn-camera" aria-label="Camera view" style="left:${UI.camera.cx - UI.camera.size / 2}px;top:${UI.camera.cy - UI.camera.size / 2}px;width:${UI.camera.size}px;height:${UI.camera.size}px;background-image:url(art/btn-camera.png)"><span id="cam-num">1</span></button>
       <div class="tap-to-play" id="tap-to-play" style="left:${UI.tapToPlay.cx - 590}px;top:${UI.tapToPlay.cy - 46}px">TAP FLIPPERS TO PLAY</div>
+      <div class="goal hidden" id="hud-goal" style="left:120px;top:${UI.tapToPlay.cy - 50}px"><b id="goal-text"></b><small id="goal-sub"></small></div>
       <div class="touch-launch" id="touch-launch" style="left:${UI.touchToLaunch.cx - 130}px;top:${UI.touchToLaunch.cy - 205}px">
         <svg viewBox="0 0 120 150" aria-hidden="true"><path d="M30 145 C 30 90, 50 55, 86 30" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/><path d="M58 22 L92 24 L84 58" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>TOUCH TO<br>LAUNCH</span>

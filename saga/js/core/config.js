@@ -36,6 +36,7 @@ export const TIMING = Object.freeze({
   DOOR_HIT_COOLDOWN: 0.5,
   LOOP_WINDOW: 4.0,
   COMBO_WINDOW: 3.0, // ramps / loops / elements hit within this time chain into a combo
+  BALL_SAVE: 6, // a ball lost within 6 s of reaching the playfield comes back (once per ball)
 });
 export const COMBO_MAX = 9;
 
