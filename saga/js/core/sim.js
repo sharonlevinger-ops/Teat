@@ -5,12 +5,13 @@ import { EventBus } from './events.js';
 import { buildTable } from './table.js';
 import { PhysicsWorld } from './physics.js';
 import { GameRules } from './rules.js';
-import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT } from './config.js';
+import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT, SCOOP } from './config.js';
 
 const LAUNCH_CD = secToTicks(TIMING.LAUNCH_COOLDOWN);
 let PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step (re-read each step: the tuning panel can change it)
 const AUTO_TICKS = secToTicks(TIMING.MB_AUTOLAUNCH);
 const STUCK_TICKS = secToTicks(PHYS.STUCK_TIME);
+const SCOOP_HOLD = secToTicks(SCOOP.HOLD), SCOOP_REARM = secToTicks(SCOOP.REARM);
 
 export class Simulation {
   constructor(bus = new EventBus()) {
@@ -37,6 +38,9 @@ export class Simulation {
   }
 
   activeBallCount() { return this.world.activeBalls(); }
+
+  /** seeded random number in [0, 1) – the whole game stays reproducible */
+  rand() { return this.world._rand(); }
 
   setDoor(open) {
     this.world.setToggle('doorClosed', !open);
@@ -129,6 +133,7 @@ export class Simulation {
     const f = this.world.flippers.find((fl) => fl.side === side);
     if (!f || f.pressed === pressed) return;
     this.world.setFlipper(side, pressed);
+    if (pressed) this.rules.onFlipperPress(side);
     this.bus.emit('flipper', { side, pressed });
   }
 
@@ -197,9 +202,10 @@ export class Simulation {
       if (!b.active) continue;
       if (b.mode === 'rail') this._updateRail(b);
       else if (b.mode === 'tower') this._updateTower(b);
+      else if (b.mode === 'scoop') this._updateScoop(b);
       else if (b.mode === 'held') {
         if (rules.multiball && pl.cooldown === 0 && ++pl.auto >= AUTO_TICKS) { pl.auto = 0; this._launch(b, 1, false); }
-      } else if (b.mode === 'free') this._checkFree(b);
+      } else if (b.mode === 'free') { if (b.scoopCd > 0) b.scoopCd--; this._checkFree(b); }
     }
   }
 
@@ -303,6 +309,15 @@ export class Simulation {
     b.rollX += b.railV * PHYS_DT;
   }
 
+  /** Ball held in the Mystery Scoop: rules decide the award at capture; after HOLD it is kicked out. */
+  _updateScoop(b) {
+    if (b.timer > 0) { b.timer--; return; }
+    const [x, y] = this.table.points.scoop;
+    this._place(b, x, y, SCOOP.EJECT_VX + (this.world._rand() - 0.5) * 1.5, SCOOP.EJECT_VY, 'free');
+    b.scoopCd = SCOOP_REARM;
+    this.bus.emit('scoopEject', { id: b.id, x, y });
+  }
+
   _updateTower(b) {
     if (b.timer > 0) { b.timer--; return; }
     const [x, y] = this.table.points.towerEject;
@@ -373,8 +388,21 @@ export class Simulation {
         break;
       case 'outlaneL': r.onOutlane(b, 'L'); break;
       case 'outlaneR': r.onOutlane(b, 'R'); break;
-      case 'inlaneL': case 'inlaneR': this.bus.emit('inlane', { side: s.id.slice(-1) }); break;
-      case 'pool': this.bus.emit('poolSplash', { x: b.x, y: b.y, speed: Math.hypot(b.vx, b.vy) }); break;
+      case 'pool': {
+        const speed = Math.hypot(b.vx, b.vy);
+        this.bus.emit('poolSplash', { x: b.x, y: b.y, speed });
+        r.onPool(b);
+        break;
+      }
+      case 'inlaneL': case 'inlaneR': r.onLane(s.id === 'inlaneL' ? 1 : 2); break;
+      case 'scoop': {
+        if (b.mode !== 'free' || b.scoopCd > 0 || Math.hypot(b.vx, b.vy) > SCOOP.CATCH_SPEED) break; // too fast: it skims over the hole
+        const [x, y] = this.table.points.scoop;
+        b.mode = 'scoop'; b.x = b.px = x; b.y = b.py = y; b.vx = b.vy = 0; b.timer = SCOOP_HOLD;
+        this.bus.emit('scoopCapture', { id: b.id, x, y });
+        r.onScoop(b);
+        break;
+      }
       default: break;
     }
   }
@@ -397,6 +425,7 @@ export class Simulation {
     b.nudges = 0;
     b.rail = null;
     b.timer = 0;
+    b.scoopCd = 0;
   }
 
   _release(b) {
@@ -405,5 +434,6 @@ export class Simulation {
     b.sensorMask = 0;
     b.rail = null;
     b.timer = 0;
+    b.scoopCd = 0;
   }
 }

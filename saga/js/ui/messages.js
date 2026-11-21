@@ -1,7 +1,7 @@
 // Step 4 – what the player is told: banners (just under the HUD frame, clear of the ball and flippers),
 // floating score pop-ups at the hit point, RUSH COMBO progress icons and the mode line in the score panel.
 // Lives inside the HUD layer, so it is laid out in painting pixels. DOM nodes are pooled.
-import { STAGES, HZ, TIMING } from '../core/config.js';
+import { STAGES, HZ, TIMING, LANES, MODES } from '../core/config.js';
 import { flatToArt } from '../core/artmap.js';
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -11,7 +11,9 @@ const ICONS = { // tiny inline icons for the RUSH progress row
   potion: '<svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5l5 7a5 5 0 0 1-4 7H9a5 5 0 0 1-4-7l5-7V4H9z"/></svg>',
 };
 // where the goal arrow points (painting pixels: the tip of the arrow)
-export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712] };
+export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712], scoop: [395, 1182], rampA: [800, 612], pool: [630, 1340] };
+// the four painted lane inserts beside the flippers carry the letters M-A-G-E (outlane L, inlane L, inlane R, outlane R)
+const LANE_AT = [[207, 1692], [259, 1692], [1019, 1692], [1074, 1692]];
 const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
   ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
 
@@ -40,15 +42,26 @@ export class Messages {
     this.arrow.className = 'goal-arrow hidden';
     this.arrow.innerHTML = '<svg viewBox="0 0 80 100" aria-hidden="true"><path d="M40 96 L6 52 H26 V4 H54 V52 H74 Z"/></svg>';
     tableLayer.appendChild(this.arrow);
+    this.letters = LANES.map((ch, i) => {
+      const d = document.createElement('div');
+      d.className = 'lane-letter';
+      d.textContent = ch;
+      d.style.left = `${LANE_AT[i][0] - 30}px`;
+      d.style.top = `${LANE_AT[i][1] - 32}px`;
+      tableLayer.appendChild(d);
+      return d;
+    });
+    this.count = null; // end-of-ball bonus count-up
     this.last = {};
     this.paused = false;
   }
 
   /** priority banners (chapter, multiball, jackpots, RUSH) replace whatever is waiting */
-  show(html, priority = false) {
-    if (priority) { this.queue = this.queue.filter((b) => b.p); this.queue.unshift({ html, p: true }); this.busy = 0; }
-    else this.queue.push({ html, p: false });
-    if (this.queue.length > 3) this.queue.length = 3;
+  show(html, priority = false, count = null) {
+    // priority banners replace whatever is waiting, but keep their own order (bonus, then "BALL 2")
+    if (priority) { this.queue = [...this.queue.filter((b) => b.p), { html, p: true, count }]; this.busy = Math.min(this.busy, this.current && this.current.p ? this.busy : 0); }
+    else this.queue.push({ html, p: false, count });
+    if (this.queue.length > 4) this.queue.length = 4;
   }
 
   popup(x, y, text, big) {
@@ -65,7 +78,7 @@ export class Messages {
 
   bind(bus) {
     bus.on('score', (p) => { if (p.x !== null && p.points >= 50) this.popup(p.x, p.y, '+' + fmt(p.points), p.points >= 2000); });
-    bus.on('stage', ({ index, initial }) => { if (!initial) this.show(STAGES[index].title.replace(': ', ':<br>'), true); });
+    bus.on('stage', ({ index, initial, level = 1 }) => { if (!initial) this.show(STAGES[index].title.replace(': ', ':<br>') + (level > 1 ? `<small>LEVEL ${level}</small>` : ''), true); });
     bus.on('rushStart', () => this.show('RUSH COMBO!<small>X2 SCORING · 30 SECONDS</small>', true));
     bus.on('rushEnd', () => this.show('<small>RUSH COMBO OVER</small>'));
     bus.on('doorOpen', () => this.show(`THE TOWER OPENS!<small>SHOOT THE DOOR · ${TIMING.DOOR_OPEN} SECONDS</small>`, true));
@@ -80,12 +93,37 @@ export class Messages {
     bus.on('ramp', ({ id }) => this.show(`<small>${id === 'rampA' ? 'CRYSTAL RAMP' : 'GOLDEN ORBIT'} +500</small>`));
     bus.on('comboChain', ({ level }) => { if (level >= 3) this.show(`COMBO x${level}!`); });
     bus.on('ballLost', ({ nextBall }) => this.show(`BALL ${nextBall}`, true));
+    // ---- table features
+    bus.on('mystery', ({ label }) => this.show(`MYSTERY<small>${label}</small>`, true));
+    bus.on('extraBallLit', ({ source }) => this.show(`EXTRA BALL IS LIT<small>${source === 'mystery' ? 'FROM THE MYSTERY HOLE · ' : ''}SHOOT THE MYSTERY HOLE</small>`, true));
+    bus.on('extraBall', () => this.show('EXTRA BALL!<small>YOU WILL SHOOT AGAIN</small>', true));
+    bus.on('shootAgain', () => this.show('SHOOT AGAIN<small>SAME PLAYER, SAME BALL</small>', true));
+    bus.on('poolLit', ({ value }) => this.show(`POOL JACKPOT LIT<small>${fmt(value)} · ROLL THROUGH THE POOL</small>`));
+    bus.on('poolJackpot', ({ points }) => this.show(`POOL JACKPOT!<small>+${fmt(points)}</small>`, true));
+    bus.on('bonusX', ({ x }) => this.show(`BONUS X${x}<small>M-A-G-E COMPLETE</small>`));
+    bus.on('lanesComplete', ({ points }) => this.show(`<small>M-A-G-E COMPLETE · +${fmt(points)}</small>`));
+    bus.on('bonus', ({ base, x, points }) => this.show(`BONUS 0<small>${fmt(base)} × ${x}</small>`, true, { base, x, points }));
+    bus.on('frenzyStart', ({ seconds }) => this.show(`SPORE FRENZY!<small>MUSHROOMS X${MODES.FRENZY_MULT} · ${seconds} SECONDS</small>`, true));
+    bus.on('frenzyEnd', () => this.show('<small>SPORE FRENZY OVER</small>'));
+    bus.on('crystalLit', ({ value }) => this.show(`CRYSTAL JACKPOT LIT<small>${fmt(value)} · RIDE THE CRYSTAL RAMP</small>`));
+    bus.on('crystalJackpot', ({ points }) => this.show(`CRYSTAL JACKPOT!<small>+${fmt(points)}</small>`, true));
+    bus.on('doubleOrbit', ({ points }) => this.show(`DOUBLE ORBIT!<small>+${fmt(points)}</small>`, true));
+    bus.on('hurryUp', ({ points }) => { if (points > 0) this.show(`HURRY-UP<small>+${fmt(points)}</small>`); });
+    bus.on('chapterMission', ({ name, points }) => this.show(`${name}<small>CHAPTER MISSION COMPLETE · +${fmt(points)}</small>`, true));
+    bus.on('boostStart', ({ seconds }) => this.show(`DOUBLE SCORING<small>${seconds} SECONDS</small>`));
+    bus.on('dragonReady', () => this.show("DRAGON'S FIRE IS READY<small>SHOOT THE MYSTERY HOLE</small>", true));
+    bus.on('dragonStart', ({ seconds }) => this.show(`DRAGON'S FIRE!<small>HIT EVERY BURNING TARGET · ${seconds} SECONDS</small>`, true));
+    bus.on('dragonWave', ({ wave, points }) => this.show(`WAVE ${wave} CLEARED!<small>+${fmt(points)} · THE FIRE RISES</small>`, true));
+    bus.on('dragonEnd', ({ completed, victory, level }) => {
+      if (!completed) this.show("<small>THE DRAGON ESCAPES · SHOOT THE MYSTERY HOLE TO FIGHT AGAIN</small>");
+      else this.show(`${victory ? 'DRAGON DEFEATED!' : 'THE DRAGON SLEEPS'}<small>THE SAGA BEGINS AGAIN · LEVEL ${level}</small>`, true);
+    });
     bus.on('tiltWarning', ({ count, of }) => this.show(`TILT WARNING<small>${count} OF ${of} · EASY ON THE NUDGES</small>`, true));
     bus.on('tilt', () => this.show('TILT!<small>FLIPPERS OFF UNTIL THE NEXT BALL</small>', true));
     bus.on('ballSaved', () => this.show('BALL SAVED!<small>LAUNCH AGAIN</small>', true));
     bus.on('ballRescue', () => this.show('<small>MAGIC RESCUE</small>'));
     bus.on('gameOver', ({ score, high, newHigh }) => this.show(`GAME OVER<small>${fmt(score)}${newHigh ? ' · NEW HIGH SCORE!' : ` · BEST ${fmt(high)}`}</small>`, true));
-    bus.on('gameStart', () => { this.queue = []; this.busy = 0; this.banner.classList.remove('show'); });
+    bus.on('gameStart', () => { this.queue = []; this.busy = 0; this.current = null; this.count = null; this.banner.classList.remove('show'); });
   }
 
   update(dt) {
@@ -96,14 +134,18 @@ export class Messages {
     else if (r.state === 'playing') {
       const sec = (t) => Math.ceil(t / HZ);
       const parts = [];
-      if (r.rushActive) { parts.push(`RUSH COMBO! X2 · ${sec(r.rushTicks)}`); flash = true; }
       if (r.tilted) { parts.push('TILT'); flash = true; }
-      if (r.ballSaveActive) parts.push(`BALL SAVE · ${sec(r.saveTicks)}`);
+      if (r.dragonActive) { parts.push(`DRAGON'S FIRE · ${sec(r.dragonTicks)}`); flash = true; }
       if (r.multiball) parts.push(`MULTIBALL · ${sec(r.mbTicks)}`);
       if (r.doorOpen) parts.push(`TOWER OPEN · ${sec(r.doorTicks)}`);
+      if (r.rushActive) { parts.push(`RUSH COMBO! X2 · ${sec(r.rushTicks)}`); flash = true; }
+      if (r.frenzyActive) parts.push(`SPORE FRENZY · ${sec(r.frenzyTicks)}`);
+      if (r.boostActive) parts.push(`X2 · ${sec(r.boostTicks)}`);
+      if (r.ballSaveActive) parts.push(`BALL SAVE · ${sec(r.saveTicks)}`);
+      if (r.bonusX > 1) parts.push(`BONUS X${r.bonusX}`);
       if (!r.multiball && !r.doorOpen && r.wizardCharge > 0) parts.push(`WIZARD ${'✦'.repeat(r.wizardCharge)}${'·'.repeat(3 - r.wizardCharge)}`);
       if (r.chain >= 2) parts.push(`COMBO x${r.chain}`);
-      mode = parts.join('  ·  ');
+      mode = parts.slice(0, 3).join('  ·  '); // the three most important, in priority order (keeps the line inside the frame)
     }
     if (this.last.mode !== mode) { this.last.mode = mode; this.hud.set('hud-mode', mode); }
     if (this.last.flash !== flash) { this.last.flash = flash; this.hud.el('hud-mode').classList.toggle('flash', flash); }
@@ -121,6 +163,21 @@ export class Messages {
       this.arrow.classList.toggle('hidden', !tgt);
       if (tgt) { const [x, y] = GOAL_AT[g.target]; this.arrow.style.left = `${x - 40}px`; this.arrow.style.top = `${y - 100}px`; }
     }
+    // lane letters: lit ones glow; they move with every flipper press
+    const lk = r.state === 'playing' ? r.lanes.map((v) => (v ? 1 : 0)).join('') : '';
+    if (this.last.lanes !== lk) {
+      this.last.lanes = lk;
+      this.letters.forEach((d, i) => { d.classList.toggle('on', r.state === 'playing' && r.lanes[i]); d.classList.toggle('hidden', r.state !== 'playing'); });
+    }
+    // end-of-ball bonus: the total counts up inside the banner
+    if (this.count && this.count.t !== undefined && !this.paused) {
+      const c = this.count;
+      c.t += dt;
+      const k = Math.min(1, c.t / 1.1);
+      const shown = Math.round(c.points * (1 - Math.pow(1 - k, 3)));
+      this.banner.innerHTML = `BONUS ${fmt(shown)}<small>${fmt(c.base)} × ${c.x}</small>`;
+      if (k >= 1) this.count = null;
+    }
     // RUSH progress icons
     const key = r.rushActive ? 'rush' : [...r.combo].join();
     if (this.last.rush !== key) {
@@ -130,8 +187,10 @@ export class Messages {
     // banner queue
     if (this.busy > 0) this.busy -= dt;
     else if (this.queue.length) {
-      const { html } = this.queue.shift();
-      this.banner.innerHTML = html;
+      const item = this.queue.shift();
+      this.current = item;
+      this.banner.innerHTML = item.html;
+      this.count = item.count ? { ...item.count, t: 0 } : null;
       this.banner.classList.remove('show');
       void this.banner.offsetWidth;
       this.banner.classList.add('show');

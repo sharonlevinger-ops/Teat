@@ -59,6 +59,8 @@ export function buildTable() {
   // launch lane: floor under the ball, inner wall, one-way gate at the top
   wall([[1185, 1724], [1245, 1724]]);
   wall([[1185, 1724], [1185, 745]]);
+  // right outlane, outer side below the launch lane (mirror of the left boundary): nothing gets under the plunger
+  wall([[1185, 1724], [1184, 2000], [1183, 2240]]);
   walls.push({ pts: P([[1185, 745], [1238, 700]]), kind: 'gate', oneWay: true, e: 0.2, fr: 0.04 });
 
   // slingshots: the painted bottom edge runs parallel to the rune rail (keeps the inlane wide open)
@@ -137,6 +139,11 @@ export function buildTable() {
     R('outlaneL', [138, 1880], 1.4, 1.2),
     R('outlaneR', [1142, 1880], 1.4, 1.2),
     (() => { const [x, y] = F([630, 1408]); return { id: 'pool', type: 'circle', x, y, r: 2.4 }; })(),
+    // the painted kickout hole between mushrooms 1 and 2: the Mystery Scoop
+    (() => { const [x, y] = F([395, 1222]); return { id: 'scoop', type: 'circle', x, y, r: 0.8 }; })(),
+    // inlanes (between the rune rail and the slingshot), under the painted lane inserts
+    R('inlaneL', [238, 1700], 1.8, 0.8),
+    R('inlaneR', [1042, 1700], 1.8, 0.8),
   ];
 
   // ramps: the crystal ramp climbs to the potion, the wire orbit on the left climbs past mushroom 3
@@ -168,6 +175,7 @@ export function buildTable() {
     rescue: pt([200, 820]),
     kickback: pt([138, 1900]),
     kickbackR: pt([1142, 1900]),
+    scoop: pt([395, 1222]),
   };
 
   return {

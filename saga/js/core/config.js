@@ -42,6 +42,38 @@ export const COMBO_MAX = 9;
 
 /** Nudging the table (swipe up): every nudge adds 1 to the danger level, which drains at DECAY per second.
  *  Reaching LIMIT gives a warning; after WARNINGS warnings the next one is TILT (flippers die for that ball). */
+/** Table features beyond the core spec (all values in base points before multipliers, times in seconds). */
+export const MODES = Object.freeze({
+  SCOOP_BASE: 1000,
+  MYSTERY: [ // weight, award
+    [22, 'points5k'], [16, 'points10k'], [5, 'points25k'], [14, 'kickbacks'], [12, 'ballSave'], [12, 'boost'], [12, 'wizard'], [4, 'extraBall'],
+  ],
+  MYSTERY_SAVE: 10,
+  BOOST_SECONDS: 15, BOOST_MULT: 2,
+  POOL_PASS: 100, POOL_PASSES: 5, POOL_JACKPOT: 10000, POOL_STEP: 2500, POOL_MAX: 40000,
+  LANE_POINTS: 250, LANE_COMPLETE: 2000, BONUS_X_MAX: 5,
+  BONUS: { mush: 100, crystal: 200, potion: 200, wizard: 300, sling: 20, ramp: 1000, loop: 1000, scoop: 1000, lane: 250, pool: 250 },
+  EXTRA_BALL_RUSHES: 2,
+  // Dragon's Fire: every target below is lit once; hitting a lit one is a jackpot and puts it out.
+  // Putting all of them out is a wave (+ WAVE award); the targets relight worth DRAGON_STEP more.
+  DRAGON_SECONDS: 45, DRAGON_JACKPOT: 5000, DRAGON_STEP: 2500, DRAGON_WAVE: 25000, DRAGON_COMPLETE: 50000,
+  DRAGON_TARGETS: ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'wizard', 'rampA', 'rampB', 'tower'],
+  LEVEL_STEP: 0.5, // each saga level: chapter multipliers +0.5, chapter thresholds +50 %
+  HURRY_START: 20000, HURRY_END: 5000,
+  FRENZY_HITS: 25, FRENZY_SECONDS: 20, FRENZY_MULT: 5,
+  CRYSTAL_SEQ: 4, CRYSTAL_JACKPOT: 15000, CRYSTAL_STEP: 5000, CRYSTAL_MAX: 50000,
+  DOUBLE_ORBIT_WINDOW: 6, DOUBLE_ORBIT: 10000, DOUBLE_ORBIT_STEP: 5000, DOUBLE_ORBIT_MAX: 40000,
+  MISSIONS: [ // one per chapter
+    { id: 'ring', name: 'MUSHROOM RING', text: 'HIT ALL 3 MUSHROOMS', n: 3, award: 10000 },
+    { id: 'moon', name: 'MOONLIT RAMPS', text: 'RIDE 4 RAMPS', n: 4, award: 20000 },
+    { id: 'dragon', name: 'DRAGON AWAKENS', text: 'HIT THE TOWER 5 TIMES', n: 5, award: 30000 },
+  ],
+});
+export const LANES = Object.freeze(['M', 'A', 'G', 'E']); // outlane L, inlane L, inlane R, outlane R
+
+/** The Mystery Scoop (kickout hole): catches balls slower than CATCH_SPEED, holds them, kicks them out. */
+export const SCOOP = Object.freeze({ CATCH_SPEED: 60, HOLD: 1.1, EJECT_VX: 4, EJECT_VY: -10, REARM: 0.6 }); // eject aim: measured 0/60 drains
+
 export const TILT = Object.freeze({ NUDGE_VX: 4.5, NUDGE_VY: 7, DECAY: 0.55, LIMIT: 2.5, WARNINGS: 2, COOLDOWN: 0.25 });
 
 export const STAGES = Object.freeze([

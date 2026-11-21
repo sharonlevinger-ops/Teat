@@ -237,19 +237,19 @@ test('Ball Save expires after exactly 6 s', () => {
 test('next goal follows the game: wizard -> open tower -> super jackpot, with chapter distance', () => {
   const { sim } = newGame();
   const r = sim.rules;
-  assert.deepEqual(r.goal, { text: 'SKILL SHOT · RELEASE ON THE GOLD FLASH', target: 'mush3', sub: 'CHAPTER 2 IN 15,000' });
+  assert.deepEqual(r.goal, { text: 'SKILL SHOT · RELEASE ON THE GOLD FLASH', target: 'mush3', sub: 'MUSHROOM RING 0/3 · CHAPTER 2 IN 15,000' });
   sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, 5);
-  assert.deepEqual(r.goal, { text: 'WIZARD · 3 MORE HITS OPEN THE TOWER', target: 'wizard', sub: 'CHAPTER 2 IN 15,000' });
+  assert.deepEqual(r.goal, { text: 'WIZARD · 3 MORE HITS OPEN THE TOWER', target: 'wizard', sub: 'MUSHROOM RING 0/3 · CHAPTER 2 IN 15,000' });
   r.onWizardHit(0, 0);
   assert.match(r.goal.text, /2 MORE HITS/);
   for (let i = 0; i < 2; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
   assert.equal(r.goal.target, 'door');
-  assert.match(r.goal.text, /OPEN TOWER/);
+  assert.match(r.goal.text, /HURRY-UP 20,000/);
   const b = sim.world.balls.find((x) => x.active);
   r.onTowerEnter(b);
   assert.match(r.goal.text, /SUPER JACKPOT/);
   r.score = 50000; r._checkStage();
-  assert.equal(r.goal.sub, 'FINAL CHAPTER');
+  assert.equal(r.goal.sub, 'DRAGON AWAKENS 0/5 · FINAL CHAPTER');
   r.state = 'gameover';
   assert.equal(r.goal, null);
 });
@@ -419,4 +419,254 @@ test('no nudge (and so no tilt) while the ball waits on the plunger', () => {
   for (let i = 0; i < 10; i++) { run(sim, secs(0.3)); assert.equal(sim.nudge(0), false); }
   assert.equal(count('nudge'), 0);
   assert.equal(sim.rules.tilted, false);
+});
+
+// ------------------------------------------------------------------ table features (ideas 1–11)
+const hitEl = (r, id, n = 1) => { for (let i = 0; i < n; i++) { r.cooldowns.clear(); r.onElementHit(id, 0, 0); } };
+const freeBall = (sim) => { sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, secs(2)); return sim.world.balls.find((b) => b.active && b.mode === 'free'); };
+const loseBall = (sim) => { const r = sim.rules; r.saveTicks = 0; for (const b of sim.world.balls) if (b.active && b.mode !== 'held') sim._place(b, 10.5, -2, 0, -10, 'free'); run(sim, 2); };
+
+test('1 Mystery Scoop: a slow ball is caught, held, kicked out safely; a fast one skims over', async () => {
+  const { SCOOP } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const b = freeBall(sim);
+  const [x, y] = sim.table.points.scoop;
+  sim._place(b, x, y + 1.5, 0, -8, 'free');
+  run(sim, 20);
+  assert.equal(count('scoopCapture'), 1);
+  assert.equal(b.mode, 'scoop');
+  run(sim, secs(SCOOP.HOLD) + 2);
+  assert.equal(b.mode, 'free');
+  assert.equal(count('scoopEject'), 1);
+  assert.ok(b.vy < 0 && b.vx > 0, 'kicked out down-right');
+  run(sim, 30);
+  assert.equal(count('scoopCapture'), 1, 'not caught again straight away');
+  // fast ball
+  sim._place(b, x, y + 2, 0, -70, 'free');
+  run(sim, 10);
+  assert.equal(count('scoopCapture'), 1, 'too fast: skims over');
+});
+
+test('1 Mystery awards: weighted, seeded, and awards that make no sense become points', () => {
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  const seen = new Set();
+  for (let i = 0; i < 300; i++) { r.onScoop(); seen.add(events.filter((e) => e.type === 'mystery').pop().p.award); r.boostTicks = 0; r.multiball = false; r.doorTicks = 0; r.wizardCharge = 0; r.extraLit = 0; }
+  for (const a of ['points5k', 'points10k', 'points25k', 'ballSave', 'boost', 'wizard']) assert.ok(seen.has(a), `never awarded ${a}`);
+  // kickbacks already lit -> points
+  const { sim: s2, events: e2 } = newGame();
+  s2.rand = () => 0.5; // lands on 'kickbacks' in the weight table
+  s2.rules.onScoop();
+  assert.equal(e2.filter((e) => e.type === 'mystery').pop().p.award, 'points5k');
+});
+
+test('2 Magic pool: 5 passes light the Pool Jackpot, the next pass collects it, value grows to a cap', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  const pass = () => { r.cooldowns.delete('pool'); r.onPool(); };
+  for (let i = 0; i < 4; i++) pass();
+  assert.equal(r.poolLit, false);
+  pass();
+  assert.equal(r.poolLit, true);
+  const before = r.score; pass();
+  assert.equal(count('poolJackpot'), 1);
+  assert.ok(r.score - before >= MODES.POOL_JACKPOT);
+  assert.equal(r.poolValue, MODES.POOL_JACKPOT + MODES.POOL_STEP);
+  for (let k = 0; k < 30; k++) for (let i = 0; i < 6; i++) pass();
+  assert.equal(r.poolValue, MODES.POOL_MAX, 'capped');
+  r.cooldowns.delete('pool'); r.poolCharge = 0; r.poolLit = false;
+  r.onPool(); r.onPool();
+  assert.equal(r.poolCharge, 1, 'cooldown between passes');
+});
+
+test('3 M-A-G-E lanes: lanes light letters, flippers move them, completing raises the bonus multiplier (max 5)', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  const lane = (i) => { r.cooldowns.delete('lane' + i); r.onLane(i); };
+  lane(1);
+  assert.deepEqual(r.lanes, [false, true, false, false]);
+  r.onFlipperPress('L'); assert.deepEqual(r.lanes, [true, false, false, false], 'left flipper moves letters left');
+  r.onFlipperPress('R'); r.onFlipperPress('R'); assert.deepEqual(r.lanes, [false, false, true, false]);
+  lane(0); lane(1); lane(3);
+  assert.equal(r.bonusX, 2);
+  assert.deepEqual(r.lanes, [false, false, false, false]);
+  for (let k = 0; k < 6; k++) for (let i = 0; i < 4; i++) lane(i);
+  assert.equal(r.bonusX, 5);
+  assert.equal(count('bonusX'), 4, 'no event past the cap');
+  // the real table: a ball down the left inlane lights A
+  const { sim: s2 } = newGame();
+  const b = freeBall(s2);
+  const sensor = s2.table.sensors.find((q) => q.id === 'inlaneL');
+  s2._place(b, sensor.x, sensor.y + 1.2, 0, -6, 'free'); run(s2, 20);
+  assert.equal(s2.rules.lanes[1], true);
+});
+
+test('4 end-of-ball bonus: hits × bonus X is paid when the ball is lost (not when tilted), then resets', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  hitEl(r, 'mush1', 2); hitEl(r, 'crystal1'); r.onRamp('rampB');
+  r.bonusX = 3;
+  const base = 2 * MODES.BONUS.mush + MODES.BONUS.crystal + MODES.BONUS.ramp;
+  assert.equal(r.bonusBase, base);
+  loseBall(sim);
+  const ev = events.find((e) => e.type === 'bonus');
+  assert.ok(ev, 'bonus paid');
+  assert.equal(ev.p.base, base); assert.equal(ev.p.x, 3);
+  assert.equal(ev.p.points, Math.round(base * 3 * r.chapterMult));
+  assert.equal(r.bonusBase, 0); assert.equal(r.bonusX, 1);
+  assert.ok(r.serveTicks > secs(2.5), 'time to read the bonus');
+  // tilted ball pays nothing
+  run(sim, secs(4));
+  freeBall(sim); hitEl(r, 'mush2', 3);
+  r._tilt();
+  loseBall(sim);
+  assert.equal(events.filter((e) => e.type === 'bonus').length, 1);
+});
+
+test('5 Extra Ball: lit by a second RUSH (and by chapter 3, once), collected at the scoop, shoot again', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  r._startRush(); assert.equal(r.extraLit, 0);
+  r.rushTicks = 0; r._startRush(); assert.equal(r.extraLit, 1);
+  r.rushTicks = 0; r._startRush(); assert.equal(r.extraLit, 1, 'only once from RUSH');
+  r.onScoop();
+  assert.equal(r.extraLit, 0); assert.equal(r.extraBalls, 1); assert.equal(count('extraBall'), 1);
+  r.rushTicks = 0;
+  loseBall(sim);
+  assert.equal(count('shootAgain'), 1);
+  assert.equal(r.ball, 1, 'same ball number');
+  r.score = r.stageMin(2); r._checkStage();
+  assert.equal(r.extraLit, 1, 'chapter 3 lights one');
+  r.stageIndex = 1; r._checkStage();
+  assert.equal(r.extraLit, 1, 'only once');
+});
+
+test("6 Dragon's Fire: qualify, start at the scoop, burning targets pay once per wave, then the saga levels up", async () => {
+  const { MODES, STAGES } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  r.flags.multiball = true; r._startRush(); r.rushTicks = 0;
+  assert.equal(r.dragonReady, false);
+  r.score = r.stageMin(2) - 1; r.award(1, 'x');
+  assert.equal(r.stageIndex, 2); assert.equal(r.dragonReady, true);
+  assert.equal(r.goal.target, 'scoop');
+  r.extraLit = 0; r.onScoop();
+  assert.ok(r.dragonActive); assert.equal(r.dragonLit.size, MODES.DRAGON_TARGETS.length);
+  hitEl(r, 'mush1'); hitEl(r, 'mush1');
+  assert.equal(count('dragonJackpot'), 1, 'a target pays once per wave');
+  for (const id of ['mush2', 'mush3', 'crystal1', 'crystal2', 'potion']) hitEl(r, id);
+  r.cooldowns.clear(); r.onWizardHit(0, 0); r.onRamp('rampA'); r.onRamp('rampB'); r.cooldowns.clear(); r.onDoorHit(0, 0);
+  assert.equal(count('dragonWave'), 1);
+  assert.equal(r.dragonLit.size, MODES.DRAGON_TARGETS.length, 'relit for the next wave');
+  const sc = r.score;
+  run(sim, r.dragonTicks);
+  assert.equal(count('dragonEnd'), 1);
+  assert.ok(r.score >= sc + MODES.DRAGON_COMPLETE, 'victory award');
+  assert.equal(r.level, 2); assert.equal(r.stageIndex, 0); assert.equal(r.levelBase, r.score);
+  assert.equal(r.chapterMult, STAGES[0].mult + MODES.LEVEL_STEP);
+  assert.equal(r.stageMin(1), r.levelBase + Math.round(STAGES[1].min * 1.5));
+  // losing the ball during the mode: it can be restarted at the scoop
+  const { sim: s2 } = newGame(); const q = s2.rules;
+  freeBall(s2); q.dragonReady = true; q.onScoop(); assert.ok(q.dragonActive);
+  loseBall(s2);
+  assert.equal(q.dragonActive, false); assert.equal(q.dragonReady, true); assert.equal(q.level, 1);
+});
+
+test('7 Hurry-up: the open tower is worth 20,000 falling to 5,000; entering pays it on top of the 15,000', async () => {
+  const { MODES, TIMING } = await import('../saga/js/core/config.js');
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  const b = freeBall(sim);
+  for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+  assert.equal(r.hurryValue, MODES.HURRY_START);
+  run(sim, secs(TIMING.DOOR_OPEN / 2));
+  assert.ok(Math.abs(r.hurryValue - (MODES.HURRY_START + MODES.HURRY_END) / 2) <= 100);
+  const v = r.hurryValue;
+  r.onTowerEnter(b);
+  assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'hurryUp').p.base, v);
+  assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'towerEntry').p.base, 15000);
+});
+
+test('8 Spore Frenzy: 25 mushroom hits make mushrooms worth ×5 for exactly 20 s', async () => {
+  const { MODES, SCORE } = await import('../saga/js/core/config.js');
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  hitEl(r, 'mush1', MODES.FRENZY_HITS - 1); assert.equal(r.frenzyActive, false);
+  hitEl(r, 'mush2'); assert.equal(r.frenzyActive, true);
+  hitEl(r, 'mush3');
+  assert.equal(events.filter((e) => e.type === 'score' && e.p.reason === 'mush3').pop().p.base, SCORE.ELEMENT * MODES.FRENZY_MULT);
+  hitEl(r, 'crystal1');
+  assert.equal(events.filter((e) => e.type === 'score' && e.p.reason === 'crystal1').pop().p.base, SCORE.ELEMENT, 'only mushrooms');
+  run(sim, secs(MODES.FRENZY_SECONDS) - 1); assert.ok(r.frenzyActive);
+  run(sim, 1); assert.equal(r.frenzyActive, false);
+});
+
+test('9 Crystal Jackpot: alternate the crystals 4 times, then the crystal ramp collects it', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  hitEl(r, 'crystal1'); hitEl(r, 'crystal1'); hitEl(r, 'crystal2');
+  assert.equal(r.crystalLit, false, 'same crystal twice restarts the sequence');
+  hitEl(r, 'crystal1'); hitEl(r, 'crystal2');
+  assert.equal(r.crystalLit, true);
+  r.onRamp('rampB'); assert.equal(count('crystalJackpot'), 0, 'only the crystal ramp');
+  r.onRamp('rampA'); assert.equal(count('crystalJackpot'), 1);
+  assert.equal(r.crystalValue, MODES.CRYSTAL_JACKPOT + MODES.CRYSTAL_STEP);
+});
+
+test('10 Double Orbit: crystal + golden ramp back to back (either order, within 6 s)', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  r.onRamp('rampA'); run(sim, secs(2)); r.onRamp('rampB');
+  assert.equal(count('doubleOrbit'), 1);
+  r.onRamp('rampB'); run(sim, secs(MODES.DOUBLE_ORBIT_WINDOW) + 1); r.onRamp('rampA');
+  assert.equal(count('doubleOrbit'), 1, 'too slow');
+  run(sim, secs(1)); r.onRamp('rampB');
+  assert.equal(count('doubleOrbit'), 2, 'either order');
+});
+
+test('11 chapter missions: one per chapter, distinct mushrooms / ramps / tower hits, paid once', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  hitEl(r, 'mush1', 3); assert.equal(r.mission.progress, 1, 'the same mushroom counts once');
+  hitEl(r, 'mush2'); hitEl(r, 'mush3');
+  assert.ok(r.mission.done);
+  assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'chapterMission').p.base, MODES.MISSIONS[0].award);
+  r.score = r.stageMin(1); r._checkStage();
+  assert.equal(r.mission.id, 'moon');
+  for (let i = 0; i < 4; i++) { r.onRamp(i % 2 ? 'rampA' : 'rampB'); r.cooldowns.clear(); r.lastRamp = null; }
+  assert.equal(events.filter((e) => e.type === 'chapterMission').length, 2, 'moonlit ramps paid');
+  if (r.stageIndex < 2) { r.score = r.stageMin(2); r._checkStage(); }
+  assert.equal(r.mission.id, 'dragon');
+  for (let i = 0; i < 5; i++) { r.cooldowns.clear(); r.onDoorHit(0, 0); }
+  assert.ok(r.mission.done);
+  assert.equal(events.filter((e) => e.type === 'chapterMission').length, 3);
+});
+
+test('no ball ever leaves the cabinet (3 seeds × 6 minutes of bot play with every feature live)', () => {
+  for (const seed0 of [3, 29, 101]) {
+    const sim = new Simulation();
+    let seed = seed0; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const hold = { L: 0, R: 0, cdL: 0, cdR: 0 }; let pull = 0, escapes = 0;
+    sim.rules.startGame();
+    for (let i = 0; i < secs(6 * 60); i++) {
+      if (sim.rules.state !== 'playing') sim.rules.startGame();
+      botFlippers(sim, hold, rnd, 0.6);
+      if (sim.heldBall() && sim.canLaunch()) { if (!sim.plunger.pulling) { sim.pressLaunch(); pull = 20 + Math.floor(rnd() * 100); } else if (--pull <= 0) sim.releaseLaunch(); }
+      sim.step();
+      for (const b of sim.world.balls) if (b.active && b.mode === 'free' && !insideCabinet(b.x, b.y, sim)) escapes++;
+    }
+    assert.equal(escapes, 0, `seed ${seed0}`);
+  }
 });

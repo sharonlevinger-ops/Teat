@@ -162,7 +162,12 @@ const SPOTS = {
   kickback: { x: 138, y: 1840, r: 110, color: 0x50ff80 },
   kickbackR: { x: 1142, y: 1840, r: 110, color: 0x50ff80 },
   plunger: { x: 1186, y: 1760, r: 120, color: 0x40ff90 },
+  scoop: { x: 395, y: 1222, r: 115, color: 0xffc040 }, // Mystery Scoop (kickout hole)
+  pool: { x: 630, y: 1410, r: 250, color: 0x40e0ff }, // magic pool: fills with each pass, glows when the jackpot is lit
+  rampA: { x: 800, y: 640, r: 125, color: 0x90fff8 }, // crystal ramp entrance: Crystal Jackpot lit
 };
+const DRAGON_RED = 0xff4a1a;
+const DRAGON_GLOW = { mush1: 1, mush2: 1, mush3: 1, crystal1: 1, crystal2: 1, potion: 1, wizard: 1, rampA: 1 };
 const RUSH_IDS = ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'];
 const DOOR = { x: 636, y: 921, w: 64, h: 84 };
 const POOL = { x: 630, y: 1425, rx: 162, ry: 50 };
@@ -327,6 +332,23 @@ export class Effects {
       P.burst(ax, ay, c(0xa0f4ff), 8, 140, 12, 0.5, 300);
     });
     bus.on('gameStart', () => { this.door.target = 0; });
+    // features
+    const red = c(DRAGON_RED), cyan = c(0x90f4ff);
+    bus.on('scoopCapture', () => { hit('scoop', 34, 260); this.jolt(6); });
+    bus.on('scoopEject', () => { this.jolt(5); P.burst(SPOTS.scoop.x, SPOTS.scoop.y, gold, 18, 220, 14, 0.5); });
+    bus.on('poolLit', () => hit('pool', 40, 260));
+    bus.on('poolJackpot', () => { hit('pool', 70, 420); this.fireworks(2, 0.8); this.jolt(10); });
+    bus.on('crystalLit', () => hit('rampA', 30, 240));
+    bus.on('crystalJackpot', () => { P.burst(1068, 1572, cyan, 70, 420, 20, 1); this.fireworks(2, 0.8); this.jolt(10); });
+    bus.on('doubleOrbit', () => { P.burst(232, 1560, gold, 50, 360, 18, 0.9); P.burst(1068, 1572, cyan, 50, 360, 18, 0.9); this.jolt(8); });
+    bus.on('frenzyStart', () => { for (const id of ['mush1', 'mush2', 'mush3']) hit(id, 40, 320); this.jolt(10); });
+    bus.on('extraBall', () => { this.fireworks(3, 1.2); this.jolt(12); });
+    bus.on('dragonReady', () => hit('scoop', 50, 320));
+    bus.on('dragonStart', () => { this.fireworks(6, 2.4); this.jolt(22); P.burst(TOWER_TOP.x, TOWER_TOP.y + 120, red, 90, 520, 24, 1.4); });
+    bus.on('dragonJackpot', ({ x, y }) => { if (x !== null) { const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, red, 30, 320, 18, 0.8); } this.jolt(7); });
+    bus.on('dragonWave', () => { this.fireworks(4, 1.6); this.jolt(16); });
+    bus.on('dragonEnd', ({ completed }) => { if (completed) { this.fireworks(6, 2.8); this.jolt(20); } });
+    bus.on('chapterMission', () => { this.fireworks(2, 1); this.jolt(10); });
   }
 
   fireworks(shells, spread) {
@@ -347,6 +369,21 @@ export class Effects {
         else if (rules.combo.has(id)) base = 0.22 + 0.06 * Math.sin(t * 2.5);
         else if (id.startsWith('mush')) base = 0.05 + 0.04 * Math.sin(t * 1.7 + RUSH_IDS.indexOf(id) * 2); // gentle breathing
       } else if (id === 'kickback' || id === 'kickbackR') base = rules.state === 'playing' && rules.kickLit[id === 'kickback' ? 'L' : 'R'] ? 0.45 + 0.15 * Math.sin(t * 4) : 0;
+      // Spore Frenzy: the mushrooms pulse hard; Dragon's Fire: every lit target burns red
+      if (id.startsWith('mush') && rules.frenzyActive) base = Math.max(base, 0.55 + 0.35 * Math.sin(t * 14 + RUSH_IDS.indexOf(id) * 2));
+      const dragonLit = rules.dragonActive && DRAGON_GLOW[id] && rules.dragonLit.has(id);
+      if (g.dragon !== dragonLit) { g.dragon = dragonLit; g.mesh.material.color.setHex(dragonLit ? DRAGON_RED : SPOTS[id].color); }
+      if (dragonLit) base = Math.max(base, 0.6 + 0.3 * Math.sin(t * 10 + id.length));
+      if (id === 'scoop') {
+        const special = rules.state === 'playing' && (rules.dragonReady || rules.extraLit > 0);
+        const hex = rules.dragonReady ? DRAGON_RED : SPOTS.scoop.color;
+        if (g.hex !== hex) { g.hex = hex; g.mesh.material.color.setHex(hex); }
+        base = special ? 0.55 + 0.35 * Math.sin(t * 7) : rules.state === 'playing' ? 0.08 + 0.04 * Math.sin(t * 2) : 0;
+      } else if (id === 'pool') {
+        base = rules.state !== 'playing' ? 0 : rules.poolLit ? 0.45 + 0.3 * Math.sin(t * 6) : rules.poolCharge * 0.05;
+      } else if (id === 'rampA') {
+        base = Math.max(base, rules.state === 'playing' && rules.crystalLit ? 0.55 + 0.35 * Math.sin(t * 8) : 0);
+      }
       if (id === 'plunger') { // skill shot window: the gem flashes gold; otherwise it breathes green
         const lit = waiting && rules.skillLit;
         if (g.lit !== lit) { g.lit = lit; g.mesh.material.color.setHex(lit ? 0xffe090 : SPOTS.plunger.color); g.flash = 0; }
@@ -356,7 +393,7 @@ export class Effects {
         }
         base = !waiting ? 0 : lit ? 1 : rules.skillAvailable ? 0.12 : 0.35 + 0.25 * Math.sin(t * 5);
       }
-      else if (id === 'wizard') base = 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0);
+      else if (id === 'wizard') base = Math.max(base, 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0));
       g.mesh.material.opacity = Math.min(1, (base + g.flash * 0.95) * (this.glowBoost || 1));
       const s = 1 + g.flash * 0.25 + (id === 'wizard' ? charge * 0.12 : 0) + (g.lit ? 0.6 : 0);
       g.mesh.scale.set(s, s, 1);

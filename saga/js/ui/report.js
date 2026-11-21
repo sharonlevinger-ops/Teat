@@ -38,6 +38,9 @@ export function buildReport(sim, extra = {}) {
       wizardCharge: r.wizardCharge, doorOpenSec: r2(r.doorTicks / 120), multiball: r.multiball, mbSec: r2(r.mbTicks / 120),
       rushSec: r2(r.rushTicks / 120), combo: [...r.combo], chain: r.chain, kickbacks: { ...r.kickLit },
       ballSaveSec: r2(r.saveTicks / 120), skillArmed: r.skillArmed, goal: r.goal ? r.goal.text : null,
+      level: r.level, bonusBase: r.bonusBase, bonusX: r.bonusX, lanes: [...r.lanes], extraLit: r.extraLit, extraBalls: r.extraBalls,
+      poolCharge: r.poolCharge, poolLit: r.poolLit, crystalLit: r.crystalLit, frenzySec: r2(r.frenzyTicks / 120), boostSec: r2(r.boostTicks / 120),
+      dragonReady: r.dragonReady, dragonSec: r2(r.dragonTicks / 120), dragonLeft: r.dragonLit ? r.dragonLit.size : 0, mission: r.mission ? `${r.mission.id} ${r.mission.progress}/${r.mission.n}` : null,
     },
     balls: sim.world.balls.filter((b) => b.active).map((b) => ({
       id: b.id, mode: b.mode, x: r2(b.x), y: r2(b.y), vx: r2(b.vx), vy: r2(b.vy), speed: r2(Math.hypot(b.vx, b.vy)),

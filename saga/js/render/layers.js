@@ -165,7 +165,7 @@ export class TableLayers {
       const x = b.px + (b.x - b.px) * alpha, y = b.py + (b.y - b.py) * alpha, z = b.pz + (b.z - b.pz) * alpha;
       let [ax, ay] = flatToArt(x, y);
       const unit = unitScaleAt(x, y);
-      const size = unit * 2 * R * (1 + z * 0.06);
+      const size = unit * 2 * R * (1 + z * 0.06) * (b.mode === 'scoop' ? 0.82 : 1); // sunk in the Mystery Scoop
       // the waiting ball sits centred on the painted plunger gem; after launch it blends back onto its physics path
       if (b.mode === 'held') { bl.ox = KNOB[0] - ax; bl.oy = KNOB[1] - size * 0.47 - ay; }
       else if (bl.ox !== 0 || bl.oy !== 0) {
@@ -180,7 +180,7 @@ export class TableLayers {
       const lift = z * unit * 0.5;
       bl.shadow.scale.set(size * 1.25, size * 0.8, 1);
       bl.shadow.position.set(ax + size * 0.18 + lift * 0.4, -(ay + size * 0.32 + lift), 0);
-      bl.shadow.material.opacity = 1 / (1 + z * 0.4);
+      bl.shadow.material.opacity = b.mode === 'scoop' ? 0 : 1 / (1 + z * 0.4);
       // a ball riding a ramp is above the table and everything on it
       bl.mesh.renderOrder = b.mode === 'rail' ? 9e4 : depth(y) + 2;
       bl.shadow.renderOrder = b.mode === 'rail' ? 9e4 - 1 : depth(y) + 1;

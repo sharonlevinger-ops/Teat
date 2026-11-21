@@ -131,7 +131,7 @@ async function boot() {
     text(r.score.toLocaleString('en-US'), UI.score.cx, 226, 104, '#f6cf5a');
     text(hud.el('hud-mode').textContent, UI.score.cx, 304, 27, '#c8f2ff');
     text(String(r.ball), UI.values.ball[0], UI.values.ball[1], 36, '#c6ecb0', 'left');
-    text(r.stage.mult.toFixed(1) + 'X', UI.values.mult[0], UI.values.mult[1], 36, '#f6e2a8', 'left');
+    text(r.chapterMult.toFixed(1) + 'X', UI.values.mult[0], UI.values.mult[1], 36, '#f6e2a8', 'left');
     text(String(r.guests), UI.values.guests[0], UI.values.guests[1], 36, '#9fb6ff', 'left');
     const goal = r.goal;
     if (goal) {
@@ -229,6 +229,29 @@ async function boot() {
     setTimeout(() => { if (sim.rules.state !== 'playing') summary.show({ score, high, newHigh, place }); }, 1800);
   });
   bus.on('nudge', () => audio.thud(26));
+  // table features
+  bus.on('scoopCapture', () => { audio.thud(30); audio.metalClick(); });
+  bus.on('scoopEject', () => audio.kickback());
+  bus.on('mystery', () => audio.rampDone());
+  bus.on('extraBallLit', () => audio.skillShot());
+  bus.on('extraBall', () => audio.superJackpot());
+  bus.on('shootAgain', () => audio.chapter());
+  bus.on('laneLit', () => audio.metalClick());
+  bus.on('bonusX', () => audio.rampDone());
+  bus.on('bonus', () => audio.rampDone());
+  bus.on('poolLit', () => audio.potion());
+  bus.on('poolJackpot', () => audio.superJackpot());
+  bus.on('crystalLit', () => audio.crystal());
+  bus.on('crystalJackpot', () => audio.superJackpot());
+  bus.on('doubleOrbit', () => audio.skillShot());
+  bus.on('frenzyStart', () => audio.rushStart());
+  bus.on('chapterMission', () => audio.superJackpot());
+  bus.on('hurryUp', () => audio.skillShot());
+  bus.on('dragonReady', () => audio.towerOpen());
+  bus.on('dragonStart', () => { audio.towerEnter(); audio.rushStart(); });
+  bus.on('dragonJackpot', () => audio.crystal());
+  bus.on('dragonWave', () => audio.superJackpot());
+  bus.on('dragonEnd', ({ completed }) => { if (completed) audio.chapter(); });
   bus.on('tiltWarning', () => audio.doorThud());
   bus.on('tilt', () => audio.ballLost());
   bus.on('doorOpen', () => audio.towerOpen());
@@ -289,7 +312,7 @@ async function boot() {
     skillWas = skillGlow;
     hud.set('hud-score', r.score.toLocaleString('en-US'));
     hud.set('hud-ball', String(r.ball));
-    hud.set('hud-mult', r.stage.mult.toFixed(1) + 'X');
+    hud.set('hud-mult', r.chapterMult.toFixed(1) + 'X');
     hud.set('hud-guests', String(r.guests));
     const waiting = r.state !== 'playing' || (sim.canLaunch() && !sim.plunger.pulling);
     const tl = hud.el('touch-launch');
