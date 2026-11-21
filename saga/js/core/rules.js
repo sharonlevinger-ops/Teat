@@ -5,7 +5,7 @@
 // All timers are integer tick counters at the fixed simulation rate, so "30 seconds" is exactly 3600 ticks.
 
 import {
-  SCORE, TIMING, STAGES, RUSH_MULT, BALLS_PER_GAME, WIZARD_CHARGES, RUSH_ELEMENTS, SKILL_TARGET, secToTicks, COMBO_MAX,
+  SCORE, TIMING, STAGES, RUSH_MULT, BALLS_PER_GAME, WIZARD_CHARGES, RUSH_ELEMENTS, SKILL_TARGET, secToTicks, COMBO_MAX, TILT, HZ,
 } from './config.js';
 
 const T = {
@@ -22,6 +22,7 @@ const T = {
   COMBO: secToTicks(TIMING.COMBO_WINDOW),
   SERVE_DELAY: secToTicks(1.4),
   SAVE: secToTicks(TIMING.BALL_SAVE),
+  NUDGE_CD: secToTicks(TILT.COOLDOWN),
 };
 export const RULE_TICKS = T;
 
@@ -59,7 +60,10 @@ export class GameRules {
     this.chainTicks = 0;
     this.saveTicks = 0;
     this.saveStarted = false;
+    this._resetTilt();
   }
+
+  _resetTilt() { this.danger = 0; this.tiltWarnings = 0; this.tilted = false; this.nudgeCd = 0; }
 
   // ---------------------------------------------------------------- derived state
   get stage() { return STAGES[this.stageIndex]; }
@@ -73,7 +77,9 @@ export class GameRules {
   get goal() {
     if (this.state !== 'playing') return null;
     let text, target;
-    if (this.multiball) { text = 'SHOOT THE TOWER DOOR · SUPER JACKPOT'; target = 'door'; }
+    if (this.tilted) { text = 'TILT · WAIT FOR THE NEXT BALL'; target = null; }
+    else if (this.skillAvailable && !this.multiball && this.ctl.heldBall && this.ctl.heldBall()) { text = 'SKILL SHOT · RELEASE ON THE GOLD FLASH'; target = 'mush3'; }
+    else if (this.multiball) { text = 'SHOOT THE TOWER DOOR · SUPER JACKPOT'; target = 'door'; }
     else if (this.doorOpen) { text = 'SHOOT INTO THE OPEN TOWER!'; target = 'door'; }
     else {
       const left = WIZARD_CHARGES - this.wizardCharge;
@@ -105,13 +111,14 @@ export class GameRules {
     this.kickLit.L = this.kickLit.R = true;
     this.saveTicks = 0;
     this.saveStarted = false;
+    this._resetTilt();
     this.bus.emit('ballServed', { ball: this.ball });
     this.bus.emit('kickback', { lit: true });
   }
 
   /** Award points: base × chapter multiplier × RUSH multiplier. A chapter change applies from the next award. */
   award(base, reason, x = null, y = null) {
-    if (this.state !== 'playing') return 0;
+    if (this.state !== 'playing' || this.tilted) return 0;
     const mult = this.multiplier;
     const points = Math.round(base * mult);
     this.score += points;
@@ -160,6 +167,9 @@ export class GameRules {
 
     if (this.saveTicks > 0 && --this.saveTicks === 0) this.bus.emit('ballSaveEnd', {});
 
+    if (this.danger > 0) this.danger = Math.max(0, this.danger - TILT.DECAY / HZ);
+    if (this.nudgeCd > 0) this.nudgeCd--;
+
     if (this.chainTicks > 0 && --this.chainTicks === 0) {
       if (this.chain >= 2) this.bus.emit('comboChainEnd', { level: this.chain });
       this.chain = 0;
@@ -201,6 +211,31 @@ export class GameRules {
   onSkillTurn() { if (this.skillArmed) this.bus.emit('skillRedirect', {}); }
 
   onBallHeld() { this.skillArmed = false; }
+
+  // ---------------------------------------------------------------- nudge / tilt
+  /** The player shoved the table. Returns true when the nudge happens (the table then pushes the balls). */
+  onNudge() {
+    if (this.state !== 'playing' || this.tilted || this.nudgeCd > 0) return false;
+    this.nudgeCd = T.NUDGE_CD;
+    this.danger += 1;
+    this.bus.emit('nudge', { danger: this.danger });
+    if (this.danger >= TILT.LIMIT) {
+      this.danger = 0;
+      this.tiltWarnings++;
+      if (this.tiltWarnings > TILT.WARNINGS) this._tilt();
+      else this.bus.emit('tiltWarning', { count: this.tiltWarnings, of: TILT.WARNINGS });
+    }
+    return true;
+  }
+
+  _tilt() {
+    this.tilted = true;
+    this.kickLit.L = this.kickLit.R = false;
+    this.saveTicks = 0;
+    this.ctl.tiltFlippers();
+    this.bus.emit('kickback', { lit: false });
+    this.bus.emit('tilt', {});
+  }
 
   // ---------------------------------------------------------------- table events
   onFlipperHit(ball) {

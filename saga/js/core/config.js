@@ -40,6 +40,10 @@ export const TIMING = Object.freeze({
 });
 export const COMBO_MAX = 9;
 
+/** Nudging the table (swipe up): every nudge adds 1 to the danger level, which drains at DECAY per second.
+ *  Reaching LIMIT gives a warning; after WARNINGS warnings the next one is TILT (flippers die for that ball). */
+export const TILT = Object.freeze({ NUDGE_VX: 4.5, NUDGE_VY: 7, DECAY: 0.55, LIMIT: 2.5, WARNINGS: 2, COOLDOWN: 0.25 });
+
 export const STAGES = Object.freeze([
   { id: 1, min: 0, mult: 1.0, title: 'CHAPTER 1: ENCHANTED FOREST' },
   { id: 2, min: 15000, mult: 1.5, title: "CHAPTER 2: NIGHT'S MAGIC" },

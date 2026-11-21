@@ -5,7 +5,7 @@ import { EventBus } from './events.js';
 import { buildTable } from './table.js';
 import { PhysicsWorld } from './physics.js';
 import { GameRules } from './rules.js';
-import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks } from './config.js';
+import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT } from './config.js';
 
 const LAUNCH_CD = secToTicks(TIMING.LAUNCH_COOLDOWN);
 let PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step (re-read each step: the tuning panel can change it)
@@ -105,8 +105,26 @@ export class Simulation {
   }
 
   // ================================================================ input
+  /** Swipe up = shove the table: free balls get a small push (dirX: -1 left, 0 straight, 1 right). */
+  nudge(dirX = 0) {
+    if (!this.rules.onNudge()) return false;
+    for (const b of this.world.balls) {
+      if (!b.active || b.mode !== 'free') continue;
+      b.vx += dirX * TILT.NUDGE_VX;
+      b.vy += TILT.NUDGE_VY;
+      b.still = 0;
+    }
+    return true;
+  }
+
+  /** TILT: both flippers drop and stay dead until the next ball. */
+  tiltFlippers() {
+    for (const f of this.world.flippers) if (f.pressed) { this.world.setFlipper(f.side, false); this.bus.emit('flipper', { side: f.side, pressed: false }); }
+  }
+
   setFlipper(side, pressed) {
     if (this.rules.state !== 'playing') return;
+    if (pressed && this.rules.tilted) return;
     const f = this.world.flippers.find((fl) => fl.side === side);
     if (!f || f.pressed === pressed) return;
     this.world.setFlipper(side, pressed);

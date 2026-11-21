@@ -1,7 +1,8 @@
 // Touch + keyboard input. Left half = left flipper, right half = right flipper,
 // bottom-right corner = plunger (only while a ball waits on it). Full multi-touch.
 
-const UI_SEL = 'button, input, label, textarea, .card, .tune-card';
+const UI_SEL = 'button, input, label, textarea, .card, .tune-card, .overlay, .tune';
+const SWIPE_PX = 45, SWIPE_MS = 320; // a quick upward swipe nudges the table
 
 export class Input {
   constructor(target, sim, { onAnyTap = () => {}, isBlocked = () => false, isPlungerZone = () => false } = {}) {
@@ -11,12 +12,13 @@ export class Input {
     this.isBlocked = isBlocked;
     this.touches = new Map(); // id -> 'L' | 'R' | 'P'
     this.keys = { L: 0, R: 0 };
+    this.swipes = new Map(); // id -> where/when the touch started (swipe-up nudge)
 
     const opts = { passive: false };
     target.addEventListener('touchstart', (e) => this._start(e), opts);
     target.addEventListener('touchend', (e) => this._end(e), opts);
     target.addEventListener('touchcancel', (e) => this._end(e), opts);
-    target.addEventListener('touchmove', (e) => { if (!(e.target.closest && e.target.closest(UI_SEL))) e.preventDefault(); }, opts);
+    target.addEventListener('touchmove', (e) => { if (!(e.target.closest && e.target.closest(UI_SEL))) { e.preventDefault(); this._move(e); } }, opts);
     // mouse (desktop testing)
     target.addEventListener('mousedown', (e) => {
       if (e.button !== 0 || (e.target.closest && e.target.closest(UI_SEL))) return;
@@ -39,12 +41,30 @@ export class Input {
   _start(e) {
     if (e.target.closest && e.target.closest(UI_SEL)) return; // let UI controls work
     e.preventDefault();
-    for (const t of e.changedTouches) this._press(t.identifier, t.clientX, t.clientY);
+    for (const t of e.changedTouches) {
+      this.swipes.set(t.identifier, { x: t.clientX, y: t.clientY, t: performance.now(), used: false });
+      this._press(t.identifier, t.clientX, t.clientY);
+    }
+  }
+
+  /** quick upward swipe = nudge; its sideways part picks the direction */
+  _move(e) {
+    if (this.isBlocked()) return;
+    for (const t of e.changedTouches) {
+      const s = this.swipes.get(t.identifier);
+      if (!s || s.used) continue;
+      const dy = s.y - t.clientY, dx = t.clientX - s.x;
+      if (performance.now() - s.t > SWIPE_MS) { s.used = true; continue; }
+      if (dy > SWIPE_PX && dy > Math.abs(dx)) {
+        s.used = true;
+        this.sim.nudge(Math.abs(dx) > dy * 0.35 ? Math.sign(dx) : 0);
+      }
+    }
   }
 
   _end(e) {
     if (e.cancelable && !(e.target.closest && e.target.closest(UI_SEL))) e.preventDefault();
-    for (const t of e.changedTouches) this._release(t.identifier);
+    for (const t of e.changedTouches) { this.swipes.delete(t.identifier); this._release(t.identifier); }
   }
 
   _press(id, x, y) {
@@ -77,6 +97,11 @@ export class Input {
       if (down && this.isBlocked()) return;
       this.keys[side] = down ? 1 : 0;
       this._updateFlippers();
+      return;
+    }
+    if (k === 'KeyT' || k === 'ArrowUp') { // nudge (desktop)
+      e.preventDefault();
+      if (down && !e.repeat && !this.isBlocked()) this.sim.nudge(0);
       return;
     }
     if (k === 'Space' || k === 'Enter' || k === 'ArrowDown') {

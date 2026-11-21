@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Forest Pinball Saga</title>
   <meta name="theme-color" content="#05070a">
-  <meta name="app-version" content="0.8.0">
+  <meta name="app-version" content="0.9.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,12 +21,20 @@
   <div id="table-layer" class="hud-layer"></div>
   <div id="hud-layer" class="hud-layer"></div>
   <button id="calib-toggle" class="calib-toggle hidden" aria-pressed="false">Calibration</button>
-  <section id="pause" class="pause hidden" role="dialog" aria-label="Paused">
+  <section id="pause" class="pause overlay hidden" role="dialog" aria-label="Paused">
     <div class="card">
       <h2>Paused</h2>
       <button id="btn-resume" class="gold-btn">Resume</button>
-      <button id="btn-newgame" class="gold-btn ghost">New game</button>
-      <button id="btn-report" class="gold-btn ghost small">Report a problem</button>
+      <div class="btn-row">
+        <button id="btn-newgame" class="gold-btn ghost">New game</button>
+        <button id="btn-journal" class="gold-btn ghost">Journal</button>
+      </div>
+      <ul class="controls" aria-label="Controls">
+        <li><b>Tap left / right</b><span>Flippers</span></li>
+        <li><b>Hold bottom right</b><span>Launch</span></li>
+        <li><b>Swipe up</b><span>Nudge the table (careful: TILT)</span></li>
+      </ul>
+      <button id="btn-report" class="gold-btn ghost small link-btn">Report a problem</button>
     </div>
   </section>
   <script type="module" src="js/main.js"></script>

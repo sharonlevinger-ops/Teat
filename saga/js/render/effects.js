@@ -301,6 +301,9 @@ export class Effects {
       this.jolt(6);
     });
     bus.on('launch', ({ power }) => this.jolt(2 + power * 5));
+    bus.on('nudge', () => this.jolt(11));
+    bus.on('tiltWarning', () => this.jolt(16));
+    bus.on('tilt', () => this.jolt(24));
     bus.on('flipper', ({ pressed }) => { if (pressed) this.jolt(1.5); });
     bus.on('wizardHit', () => hit('wizard', 30, 220));
     bus.on('doorOpen', () => {
@@ -344,10 +347,18 @@ export class Effects {
         else if (rules.combo.has(id)) base = 0.22 + 0.06 * Math.sin(t * 2.5);
         else if (id.startsWith('mush')) base = 0.05 + 0.04 * Math.sin(t * 1.7 + RUSH_IDS.indexOf(id) * 2); // gentle breathing
       } else if (id === 'kickback' || id === 'kickbackR') base = rules.state === 'playing' && rules.kickLit[id === 'kickback' ? 'L' : 'R'] ? 0.45 + 0.15 * Math.sin(t * 4) : 0;
-      if (id === 'plunger') base = waiting ? 0.35 + 0.25 * Math.sin(t * 5) : 0;
+      if (id === 'plunger') { // skill shot window: the gem flashes gold; otherwise it breathes green
+        const lit = waiting && rules.skillLit;
+        if (g.lit !== lit) { g.lit = lit; g.mesh.material.color.setHex(lit ? 0xffe090 : SPOTS.plunger.color); g.flash = 0; }
+        if (lit && Math.random() < dt * 40) { // gold sparks fly off the gem while the skill shot is live
+          const a = Math.random() * Math.PI * 2, sp = SPOTS.plunger;
+          this.particles.spawn(sp.x + Math.cos(a) * 34, sp.y - 10 + Math.sin(a) * 34, Math.cos(a) * 120, Math.sin(a) * 120 - 60, new THREE.Color(0xffd860), 16, 0.5, 0);
+        }
+        base = !waiting ? 0 : lit ? 1 : rules.skillAvailable ? 0.12 : 0.35 + 0.25 * Math.sin(t * 5);
+      }
       else if (id === 'wizard') base = 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0);
       g.mesh.material.opacity = Math.min(1, (base + g.flash * 0.95) * (this.glowBoost || 1));
-      const s = 1 + g.flash * 0.25 + (id === 'wizard' ? charge * 0.12 : 0);
+      const s = 1 + g.flash * 0.25 + (id === 'wizard' ? charge * 0.12 : 0) + (g.lit ? 0.6 : 0);
       g.mesh.scale.set(s, s, 1);
     }
     if (charge > 0 && Math.random() < dt * (3 + charge * 6)) { // sparks orbiting the charged staff

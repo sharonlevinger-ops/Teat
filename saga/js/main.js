@@ -14,6 +14,8 @@ import { ChapterLook } from './render/chapters.js';
 import { flatToArt, UI } from './core/artmap.js';
 import { EventLog, buildReport, shareReport, initViewerDownloads } from './ui/report.js';
 import { TuningPanel, loadSavedTune } from './ui/tuning.js';
+import { Progress } from './core/progress.js';
+import { Journal } from './ui/journal.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
@@ -44,6 +46,16 @@ async function boot() {
     set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
   };
   sim.rules.highScore = store.get('high', 0);
+  // long-term progress: daily missions, achievements, high-score table
+  const progress = new Progress(store);
+  progress.bind(bus);
+  const journal = new Journal(progress);
+  progress.onUnlock = (kind, item) => {
+    if (kind === 'mission') messages.show(`MISSION COMPLETE<small>${item.text.toUpperCase()}</small>`);
+    else if (kind === 'daily') messages.show(`ALL MISSIONS DONE!<small>STREAK: ${item.streak} ${item.streak === 1 ? 'DAY' : 'DAYS'}</small>`, true);
+    else if (kind === 'achievement') messages.show(`ACHIEVEMENT<small>${item.name.toUpperCase()}</small>`);
+    if (audio.ready) audio.rampDone();
+  };
   // music follows the game: chapter track, multiball track, RUSH drum layer on top
   const refreshMusic = () => {
     if (!audio.ready) return;
@@ -68,6 +80,7 @@ async function boot() {
   const startGame = () => { audio.unlock(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
+    if (journal.open) return true; // the journal is on top: taps belong to it
     if (sim.rules.state !== 'playing') { startGame(); return true; } // the starting tap never flips or launches
     return false;
   };
@@ -75,7 +88,7 @@ async function boot() {
   // (screen space, from the un-zoomed fit, so it is the same corner in both camera views)
   const isPlungerZone = (x, y) => { const L = stage.layout; return x > L.left + 1030 * L.s && y > L.top + 1560 * L.s; };
   const tuning = new TuningPanel(sim.world);
-  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open, isPlungerZone });
+  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open || journal.open, isPlungerZone });
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
   const pauseCard = document.getElementById('pause');
@@ -149,7 +162,9 @@ async function boot() {
     if (on) { input.releaseAll(); audio.suspend(); } else audio.resume();
     messages.paused = on;
   };
-  hud.el('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); setPaused(!paused); });
+  // between games the pause button opens the Journal (missions, achievements, scores)
+  hud.el('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); if (sim.rules.state !== 'playing') journal.show(!journal.open); else setPaused(!paused); });
+  document.getElementById('btn-journal').addEventListener('click', (e) => { e.stopPropagation(); journal.show(true); });
   document.getElementById('btn-resume').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); });
   document.getElementById('btn-newgame').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); startGame(); });
   // camera: 1 = the whole painted table, 2 = closer view that follows the ball (remembered)
@@ -185,7 +200,16 @@ async function boot() {
   bus.on('skillShot', () => audio.skillShot());
   bus.on('drain', () => audio.drain());
   bus.on('ballLost', () => audio.ballLost());
-  bus.on('gameOver', ({ high }) => { audio.gameOver(); store.set('high', high); refreshMusic(); setTimeout(() => show('tap-to-play', true), 1600); });
+  bus.on('gameOver', ({ high, score }) => {
+    audio.gameOver(); store.set('high', high); refreshMusic();
+    const place = progress.recordScore(score, sim.rules.stage.id);
+    journal.highlight = place;
+    if (place > 1) setTimeout(() => messages.show(`#${place} IN YOUR SCORE TABLE`), 600);
+    setTimeout(() => show('tap-to-play', true), 1600);
+  });
+  bus.on('nudge', () => audio.thud(26));
+  bus.on('tiltWarning', () => audio.doorThud());
+  bus.on('tilt', () => audio.ballLost());
   bus.on('doorOpen', () => audio.towerOpen());
   bus.on('doorThud', () => audio.doorThud());
   bus.on('towerEnter', () => audio.towerEnter());
@@ -197,7 +221,7 @@ async function boot() {
   bus.on('loop', () => audio.rampDone());
 
   // ------------------------------------------------------------------ loop: fixed 120 Hz physics, interpolated drawing
-  let last = performance.now(), acc = 0, jolted = false, tableKey = '', goodRuns = 0;
+  let last = performance.now(), acc = 0, jolted = false, tableKey = '', goodRuns = 0, skillWas = false;
   const frameTimes = [];
   function frame(now) {
     requestAnimationFrame(frame);
@@ -239,6 +263,9 @@ async function boot() {
     }
     messages.update(dt);
     const r = sim.rules;
+    const skillGlow = !paused && r.state === 'playing' && sim.canLaunch() && r.skillLit;
+    if (skillGlow && !skillWas && audio.ready) audio.bell(1760, 0.05); // a soft chime marks the skill-shot window
+    skillWas = skillGlow;
     hud.set('hud-score', r.score.toLocaleString('en-US'));
     hud.set('hud-ball', String(r.ball));
     hud.set('hud-mult', r.stage.mult.toFixed(1) + 'X');
@@ -256,7 +283,7 @@ async function boot() {
     stage.render();
   }
   requestAnimationFrame(frame);
-  window.__saga = { sim, stage, layers, effects, chapters, hud, messages, startGame, version: APP_VERSION };
+  window.__saga = { sim, stage, layers, effects, chapters, hud, messages, startGame, progress, journal, version: APP_VERSION };
 }
 
 boot().catch((e) => {

@@ -237,13 +237,15 @@ test('Ball Save expires after exactly 6 s', () => {
 test('next goal follows the game: wizard -> open tower -> super jackpot, with chapter distance', () => {
   const { sim } = newGame();
   const r = sim.rules;
+  assert.deepEqual(r.goal, { text: 'SKILL SHOT · RELEASE ON THE GOLD FLASH', target: 'mush3', sub: 'CHAPTER 2 IN 15,000' });
+  sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, 5);
   assert.deepEqual(r.goal, { text: 'WIZARD · 3 MORE HITS OPEN THE TOWER', target: 'wizard', sub: 'CHAPTER 2 IN 15,000' });
   r.onWizardHit(0, 0);
   assert.match(r.goal.text, /2 MORE HITS/);
   for (let i = 0; i < 2; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
   assert.equal(r.goal.target, 'door');
   assert.match(r.goal.text, /OPEN TOWER/);
-  const b = sim.heldBall(); b.mode = 'free';
+  const b = sim.world.balls.find((x) => x.active);
   r.onTowerEnter(b);
   assert.match(r.goal.text, /SUPER JACKPOT/);
   r.score = 50000; r._checkStage();
@@ -293,4 +295,87 @@ test('tuning panel values: applied live within range, out-of-range ignored, defa
   applyTune(PHYS_DEFAULTS, sim.world);
   assert.equal(PHYS.GRAVITY, PHYS_DEFAULTS.GRAVITY);
   assert.equal(PHYS.TIME_SCALE, PHYS_DEFAULTS.TIME_SCALE);
+});
+
+test('nudge pushes the free ball; too many nudges warn twice, then TILT kills the flippers until the next ball', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch(); run(sim, secs(2));
+  const b = sim.world.balls.find((x) => x.active && x.mode === 'free');
+  const vy = b.vy;
+  assert.ok(sim.nudge(1));
+  assert.ok(b.vy > vy && b.vx !== 0, 'ball pushed');
+  assert.equal(sim.nudge(1), false, 'cooldown between nudges');
+  const spam = () => { for (let i = 0; i < 3; i++) { run(sim, secs(0.3)); sim.nudge(0); } };
+  spam(); assert.equal(count('tiltWarning'), 1);
+  spam(); assert.equal(count('tiltWarning'), 2);
+  assert.equal(r.tilted, false);
+  spam(); assert.equal(count('tilt'), 1);
+  assert.ok(r.tilted);
+  sim.setFlipper('L', true);
+  assert.equal(sim.world.flippers.find((f) => f.side === 'L').pressed, false, 'flippers dead');
+  const score = r.score; r.award(1000, 'test'); assert.equal(r.score, score, 'no scoring while tilted');
+  // the ball drains -> next ball, tilt cleared
+  const live = sim.world.balls.find((x) => x.active && x.mode !== 'held');
+  r.saveTicks = 0; sim._place(live, 10.5, -2, 0, -10, 'free'); run(sim, secs(2));
+  assert.equal(r.ball, 2);
+  assert.equal(r.tilted, false);
+  sim.setFlipper('L', true);
+  assert.equal(sim.world.flippers.find((f) => f.side === 'L').pressed, true);
+});
+
+test('a calm nudge now and then never tilts', () => {
+  const { sim, count } = newGame();
+  sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch();
+  for (let i = 0; i < 12; i++) { run(sim, secs(2.2)); sim.nudge(0); }
+  assert.equal(count('tiltWarning'), 0);
+});
+
+test('daily missions: 3 per day, same for a given date, counted from game events, streak across days', async () => {
+  const { Progress, dailyMissions, MISSION_POOL } = await import('../saga/js/core/progress.js');
+  const { EventBus } = await import('../saga/js/core/events.js');
+  assert.deepEqual(dailyMissions('2026-11-21'), dailyMissions('2026-11-21'));
+  assert.equal(new Set(dailyMissions('2026-11-21')).size, 3);
+  const days = new Set(); for (let d = 1; d <= 28; d++) days.add(dailyMissions(`2026-02-${String(d).padStart(2, '0')}`).join());
+  assert.ok(days.size > 20, 'missions change from day to day');
+  const mem = {}; const storage = { get: (k, d) => (k in mem ? JSON.parse(mem[k]) : d), set: (k, v) => { mem[k] = JSON.stringify(v); } };
+  let today = '2026-11-21';
+  const p = new Progress(storage, () => today);
+  const bus = new EventBus(); p.bind(bus);
+  const unlocked = []; p.onUnlock = (kind, item) => unlocked.push(kind + ':' + (item.id || item.streak));
+  const fire = (m) => { const def = MISSION_POOL.find((x) => x.id === m.id); const payload = { wizardHit: {}, doorOpen: {}, ramp: { id: m.id === 'rampA3' ? 'rampA' : 'rampB' }, rushStart: {}, multiballStart: {}, skillShot: {}, loop: {}, element: { id: 'mush1' }, stage: { index: 1 }, comboChain: { level: 5 }, score: { total: 60000 } }[def.ev]; for (let i = 0; i < def.n; i++) bus.emit(def.ev, payload); };
+  for (const m of p.missions) fire(m);
+  assert.ok(p.missions.every((m) => m.done));
+  assert.equal(p.streak, 1);
+  assert.ok(unlocked.includes('daily:1'));
+  assert.ok(p.hasAchievement('daily'));
+  // saved and reloaded
+  assert.equal(new Progress(storage, () => today).streak, 1);
+  today = '2026-11-22';
+  const p2 = new Progress(storage, () => today); p2.bind(bus);
+  assert.ok(p2.missions.every((m) => !m.done), 'new day, new missions');
+  for (const m of p2.missions) fire(m);
+  assert.equal(p2.streak, 2);
+  today = '2026-11-25'; // skipped days: streak resets
+  const p3 = new Progress(storage, () => today);
+  assert.equal(p3.streak, 0);
+});
+
+test('achievements unlock once; score table keeps the best 10 in order', async () => {
+  const { Progress } = await import('../saga/js/core/progress.js');
+  const mem = {}; const storage = { get: (k, d) => (k in mem ? JSON.parse(mem[k]) : d), set: (k, v) => { mem[k] = JSON.stringify(v); } };
+  const p = new Progress(storage, () => '2026-11-21');
+  const got = []; p.onUnlock = (k, item) => { if (k === 'achievement') got.push(item.id); };
+  p.onEvent('stage', { index: 0, initial: true });
+  assert.equal(p.hasAchievement('ch2'), false, 'the opening chapter does not count');
+  p.onEvent('stage', { index: 2 }); p.onEvent('stage', { index: 2 });
+  assert.deepEqual(got.filter((x) => x.startsWith('ch')), ['ch2', 'ch3']);
+  p.onEvent('skillShot', {}); p.onEvent('skillShot', {});
+  assert.equal(got.filter((x) => x === 'skill').length, 1);
+  for (const s of [5000, 12000, 800, 40000, 22000, 9000, 15000, 3000, 70000, 1000, 2000, 30000]) p.recordScore(s, 1);
+  assert.equal(p.scores.length, 10);
+  assert.equal(p.scores[0].score, 70000);
+  assert.ok(p.scores.every((r, i, a) => i === 0 || a[i - 1].score >= r.score));
+  assert.equal(p.recordScore(50000, 3), 2);
+  assert.equal(p.recordScore(10, 1), 0, 'too low for the table');
 });

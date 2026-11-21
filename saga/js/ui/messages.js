@@ -11,7 +11,7 @@ const ICONS = { // tiny inline icons for the RUSH progress row
   potion: '<svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5l5 7a5 5 0 0 1-4 7H9a5 5 0 0 1-4-7l5-7V4H9z"/></svg>',
 };
 // where the goal arrow points (painting pixels: the tip of the arrow)
-export const GOAL_AT = { wizard: [834, 930], door: [640, 880] };
+export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712] };
 const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
   ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
 
@@ -80,6 +80,8 @@ export class Messages {
     bus.on('ramp', ({ id }) => this.show(`<small>${id === 'rampA' ? 'CRYSTAL RAMP' : 'GOLDEN ORBIT'} +500</small>`));
     bus.on('comboChain', ({ level }) => { if (level >= 3) this.show(`COMBO x${level}!`); });
     bus.on('ballLost', ({ nextBall }) => this.show(`BALL ${nextBall}`, true));
+    bus.on('tiltWarning', ({ count, of }) => this.show(`TILT WARNING<small>${count} OF ${of} · EASY ON THE NUDGES</small>`, true));
+    bus.on('tilt', () => this.show('TILT!<small>FLIPPERS OFF UNTIL THE NEXT BALL</small>', true));
     bus.on('ballSaved', () => this.show('BALL SAVED!<small>LAUNCH AGAIN</small>', true));
     bus.on('ballRescue', () => this.show('<small>MAGIC RESCUE</small>'));
     bus.on('gameOver', ({ score, high, newHigh }) => this.show(`GAME OVER<small>${fmt(score)}${newHigh ? ' · NEW HIGH SCORE!' : ` · BEST ${fmt(high)}`}</small>`, true));
@@ -95,6 +97,7 @@ export class Messages {
       const sec = (t) => Math.ceil(t / HZ);
       const parts = [];
       if (r.rushActive) { parts.push(`RUSH COMBO! X2 · ${sec(r.rushTicks)}`); flash = true; }
+      if (r.tilted) { parts.push('TILT'); flash = true; }
       if (r.ballSaveActive) parts.push(`BALL SAVE · ${sec(r.saveTicks)}`);
       if (r.multiball) parts.push(`MULTIBALL · ${sec(r.mbTicks)}`);
       if (r.doorOpen) parts.push(`TOWER OPEN · ${sec(r.doorTicks)}`);
@@ -115,8 +118,8 @@ export class Messages {
     const tgt = g ? g.target : '';
     if (this.last.target !== tgt) {
       this.last.target = tgt;
-      this.arrow.classList.toggle('hidden', !g);
-      if (g) { const [x, y] = GOAL_AT[g.target]; this.arrow.style.left = `${x - 40}px`; this.arrow.style.top = `${y - 100}px`; }
+      this.arrow.classList.toggle('hidden', !tgt);
+      if (tgt) { const [x, y] = GOAL_AT[g.target]; this.arrow.style.left = `${x - 40}px`; this.arrow.style.top = `${y - 100}px`; }
     }
     // RUSH progress icons
     const key = r.rushActive ? 'rush' : [...r.combo].join();
