@@ -18,6 +18,7 @@ export const TUNABLE = [
   ['POOL_PASSES', 'Pool passes', 3, 10, 1, 'feat'],
   ['CRYSTAL_SEQ', 'Crystal alternations', 2, 6, 1, 'feat'],
   ['DOUBLE_ORBIT_WINDOW', 'Double Orbit window (s)', 3, 10, 0.5, 'feat'],
+  ['LOCKS', 'Locks before multiball', 0, 2, 1, 'feat'],
 ];
 const KEY = 'saga.tune';
 const store = (group) => (group === 'phys' ? PHYS : TUNE);

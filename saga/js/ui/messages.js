@@ -1,7 +1,7 @@
 // Step 4 – what the player is told: banners (just under the HUD frame, clear of the ball and flippers),
 // floating score pop-ups at the hit point, RUSH COMBO progress icons and the mode line in the score panel.
 // Lives inside the HUD layer, so it is laid out in painting pixels. DOM nodes are pooled.
-import { STAGES, HZ, TIMING, LANES, MODES } from '../core/config.js';
+import { STAGES, HZ, TIMING, LANES, MODES, TUNE } from '../core/config.js';
 import { flatToArt } from '../core/artmap.js';
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
@@ -14,6 +14,13 @@ const ICONS = { // tiny inline icons for the RUSH progress row
 export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712], scoop: [395, 1182], rampA: [800, 612], pool: [630, 1340], rampB: [494, 676] };
 // the four painted lane inserts beside the flippers carry the letters M-A-G-E (outlane L, inlane L, inlane R, outlane R)
 const LANE_AT = [[207, 1692], [259, 1692], [1019, 1692], [1074, 1692]];
+// progress lamps (painting pixels) like the insert lights of a real table
+const LAMPS = {
+  wizard: [[808, 1152], [836, 1156], [864, 1152]], // charges until the tower opens
+  pool: [[548, 1488], [600, 1497], [652, 1500], [704, 1497], [756, 1488]], // pool passes until the jackpot
+  crystal: [[770, 706], [796, 712], [822, 712], [848, 706]], // alternating crystal hits until the Crystal Jackpot
+};
+const LOCK_WINDOWS = [[590, 727], [707, 690]]; // locked balls glow in these tower windows
 const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
   ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
 
@@ -52,6 +59,23 @@ export class Messages {
       return d;
     });
     this.count = null; // end-of-ball bonus count-up
+    this.lamps = {};
+    for (const [group, pts] of Object.entries(LAMPS)) {
+      this.lamps[group] = pts.map(([x, y]) => {
+        const d = document.createElement('i');
+        d.className = `lamp lamp-${group}`;
+        d.style.left = `${x - 11}px`; d.style.top = `${y - 11}px`;
+        tableLayer.appendChild(d);
+        return d;
+      });
+    }
+    this.lockOrbs = LOCK_WINDOWS.map(([x, y]) => {
+      const d = document.createElement('i');
+      d.className = 'lock-orb';
+      d.style.left = `${x - 17}px`; d.style.top = `${y - 17}px`;
+      tableLayer.appendChild(d);
+      return d;
+    });
     this.attractScene = true; // between games the score window shimmers (attract mode)
     this.last = {};
     this.paused = false;
@@ -95,6 +119,7 @@ export class Messages {
     bus.on('comboChain', ({ level }) => { if (level >= 3) this.show(`COMBO x${level}!`); });
     bus.on('ballLost', ({ nextBall }) => this.show(`BALL ${nextBall}`, true));
     // ---- table features
+    bus.on('playerUp', ({ player, ball }) => this.show(`PLAYER ${player}<small>BALL ${ball} · YOUR TURN</small>`, true));
     bus.on('ballLock', ({ count, of }) => this.show(`BALL ${count} LOCKED<small>${count < of ? `OPEN THE TOWER AGAIN TO LOCK BALL ${count + 1}` : 'NEXT TIME: MULTIBALL!'}</small>`, true));
     bus.on('addABall', ({ seconds }) => this.show(`ADD-A-BALL!<small>+1 BALL · +${seconds} SECONDS</small>`, true));
     bus.on('superSkillArmed', () => this.show('<small>SUPER SKILL SHOT · SHOOT THE GOLDEN RAMP</small>'));
@@ -128,7 +153,9 @@ export class Messages {
     bus.on('tilt', () => this.show('TILT!<small>FLIPPERS OFF UNTIL THE NEXT BALL</small>', true));
     bus.on('ballSaved', () => this.show('BALL SAVED!<small>LAUNCH AGAIN</small>', true));
     bus.on('ballRescue', () => this.show('<small>MAGIC RESCUE</small>'));
-    bus.on('gameOver', ({ score, high, newHigh }) => this.show(`GAME OVER<small>${fmt(score)}${newHigh ? ' · NEW HIGH SCORE!' : ` · BEST ${fmt(high)}`}</small>`, true));
+    bus.on('gameOver', ({ score, high, newHigh, scores, winner }) => this.show(scores && scores.length > 1
+      ? `PLAYER ${winner} WINS<small>${fmt(score)}${newHigh ? ' · NEW HIGH SCORE!' : ''}</small>`
+      : `GAME OVER<small>${fmt(score)}${newHigh ? ' · NEW HIGH SCORE!' : ` · BEST ${fmt(high)}`}</small>`, true));
     bus.on('gameStart', () => { this.queue = []; this.busy = 0; this.current = null; this.count = null; this.banner.classList.remove('show'); });
   }
 
@@ -140,6 +167,7 @@ export class Messages {
     else if (r.state === 'playing') {
       const sec = (t) => Math.ceil(t / HZ);
       const parts = [];
+      if (r.numPlayers > 1) parts.push(`PLAYER ${r.player + 1}`);
       if (r.tilted) { parts.push('TILT'); flash = true; }
       if (r.dragonActive) { parts.push(`DRAGON'S FIRE · ${sec(r.dragonTicks)}`); flash = true; }
       if (r.multiball) parts.push(`MULTIBALL · ${sec(r.mbTicks)}`);
@@ -180,6 +208,21 @@ export class Messages {
     if (this.last.lanes !== lk) {
       this.last.lanes = lk;
       this.letters.forEach((d, i) => { d.classList.toggle('on', !!lit[i]); d.classList.remove('hidden'); });
+    }
+    // progress lamps + locked balls in the tower windows
+    const playing = r.state === 'playing';
+    const crystalCount = r.crystalLit ? 4 : Math.min(4, Math.round((r.crystalSeq.count / Math.max(1, TUNE.CRYSTAL_SEQ)) * 4));
+    const poolCount = r.poolLit ? 5 : Math.round((r.poolCharge / Math.max(1, TUNE.POOL_PASSES)) * 5);
+    const wiz = r.doorOpen ? 3 : r.wizardCharge;
+    const blink = Math.floor(this.time * 4) % 2 === 0;
+    const lampKey = playing ? `${wiz}${r.doorOpen && blink}|${poolCount}${r.poolLit && blink}|${crystalCount}${r.crystalLit && blink}|${r.locks}` : '';
+    if (this.last.lampKey !== lampKey) {
+      this.last.lampKey = lampKey;
+      const set = (arr, n, flashOn, special) => arr.forEach((d, i) => { d.classList.toggle('on', playing && i < n && (!special || flashOn)); d.classList.toggle('hidden', !playing); });
+      set(this.lamps.wizard, wiz, blink, r.doorOpen);
+      set(this.lamps.pool, poolCount, blink, r.poolLit);
+      set(this.lamps.crystal, crystalCount, blink, r.crystalLit);
+      this.lockOrbs.forEach((d, i) => d.classList.toggle('on', playing && i < r.locks));
     }
     // end-of-ball bonus: the total counts up inside the banner
     if (this.count && this.count.t !== undefined && !this.paused) {

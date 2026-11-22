@@ -64,7 +64,7 @@ export const MODES = Object.freeze({
   CRYSTAL_JACKPOT: 15000, CRYSTAL_STEP: 5000, CRYSTAL_MAX: 50000,
   DOUBLE_ORBIT: 10000, DOUBLE_ORBIT_STEP: 5000, DOUBLE_ORBIT_MAX: 40000,
   // the tower locks balls: 2 locks, then the 3rd entry starts the multiball (locks persist through the game)
-  LOCKS: 2, LOCK_POINTS: 5000, LOCK_RELAUNCH: 1.2,
+  LOCK_POINTS: 5000, LOCK_RELAUNCH: 1.2, // how many locks: TUNE.LOCKS
   ADD_A_BALL_MAX: 1, ADD_A_BALL_TIME: 10, ADD_A_BALL_POINTS: 5000, // scoop during multiball
   SUPER_SKILL: 15000, SUPER_SKILL_WINDOW: 12, // hold the left flipper while launching, then hit the golden ramp
   MISSIONS: [ // one per chapter
@@ -82,6 +82,7 @@ export const TUNE = {
   POOL_PASSES: 5, // pool passes to light the Pool Jackpot
   CRYSTAL_SEQ: 4, // alternating crystal hits to light the Crystal Jackpot
   DOUBLE_ORBIT_WINDOW: 6, // seconds between the two ramps for a Double Orbit
+  LOCKS: 2, // balls locked in the tower before the multiball (0 = the first entry starts it)
 };
 export const TUNE_DEFAULTS = Object.freeze({ ...TUNE });
 

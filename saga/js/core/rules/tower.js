@@ -54,14 +54,14 @@ export class TowerRules {
     this.bus.emit('wizardCharge', { charge: 0 });
     this._missionStep('dragon'); // counts for the chapter it happened in (before the points can change the chapter)
     this._dragonHit('tower');
-    if (this.locks < MODES.LOCKS) { // lock the ball in the tower; a new ball comes to the plunger
+    if (this.locks < TUNE.LOCKS) { // lock the ball in the tower; a new ball comes to the plunger
       this.locks++;
       this.award(MODES.LOCK_POINTS, 'lock');
       const hpl = this.award(hurry, 'hurryUp');
       this.bus.emit('hurryUp', { points: hpl });
       this.ctl.lockBall(ball);
       this.lockServeTicks = T.LOCK_RELAUNCH;
-      this.bus.emit('ballLock', { count: this.locks, of: MODES.LOCKS });
+      this.bus.emit('ballLock', { count: this.locks, of: TUNE.LOCKS });
       return;
     }
     this.locks = 0;

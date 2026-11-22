@@ -163,7 +163,14 @@ export class TableLayers {
       const shadow = spriteMesh(shadowTex, 1, 1);
       mesh.visible = shadow.visible = false;
       this.group.add(shadow, mesh);
-      return { b, mesh, shadow, roll: 0, lastX: 0, lastY: 0, ox: 0, oy: 0 };
+      // motion blur: faint copies of the ball where it was in the last frames (only when it is fast)
+      const ghosts = [0.34, 0.2, 0.1].map((a) => {
+        const g = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: ballTex, transparent: true, opacity: 0, depthTest: false, depthWrite: false, toneMapped: false }));
+        g.visible = false; g.userData.a = a;
+        this.group.add(g);
+        return g;
+      });
+      return { b, mesh, shadow, roll: 0, lastX: 0, lastY: 0, ox: 0, oy: 0, ghosts, hist: [] };
     });
     // every hit makes the object bounce (squash, then wobble back)
     const kick = (id, amount) => { const o = this.occ[id]; if (o) o.v += 2.6 * amount * (BOUNCE[id] || 0.5); };
@@ -203,9 +210,11 @@ export class TableLayers {
     const pl = this.plunger, target = this.sim.plunger.pos * PULL_PX;
     if (target >= pl.disp - 0.5 && this.sim.plunger.pulling) { pl.disp += (target - pl.disp) * Math.min(1, dt * 30); pl.vel = 0; }
     else {
-      const k = 1400, c = 26;
-      pl.vel += (k * (target - pl.disp) - c * pl.vel) * dt;
-      pl.disp = Math.max(-9, pl.disp + pl.vel * dt);
+      const k = 1400, c = 26, h = 1 / 240; // small fixed steps: stable even when a frame takes long
+      for (let n = Math.ceil(dt / h); n > 0; n--) {
+        pl.vel += (k * (target - pl.disp) - c * pl.vel) * h;
+        pl.disp = Math.max(-9, Math.min(PULL_PX + 4, pl.disp + pl.vel * h));
+      }
       if (Math.abs(pl.disp - target) < 0.05 && Math.abs(pl.vel) < 0.5) { pl.disp = target; pl.vel = 0; }
     }
     const { kb, sb } = pl;
@@ -230,7 +239,7 @@ export class TableLayers {
       const b = bl.b;
       const vis = b.active && b.mode !== 'tower';
       bl.mesh.visible = bl.shadow.visible = vis;
-      if (!vis) continue;
+      if (!vis) { for (const g of bl.ghosts) g.visible = false; bl.hist.length = 0; continue; }
       const x = b.px + (b.x - b.px) * alpha, y = b.py + (b.y - b.py) * alpha, z = b.pz + (b.z - b.pz) * alpha;
       let [ax, ay] = flatToArt(x, y);
       const unit = unitScaleAt(x, y);
@@ -247,6 +256,21 @@ export class TableLayers {
       bl.mesh.position.set(ax, -ay, 0);
       bl.mesh.material.userData.u.uPos.value.set(ax, ay);
       bl.mesh.material.userData.u.uRad.value = size / 2;
+      // motion blur ghosts (free balls and ramps; strength grows with speed)
+      const speed = b.mode === 'rail' ? b.railV : b.mode === 'free' ? Math.hypot(b.vx, b.vy) : 0;
+      const blur = Math.max(0, Math.min(1, (speed - 26) / 40));
+      bl.hist.unshift(ax, ay);
+      if (bl.hist.length > 8) bl.hist.length = 8;
+      bl.ghosts.forEach((g, gi) => {
+        const hx = bl.hist[(gi + 1) * 2], hy = bl.hist[(gi + 1) * 2 + 1];
+        const on = blur > 0 && hx !== undefined;
+        g.visible = on;
+        if (!on) return;
+        g.position.set(hx, -hy, 0);
+        g.scale.set(size * 0.96, size * 0.96, 1);
+        g.material.opacity = g.userData.a * blur;
+        g.renderOrder = bl.mesh.renderOrder - 1;
+      });
       const lift = z * unit * 0.5;
       if (b.mode === 'held') { // seated in the cup on top of the gem: a tight contact shadow right under it
         bl.shadow.scale.set(size * 0.95, size * 0.32, 1);

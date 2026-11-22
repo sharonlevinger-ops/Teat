@@ -3,10 +3,11 @@
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "יומן 2.0 – PWA אישי לאייפון (ללא שלב בנייה)",
+  "description": "\u05d9\u05d5\u05de\u05df 2.0 \u2013 PWA \u05d0\u05d9\u05e9\u05d9 \u05dc\u05d0\u05d9\u05d9\u05e4\u05d5\u05df (\u05dc\u05dc\u05d0 \u05e9\u05dc\u05d1 \u05d1\u05e0\u05d9\u05d9\u05d4)",
   "scripts": {
     "test": "node --test tests/*.mjs",
     "check": "for f in js/*.js sw.js pinball/sw.js pinball/js/*.js pinball/js/core/*.js pinball/js/render/*.js pinball/js/audio/*.js pinball/js/ui/*.js; do node --check $f || exit 1; done && for f in saga/js/*.js saga/js/core/*.js saga/js/core/rules/*.js saga/js/render/*.js saga/js/ui/*.js saga/js/audio/*.js; do node --check $f || exit 1; done",
-    "serve": "npx --yes serve -l 5173 ."
+    "serve": "npx --yes serve -l 5173 .",
+    "smoke": "node saga/tools/smoke.cjs"
   }
 }

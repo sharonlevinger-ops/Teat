@@ -8,12 +8,16 @@ import { Simulation } from './core/sim.js';
 import { STEP } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
 import { Voice } from './audio/voice.js';
+import { bindSound, panF } from './ui/sound-hooks.js';
+import { bindVoice } from './ui/voice-hooks.js';
+import { bindHitStop } from './ui/hitstop.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
-import { Messages, GOAL_AT } from './ui/messages.js';
+import { Messages } from './ui/messages.js';
 import { ChapterLook } from './render/chapters.js';
-import { flatToArt, UI } from './core/artmap.js';
-import { EventLog, buildReport, shareReport, initViewerDownloads } from './ui/report.js';
+import { flatToArt } from './core/artmap.js';
+import { EventLog, shareReport, initViewerDownloads } from './ui/report.js';
+import { captureProblemReport } from './ui/report-capture.js';
 import { TuningPanel, loadSavedTune, tuneIsCustom } from './ui/tuning.js';
 import { Progress, GameStats } from './core/progress.js';
 import { Summary } from './ui/summary.js';
@@ -88,7 +92,13 @@ async function boot() {
   // ------------------------------------------------------------------ flow
   let paused = false;
   const show = (id, on) => hud.el(id).classList.toggle('hidden', !on);
-  const startGame = () => { audio.unlock(); summary.hide(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
+  // players: 1–4 taking turns (chosen between games, remembered)
+  let players = Math.max(1, Math.min(4, store.get('players', 1) | 0)) || 1;
+  const btnPlayers = hud.el('btn-players');
+  const showPlayers = () => { btnPlayers.textContent = players === 1 ? '1 PLAYER' : `${players} PLAYERS`; };
+  showPlayers();
+  btnPlayers.addEventListener('click', (e) => { e.stopPropagation(); players = (players % 4) + 1; store.set('players', players); showPlayers(); });
+  const startGame = () => { audio.unlock(); summary.hide(); show('tap-to-play', false); sim.rules.startGame(players); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
     voice.unlock();
@@ -104,54 +114,9 @@ async function boot() {
   window.addEventListener('touchend', () => { audio.unlock(); voice.unlock(); }, { passive: true });
   window.addEventListener('click', () => { audio.unlock(); voice.unlock(); });
   const pauseCard = document.getElementById('pause');
-  // report a problem: frozen at the moment of pausing, so it shows exactly what the player saw
+  // report a problem: taken when the button is tapped (the game is frozen while paused, so it is that moment)
   let report = null;
-  const captureReport = () => {
-    let shot = null;
-    try { stage.render(); shot = composeShot(); } catch { /* screenshot unavailable */ }
-    const L = stage.layout;
-    report = {
-      shot,
-      data: buildReport(sim, {
-        version: APP_VERSION, view, events: eventLog.items.slice(),
-        device: { ua: navigator.userAgent, screen: `${window.innerWidth}x${window.innerHeight}@${window.devicePixelRatio}`, safe: L.safe, pixelRatio: stage.renderer.getPixelRatio() },
-      }),
-    };
-  };
-  // the WebGL table plus the live HUD (score, values, mode, goal line, goal arrow), as the player saw it
-  const composeShot = () => {
-    const gl = stage.renderer.domElement, c = document.createElement('canvas');
-    c.width = gl.width; c.height = gl.height;
-    const g = c.getContext('2d');
-    g.drawImage(gl, 0, 0);
-    const L = stage.layout, k = gl.width / L.W; // CSS px -> canvas px
-    const at = (x, y) => [(L.left + x * L.s) * k, (L.top + y * L.s) * k];
-    const text = (str, x, y, px, color, align = 'center') => {
-      if (!str) return;
-      const [sx, sy] = at(x, y);
-      g.font = `700 ${px * L.s * k}px Cinzel, Georgia, serif`;
-      g.textAlign = align; g.textBaseline = 'middle';
-      g.lineWidth = 3 * L.s * k; g.strokeStyle = 'rgba(0,0,0,0.85)'; g.strokeText(str, sx, sy);
-      g.fillStyle = color; g.fillText(str, sx, sy);
-    };
-    const r = sim.rules;
-    text('Forest Pinball Saga', UI.plaque.cx, UI.plaque.cy, 46, '#edc35c');
-    text(r.score.toLocaleString('en-US'), UI.score.cx, 226, 104, '#f6cf5a');
-    text(hud.el('hud-mode').textContent, UI.score.cx, 304, 27, '#c8f2ff');
-    text(String(r.ball), UI.values.ball[0], UI.values.ball[1], 36, '#c6ecb0', 'left');
-    text(r.chapterMult.toFixed(1) + 'X', UI.values.mult[0], UI.values.mult[1], 36, '#f6e2a8', 'left');
-    text(String(r.guests), UI.values.guests[0], UI.values.guests[1], 36, '#9fb6ff', 'left');
-    const goal = r.goal;
-    if (goal) {
-      text(goal.text, 565, UI.tapToPlay.cy - 26, 36, '#f3dda2');
-      text(goal.sub, 565, UI.tapToPlay.cy + 16, 28, '#c8f2ff');
-      const [ax, ay] = stage.artToScreen(...GOAL_AT[goal.target]), s = stage.tableXf.s * k; // arrow rides on the table
-      g.save(); g.translate(ax * k, ay * k); g.scale(s, s);
-      g.beginPath(); g.moveTo(0, 0); g.lineTo(-34, -44); g.lineTo(-14, -44); g.lineTo(-14, -92); g.lineTo(14, -92); g.lineTo(14, -44); g.lineTo(34, -44); g.closePath();
-      g.fillStyle = '#ffe27a'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#3a2208'; g.stroke(); g.restore();
-    }
-    return c.toDataURL('image/jpeg', 0.82);
-  };
+  const captureReport = () => { report = captureProblemReport({ stage, sim, hud, eventLog, view, version: APP_VERSION }); };
   const btnReport = document.getElementById('btn-report');
   // reliability: tell the designer when saved tuning values (not the defaults) are in play
   const tuneNote = document.createElement('p');
@@ -217,121 +182,21 @@ async function boot() {
   if (location.hash === '#calib') { toggle.classList.remove('hidden'); setCalib(true); } // developer overlay only
 
   // ------------------------------------------------------------------ sound (presentation only)
-  let lastThud = 0;
-  // stereo: every sound comes from where it happens on the table (flat x 0..21, centre 10.5; painting x 0..1284)
-  const panF = (x) => Math.max(-0.9, Math.min(0.9, ((x - 10.5) / 10.5) * 0.85));
-  const panA = (x) => Math.max(-0.9, Math.min(0.9, ((x - 640) / 640) * 0.85));
-  const LANE_PAN = [panA(150), panA(238), panA(1042), panA(1130)];
-  bus.on('flipper', ({ side, pressed }) => audio.play(side === 'L' ? -0.45 : 0.45, 'flipper', pressed));
-  bus.on('contact', (c) => {
-    const now = performance.now();
-    const pan = panF(c.x);
-    if (c.kind === 'sling') audio.play(pan, 'sling');
-    else if (c.kind === 'gate' || c.kind === 'post') audio.play(pan, 'metalClick');
-    else if ((c.kind === 'wall' || c.kind === 'flipper') && c.impact > 7 && now - lastThud > 45) { lastThud = now; audio.play(pan, 'thud', c.impact); }
-  });
-  bus.on('element', ({ id, x }) => {
-    const pan = x !== undefined && x !== null ? panF(x) : 0;
-    if (id.startsWith('mush')) { audio.play(pan, 'bumperThump'); audio.play(pan, 'mushroomBell'); } else if (id.startsWith('crystal')) audio.play(pan, 'crystal'); else if (id === 'potion') audio.play(pan, 'potion');
-  });
-  bus.on('wizardHit', () => audio.play(panA(834), 'wizardSpell'));
-  bus.on('launch', ({ power }) => audio.play(0.85, 'launch', power));
-  bus.on('plungerPull', () => audio.play(0.85, 'plungerPull'));
-  bus.on('railEnter', ({ id }) => audio.play(id === 'rampA' ? panA(800) : panA(490), 'metalClick'));
-  bus.on('ramp', () => audio.rampDone());
-  bus.on('kickbackFire', ({ x }) => audio.play(panF(x), 'kickback'));
-  bus.on('skillShot', () => audio.skillShot());
-  bus.on('drain', () => { audio.drain(); audio.troughDrop(); });
-  bus.on('ballSpawn', ({ where }) => { if (where === 'plunger') audio.play(0.85, 'troughKick'); });
-  bus.on('rollover', ({ index }) => audio.play(LANE_PAN[index], 'rollover'));
-  bus.on('ballLost', () => audio.ballLost());
-  bus.on('gameOver', ({ high, score, newHigh }) => {
+  bindSound(bus, audio);
+  bindVoice(bus, voice);
+  const hitStop = bindHitStop(bus);
+  bus.on('gameOver', ({ high, score, newHigh, scores, winner }) => {
     audio.gameOver(); store.set('high', high); refreshMusic();
-    const place = progress.recordScore(score, sim.rules.stage.id);
+    // every player's game goes into the score table; the best one is highlighted
+    const places = (scores && scores.length > 1 ? scores : [score]).map((sc) => progress.recordScore(sc, sim.rules.stage.id));
+    const place = scores && scores.length > 1 ? progress.scores.findIndex((e) => e.score === score) + 1 : places[0];
     journal.highlight = place;
-    setTimeout(() => { if (sim.rules.state !== 'playing') summary.show({ score, high, newHigh, place }); }, 1800);
+    setTimeout(() => { if (sim.rules.state !== 'playing') summary.show({ score, high, newHigh, place, scores, winner }); }, 1800);
   });
-  bus.on('nudge', () => audio.thud(26));
-  // table features
-  bus.on('scoopCapture', () => { audio.play(panA(395), 'thud', 30); audio.play(panA(395), 'metalClick'); });
-  bus.on('scoopEject', () => audio.play(panA(395), 'scoopKick'));
-  bus.on('mystery', () => audio.rampDone());
-  bus.on('extraBallLit', () => audio.skillShot());
-  bus.on('extraBall', () => { audio.knocker(); audio.superJackpot(); });
-  bus.on('shootAgain', () => audio.chapter());
-  bus.on('laneLit', ({ index }) => audio.play(LANE_PAN[index], 'metalClick'));
-  bus.on('bonusX', () => audio.rampDone());
-  bus.on('bonus', () => audio.rampDone());
-  bus.on('poolLit', () => audio.play(0, 'potion'));
-  bus.on('poolJackpot', () => audio.superJackpot());
-  bus.on('crystalLit', () => audio.crystal());
-  bus.on('crystalJackpot', () => audio.superJackpot());
-  bus.on('doubleOrbit', () => audio.skillShot());
-  bus.on('frenzyStart', () => audio.rushStart());
-  bus.on('chapterMission', () => audio.superJackpot());
-  bus.on('hurryUp', () => audio.skillShot());
-  bus.on('dragonReady', () => audio.towerOpen());
-  bus.on('dragonStart', () => { audio.towerEnter(); audio.rushStart(); });
-  bus.on('dragonJackpot', () => audio.crystal());
-  bus.on('dragonWave', () => audio.superJackpot());
-  bus.on('dragonEnd', ({ completed }) => { if (completed) audio.chapter(); });
-  bus.on('ballLock', () => { audio.towerEnter(); });
-  bus.on('addABall', () => audio.superJackpot());
-  bus.on('superSkillArmed', () => audio.metalClick());
-  bus.on('superSkillShot', () => audio.superJackpot());
-  bus.on('match', ({ won }) => { if (won) { audio.knocker(); audio.superJackpot(); } });
 
-  // ------------------------------------------------------------------ hit-stop: big moments freeze the ball for a split second
-  let hitStop = 0;
-  const freeze = (s) => { hitStop = Math.max(hitStop, s); };
-  for (const [ev, s] of [['superJackpot', 0.07], ['towerEnter', 0.09], ['ballLock', 0.07], ['dragonWave', 0.09], ['dragonStart', 0.09],
-    ['crystalJackpot', 0.06], ['poolJackpot', 0.06], ['doubleOrbit', 0.05], ['superSkillShot', 0.07], ['skillShot', 0.05],
-    ['extraBall', 0.06], ['addABall', 0.05], ['chapterMission', 0.06], ['dragonJackpot', 0.035], ['scoopCapture', 0.04]]) bus.on(ev, () => freeze(s));
-
-  // ------------------------------------------------------------------ voice callouts (the wizard speaks)
-  const say = (t, p) => voice.say(t, p);
-  const words = ['one', 'two', 'three'];
-  bus.on('skillShot', () => say('Skill shot!', 3));
-  bus.on('superSkillShot', () => say('Super skill shot!', 3));
-  bus.on('doorOpen', () => say('The tower is open!', 2));
-  bus.on('ballLock', ({ count }) => say(`Ball ${words[count - 1] || count} locked`, 3));
-  bus.on('multiballStart', () => say('Multiball!', 3));
-  bus.on('superJackpot', () => say('Super jackpot!', 3));
-  bus.on('addABall', () => say('Add a ball!', 3));
-  bus.on('rushStart', () => say('Rush combo!', 3));
-  bus.on('frenzyStart', () => say('Spore frenzy!', 2));
-  bus.on('poolJackpot', () => say('Pool jackpot!', 3));
-  bus.on('crystalJackpot', () => say('Crystal jackpot!', 3));
-  bus.on('doubleOrbit', () => say('Double orbit!', 2));
-  bus.on('extraBallLit', () => say('Extra ball is lit', 2));
-  bus.on('extraBall', () => say('Extra ball!', 3));
-  bus.on('shootAgain', () => say('Shoot again', 2));
-  bus.on('ballSaved', () => say('Ball saved', 2));
-  bus.on('kickbackFire', () => say('Kickback!', 1));
-  bus.on('mystery', () => say('Mystery', 1));
-  bus.on('dragonReady', () => say("Dragon's fire is ready", 2));
-  bus.on('dragonStart', () => say("Dragon's fire! Strike every flame!", 3));
-  bus.on('dragonWave', () => say('Wave cleared!', 3));
-  bus.on('dragonEnd', ({ completed, victory }) => { if (completed) say(victory ? 'The dragon is defeated!' : 'The dragon sleeps', 3); });
-  bus.on('chapterMission', () => say('Mission complete', 2));
-  bus.on('stage', ({ index, initial }) => { if (!initial) say(['The forest awakens', 'Night falls', "The dragon's gate"][index] || 'New chapter', 3); });
-  bus.on('tiltWarning', () => say('Careful', 2));
-  bus.on('tilt', () => say('Tilt!', 3));
-  bus.on('bonusX', ({ x }) => say(`Bonus times ${x}`, 1));
-  bus.on('match', ({ won }) => { if (won) say('Match! One more ball', 3); });
-  bus.on('gameOver', ({ newHigh }) => say(newHigh ? 'A new high score!' : 'Game over', 3));
-  bus.on('gameStart', () => say('Welcome to the enchanted forest', 2));
-  bus.on('tiltWarning', () => audio.doorThud());
-  bus.on('tilt', () => audio.ballLost());
-  bus.on('doorOpen', () => audio.towerOpen());
-  bus.on('doorThud', () => audio.doorThud());
-  bus.on('towerEnter', () => audio.towerEnter());
-  bus.on('superJackpot', () => audio.superJackpot());
   bus.on('rushStart', () => { audio.rushStart(); refreshMusic(); });
   bus.on('stage', ({ initial }) => { if (!initial) audio.chapter(); refreshMusic(); });
   for (const ev of ['rushEnd', 'multiballStart', 'multiballEnd']) bus.on(ev, refreshMusic);
-  bus.on('ballDissolve', () => audio.bell(1568, 0.08));
-  bus.on('loop', () => audio.rampDone());
 
   // ------------------------------------------------------------------ loop: fixed 120 Hz physics, interpolated drawing
   let last = performance.now(), acc = 0, jolted = false, tableKey = '', goodRuns = 0, skillWas = false;
@@ -351,7 +216,7 @@ async function boot() {
     let dt = (now - last) / 1000;
     last = now;
     if (dt > 0.1) dt = 0.1;
-    if (!paused && hitStop > 0) { hitStop -= dt; acc = 0; } // freeze-frame: the table holds its breath
+    if (!paused && hitStop.active) { hitStop.tick(dt); acc = 0; } // freeze-frame: the table holds its breath
     else if (!paused) {
       acc += dt;
       let n = 0;
@@ -395,6 +260,8 @@ async function boot() {
     hud.set('hud-mult', r.chapterMult.toFixed(1) + 'X');
     hud.set('hud-guests', String(r.guests));
     const waiting = r.state === 'playing' && sim.canLaunch() && !sim.plunger.pulling; // only while a ball waits (not over TAP FLIPPERS TO PLAY)
+    const pb = r.state !== 'playing' && !summary.open; // the player-count button only between games
+    if (btnPlayers.classList.contains('hidden') === pb) btnPlayers.classList.toggle('hidden', !pb);
     const tl = hud.el('touch-launch');
     if (tl.classList.contains('hidden') === waiting) tl.classList.toggle('hidden', !waiting);
     let roll = 0, onRail = false, panSum = 0; // wood rumble on the table, metallic hiss on the ramps

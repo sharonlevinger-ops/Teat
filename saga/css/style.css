@@ -243,3 +243,19 @@ html, body {
 @media (prefers-reduced-motion: reduce) { .mode-scene i { animation: none !important; } }
 
 .fps-meter { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 4px); z-index: 40; padding: 4px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.65); color: #9f9; font: 600 11px ui-monospace, monospace; pointer-events: none; }
+
+/* players (between games) and the multi-player summary */
+.players-btn { pointer-events: auto; width: 320px; height: 76px; border-radius: 38px; font: 700 34px "Cinzel", Georgia, serif; letter-spacing: 0.04em; color: #fff0c0; background: rgba(30, 16, 6, 0.72); border: 2px solid #e8bf62; box-shadow: 0 0 0 3px rgba(122, 82, 22, 0.8), 0 8px 16px rgba(0, 0, 0, 0.6); cursor: pointer; }
+.players-btn:active { transform: scale(0.96); }
+.sum-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 15px; color: var(--ink-soft); }
+.sum-players li.win { color: var(--accent); font-weight: 700; }
+
+/* progress lamps (insert lights) and locked balls in the tower windows – painting pixels, ride on the table */
+.lamp { width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(255, 230, 170, 0.35), rgba(120, 70, 20, 0.55) 60%, rgba(40, 20, 5, 0.75)); box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.7), 0 1px 2px rgba(0, 0, 0, 0.6); transition: background 0.12s, box-shadow 0.12s; }
+.lamp.on { background: radial-gradient(circle at 40% 35%, #fff8d8, #ffd060 45%, #d88a10); box-shadow: 0 0 10px #ffc840, 0 0 22px rgba(255, 190, 60, 0.7); }
+.lamp-pool.on { background: radial-gradient(circle at 40% 35%, #f0ffff, #70e8ff 45%, #1088c0); box-shadow: 0 0 10px #60e0ff, 0 0 22px rgba(80, 220, 255, 0.7); }
+.lamp-crystal.on { background: radial-gradient(circle at 40% 35%, #f0fffc, #90fff0 45%, #20a8a0); box-shadow: 0 0 10px #80fff0, 0 0 22px rgba(120, 255, 240, 0.7); }
+.lock-orb { width: 34px; height: 34px; border-radius: 50%; opacity: 0; transform: scale(0.6); background: radial-gradient(circle at 35% 30%, #fff, #c8d0dc 30%, #5a6474 70%, #262c34); box-shadow: 0 0 14px rgba(255, 220, 140, 0.95), 0 0 30px rgba(255, 190, 80, 0.6); transition: opacity 0.4s, transform 0.4s; }
+.lock-orb.on { opacity: 1; transform: scale(1); animation: lockglow 1.6s ease-in-out infinite alternate; }
+@keyframes lockglow { from { box-shadow: 0 0 10px rgba(255, 220, 140, 0.7), 0 0 20px rgba(255, 190, 80, 0.4); } to { box-shadow: 0 0 18px rgba(255, 230, 160, 1), 0 0 36px rgba(255, 200, 90, 0.75); } }
+@media (prefers-reduced-motion: reduce) { .lock-orb.on { animation: none; } }

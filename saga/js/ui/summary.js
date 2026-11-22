@@ -17,6 +17,7 @@ export class Summary {
       <h2>Game Over</h2>
       <div class="sum-score" id="sum-score">0</div>
       <div class="sum-place" id="sum-place"></div>
+      <ol class="sum-players hidden" id="sum-players"></ol>
       <div class="sum-chapter" id="sum-chapter"></div>
       <div class="sum-stars" id="sum-stars"></div>
       <dl class="sum-stats" id="sum-stats"></dl>
@@ -32,9 +33,22 @@ export class Summary {
 
   get open() { return !this.el.classList.contains('hidden'); }
 
-  show({ score, high, newHigh, place }) {
+  show({ score, high, newHigh, place, scores = null, winner = 1 }) {
     const st = this.stats, p = this.progress;
     this.$('sum-score').textContent = fmt(score);
+    // several players: the winner on top, every score listed
+    const list = this.$('sum-players');
+    list.replaceChildren();
+    list.classList.toggle('hidden', !scores || scores.length < 2);
+    if (scores && scores.length > 1) {
+      this.el.querySelector('h2').textContent = `Player ${winner} wins!`;
+      scores.map((sc, i) => [sc, i + 1]).sort((a, b) => b[0] - a[0]).forEach(([sc, n]) => {
+        const li = document.createElement('li');
+        li.textContent = `Player ${n} · ${fmt(sc)}`;
+        if (n === winner) li.className = 'win';
+        list.appendChild(li);
+      });
+    } else this.el.querySelector('h2').textContent = 'Game Over';
     this.$('sum-place').textContent = newHigh ? 'New best score!' : place ? `#${place} in your score table · best ${fmt(high)}` : `Best ${fmt(high)}`;
     this.$('sum-place').classList.toggle('best', !!newHigh);
     const ch = STAGES[Math.min(STAGES.length, st.chapter) - 1];

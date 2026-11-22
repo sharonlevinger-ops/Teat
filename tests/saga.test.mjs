@@ -910,3 +910,48 @@ test('full game, start to finish: every mode in one game with the real table, jo
   for (const b of sim.world.balls) if (b.active) assert.ok(Number.isFinite(b.x) && Number.isFinite(b.y));
   assert.ok(Number.isFinite(r.score) && r.score > 100000, `big score: ${r.score}`);
 });
+
+test('2–4 players: turns alternate ball by ball, each player keeps their own table, the best score wins', async () => {
+  const { TUNE } = await import('../saga/js/core/config.js');
+  const { sim, events } = newGame();
+  const r = sim.rules;
+  r.startGame(2);
+  assert.equal(r.numPlayers, 2); assert.equal(r.player, 0);
+  const lose = () => { r.saveTicks = 0; for (const b of sim.world.balls) if (b.active && b.mode !== 'held') sim._place(b, 10.5, -2, 0, -10, 'free'); run(sim, 2); run(sim, secs(4)); };
+  // player 1, ball 1: a lock, some lanes, points
+  freeBall(sim);
+  for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+  const b = sim.world.balls.find((x) => x.active && x.mode === 'free'); b.mode = 'tower'; r.onTowerEnter(b);
+  run(sim, secs(2)); freeBall(sim);
+  r.onLane(0); r.onLane(1);
+  const p1Score = r.score;
+  assert.equal(r.locks, Math.min(1, TUNE.LOCKS));
+  lose();
+  assert.equal(events.filter((e) => e.type === 'playerUp').pop().p.player, 2, 'player 2 up');
+  assert.equal(r.player, 1); assert.equal(r.ball, 1); assert.equal(r.locks, 0, 'player 2 starts clean');
+  assert.deepEqual(r.lanes, [false, false, false, false]);
+  assert.ok(r.score < p1Score || r.score === 0);
+  freeBall(sim); r.award(100000, 'test');
+  lose();
+  assert.equal(r.player, 0, 'back to player 1'); assert.equal(r.ball, 2);
+  assert.equal(r.locks, Math.min(1, TUNE.LOCKS), 'player 1 keeps the lock');
+  assert.ok(r.score >= p1Score, 'and the score');
+  // play out every ball
+  r.matchDone = true; r.players[1].matchDone = true; // (no match luck in this test)
+  let guard = 0;
+  while (r.state === 'playing' && guard++ < 20) { if (sim.heldBall()) freeBall(sim); lose(); }
+  assert.equal(r.state, 'gameover');
+  const over = events.filter((e) => e.type === 'gameOver').pop().p;
+  assert.equal(over.scores.length, 2);
+  assert.equal(over.winner, 2, 'player 2 had the big score');
+  assert.equal(over.score, Math.max(...over.scores));
+  assert.equal(events.filter((e) => e.type === 'playerUp').length, 5, 'P2 B1, P1 B2, P2 B2, P1 B3, P2 B3');
+});
+
+test('one player: no turns, unchanged flow', () => {
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  assert.equal(r.numPlayers, 1);
+  freeBall(sim); r.saveTicks = 0; for (const b of sim.world.balls) if (b.active && b.mode !== 'held') sim._place(b, 10.5, -2, 0, -10, 'free'); run(sim, 2);
+  assert.equal(count('playerUp'), 0); assert.equal(count('ballLost'), 1); assert.equal(r.ball, 2);
+});

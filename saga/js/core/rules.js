@@ -17,6 +17,13 @@ import { TowerRules } from './rules/tower.js';
 import { ShotRules } from './rules/shots.js';
 
 export const RULE_TICKS = T;
+export const MAX_PLAYERS = 4;
+// what belongs to each player in a multi-player game (everything timed ends with the ball anyway)
+const PLAYER_KEYS = ['score', 'ball', 'stageIndex', 'guests', 'combo', 'wizardCharge', 'level', 'levelBase', 'rushCount', 'extraLit', 'extraBalls',
+  'extraFrom', 'flags', 'dragonReady', 'dragonValue', 'poolCharge', 'poolLit', 'poolValue', 'lanes', 'mushHits', 'crystalSeq', 'crystalLit',
+  'crystalValue', 'doubleOrbitValue', 'locks', 'matchDone', 'mission', 'finished'];
+const copy = (v) => (v instanceof Set ? new Set(v) : Array.isArray(v) ? v.slice()
+  : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x instanceof Set ? new Set(x) : x])) : v);
 
 export class GameRules {
   constructor(bus, ctl) {
@@ -85,6 +92,10 @@ export class GameRules {
     this.superArmed = false;
     this.superTicks = 0;
     this.matchDone = false;
+    this.finished = false; // this player has played all their balls
+    this.numPlayers = 1;
+    this.player = 0;
+    this.players = [];
     this._resetBallValues();
     this._startMission();
     this._resetTilt();
@@ -132,7 +143,7 @@ export class GameRules {
     else if (this.dragonActive) { text = `DRAGON'S FIRE · ${this.dragonLit.size} LIT TARGETS LEFT · WAVE ${this.dragonWaves + 1}`; target = null; }
     else if (this.multiball) { text = 'SHOOT THE TOWER DOOR · SUPER JACKPOT'; target = 'door'; }
     else if (this.superArmed) { text = 'SUPER SKILL SHOT · SHOOT THE GOLDEN RAMP'; target = 'rampB'; }
-    else if (this.doorOpen) { text = `SHOOT THE TOWER · ${this.locks < MODES.LOCKS ? `LOCK BALL ${this.locks + 1}` : 'MULTIBALL'} · ${fmt(this.hurryValue)}`; target = 'door'; }
+    else if (this.doorOpen) { text = `SHOOT THE TOWER · ${this.locks < TUNE.LOCKS ? `LOCK BALL ${this.locks + 1}` : 'MULTIBALL'} · ${fmt(this.hurryValue)}`; target = 'door'; }
     else if (this.dragonReady) { text = "DRAGON'S FIRE IS READY · SHOOT THE MYSTERY HOLE"; target = 'scoop'; }
     else if (this.extraLit > 0) { text = 'EXTRA BALL IS LIT · SHOOT THE MYSTERY HOLE'; target = 'scoop'; }
     else if (this.crystalLit) { text = `CRYSTAL JACKPOT ${fmt(this.crystalValue)} · RIDE THE CRYSTAL RAMP`; target = 'rampA'; }
@@ -153,11 +164,16 @@ export class GameRules {
   get skillLit() { return this.skillAvailable && this.skillPhase % T.SKILL_PERIOD < T.SKILL_LIT; }
 
   // ---------------------------------------------------------------- flow
-  startGame() {
+  /** @param players 1–4 players taking turns (hot seat) */
+  startGame(players = 1) {
     this._resetValues();
+    this.numPlayers = Math.max(1, Math.min(MAX_PLAYERS, Math.round(players) || 1));
+    this.player = 0;
+    const fresh = this._saveState();
+    this.players = Array.from({ length: this.numPlayers }, () => Object.fromEntries(Object.entries(fresh).map(([k, v]) => [k, copy(v)])));
     this.state = 'playing';
     this.ctl.resetTable();
-    this.bus.emit('gameStart', {});
+    this.bus.emit('gameStart', { players: this.numPlayers });
     this.bus.emit('stage', { index: 0, stage: STAGES[0], initial: true, level: 1 });
     this._serve();
   }
@@ -382,18 +398,52 @@ export class GameRules {
       this.bus.emit('shootAgain', { ball: this.ball });
       return;
     }
-    if (this.ball < BALLS_PER_GAME) {
-      this.ball++;
-      this.serveTicks = delay;
-      this.bus.emit('ballLost', { nextBall: this.ball });
-    } else if (!this.matchDone && this._match()) { // MATCH: the tens digit matches the drawn number -> one more ball
-      this.serveTicks = delay + T.SERVE_DELAY;
-    } else {
-      this.state = 'gameover';
-      const newHigh = this.score > this.highScore;
-      if (newHigh) this.highScore = this.score;
-      this.bus.emit('gameOver', { score: this.score, high: this.highScore, newHigh });
+    if (this.ball < BALLS_PER_GAME) this.ball++;
+    else if (!this.matchDone && this._match()) { this.serveTicks = delay + T.SERVE_DELAY; return; } // MATCH: one more ball
+    else this.finished = true;
+    this._nextTurn(delay);
+  }
+
+  // ---------------------------------------------------------------- players (hot seat: 1–4 players take turns)
+  _saveState() { return Object.fromEntries(PLAYER_KEYS.map((k) => [k, copy(this[k])])); }
+  _loadState(st) { for (const k of PLAYER_KEYS) this[k] = copy(st[k]); }
+
+  /** after a lost ball: the next player's turn (or the same player alone), or the end of the game */
+  _nextTurn(delay) {
+    if (this.numPlayers > 1) this.players[this.player] = this._saveState();
+    let next = -1;
+    for (let k = 1; k <= this.numPlayers; k++) {
+      const i = (this.player + k) % this.numPlayers;
+      const finished = i === this.player ? this.finished : this.players[i].finished;
+      if (!finished) { next = i; break; }
     }
+    if (next < 0) return this._gameOver();
+    if (next !== this.player) {
+      this.player = next;
+      this._loadState(this.players[next]);
+      this.serveTicks = delay;
+      this.bus.emit('stage', { index: this.stageIndex, stage: STAGES[this.stageIndex], initial: true, level: this.level }); // that player's chapter look
+      this.bus.emit('playerUp', { player: next + 1, ball: this.ball, players: this.numPlayers });
+      return;
+    }
+    this.serveTicks = delay;
+    this.bus.emit('ballLost', { nextBall: this.ball });
+  }
+
+  /** final scores of every player (current state for the player in play) */
+  get playerScores() {
+    if (this.numPlayers <= 1) return [this.score];
+    return this.players.map((p, i) => (i === this.player ? this.score : p.score));
+  }
+
+  _gameOver() {
+    this.state = 'gameover';
+    const scores = this.playerScores;
+    const best = Math.max(...scores);
+    const newHigh = best > this.highScore;
+    if (newHigh) this.highScore = best;
+    const winner = scores.indexOf(best) + 1;
+    this.bus.emit('gameOver', { score: best, high: this.highScore, newHigh, scores, winner, players: this.numPlayers });
   }
 }
 

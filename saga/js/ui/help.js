@@ -19,7 +19,7 @@ function sections() {
     ["The wizard's tower", [
       ['Open the door', `Hit the wizard ${WIZARD_CHARGES} times: the door opens for ${TIMING.DOOR_OPEN} seconds.`],
       ['Hurry-up', `Get in fast: the open tower is worth ${fmt(MODES.HURRY_START)}, falling to ${fmt(MODES.HURRY_END)}, on top of the ${fmt(SCORE.TOWER_ENTRY)} entry.`],
-      ['Lock and multiball', `The first ${MODES.LOCKS} times you get in, a ball is <b>locked</b> in the tower and a new one comes to the plunger. The next time starts a ${TIMING.MULTIBALL}-second multiball. Every hit on the door during multiball is a <b>Super Jackpot</b> (${fmt(SCORE.SUPER_JACKPOT)}).`],
+      ['Lock and multiball', `${TUNE.LOCKS > 0 ? `The first ${TUNE.LOCKS === 1 ? 'time' : `${TUNE.LOCKS} times`} you get in, a ball is <b>locked</b> in the tower and a new one comes to the plunger. The next time starts` : 'Getting in starts'} a ${TIMING.MULTIBALL}-second multiball. Every hit on the door during multiball is a <b>Super Jackpot</b> (${fmt(SCORE.SUPER_JACKPOT)}).`],
       ['Add-a-Ball', `During multiball, the mystery hole adds one more ball and ${MODES.ADD_A_BALL_TIME} seconds.`],
     ]],
     ['Combos and jackpots', [
