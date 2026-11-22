@@ -8,35 +8,15 @@ import {
   SCORE, TIMING, STAGES, RUSH_MULT, BALLS_PER_GAME, WIZARD_CHARGES, RUSH_ELEMENTS, SKILL_TARGET, secToTicks, COMBO_MAX, TILT, HZ,
   MODES, LANES, TUNE,
 } from './config.js';
+import { T, fmt } from './rules/ticks.js';
+import { SagaRules } from './rules/saga.js';
+import { ScoopRules } from './rules/scoop.js';
+import { LaunchRules } from './rules/launch.js';
+import { LaneRules } from './rules/lanes.js';
+import { TowerRules } from './rules/tower.js';
+import { ShotRules } from './rules/shots.js';
 
-const T = {
-  RUSH: secToTicks(TIMING.RUSH),
-  DOOR: secToTicks(TIMING.DOOR_OPEN),
-  MB: secToTicks(TIMING.MULTIBALL),
-  SKILL_PERIOD: secToTicks(TIMING.SKILL_PERIOD),
-  SKILL_LIT: secToTicks(TIMING.SKILL_LIT),
-  SKILL_TIMEOUT: secToTicks(TIMING.SKILL_TIMEOUT),
-  ELEMENT_CD: secToTicks(TIMING.ELEMENT_COOLDOWN),
-  FLIPPER_CD: secToTicks(TIMING.FLIPPER_SCORE_COOLDOWN),
-  DOOR_CD: secToTicks(TIMING.DOOR_HIT_COOLDOWN),
-  LOOP: secToTicks(TIMING.LOOP_WINDOW),
-  COMBO: secToTicks(TIMING.COMBO_WINDOW),
-  SERVE_DELAY: secToTicks(1.4),
-  BONUS_DELAY: secToTicks(3.0), // time to read the end-of-ball bonus
-  SAVE: secToTicks(TIMING.BALL_SAVE),
-  NUDGE_CD: secToTicks(TILT.COOLDOWN),
-  MYSTERY_SAVE: secToTicks(MODES.MYSTERY_SAVE),
-  BOOST: secToTicks(MODES.BOOST_SECONDS),
-  DRAGON: secToTicks(MODES.DRAGON_SECONDS),
-  FRENZY: secToTicks(MODES.FRENZY_SECONDS),
-  POOL_CD: secToTicks(0.5),
-  LOCK_RELAUNCH: secToTicks(MODES.LOCK_RELAUNCH),
-  ADD_TIME: secToTicks(MODES.ADD_A_BALL_TIME),
-  SUPER: secToTicks(MODES.SUPER_SKILL_WINDOW),
-};
 export const RULE_TICKS = T;
-const MYSTERY_TOTAL = MODES.MYSTERY.reduce((a, [w]) => a + w, 0);
-const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 export class GameRules {
   constructor(bus, ctl) {
@@ -278,163 +258,6 @@ export class GameRules {
     }
   }
 
-  // ---------------------------------------------------------------- chapter missions
-  _missionStep(kind, key = null) {
-    const m = this.mission;
-    if (m.done || m.id !== kind) return;
-    if (key !== null) { if (m.seen.has(key)) return; m.seen.add(key); }
-    m.progress = Math.min(m.n, m.progress + 1);
-    this.bus.emit('missionProgress', { id: m.id, progress: m.progress, n: m.n });
-    if (m.progress >= m.n) {
-      m.done = true;
-      const points = this.award(m.award, 'chapterMission');
-      this.bus.emit('chapterMission', { id: m.id, name: m.name, points });
-    }
-  }
-
-  // ---------------------------------------------------------------- Dragon's Fire (wizard mode)
-  _checkDragon() {
-    if (this.dragonReady || this.dragonActive) return;
-    if (this.flags.chapter3 && this.flags.multiball && this.flags.rush) {
-      this.dragonReady = true;
-      this.bus.emit('dragonReady', {});
-    }
-  }
-
-  _startDragon() {
-    this.dragonReady = false;
-    this.dragonTicks = T.DRAGON;
-    this.dragonJackpots = 0;
-    this.dragonWaves = 0;
-    this.dragonValue = MODES.DRAGON_JACKPOT;
-    this.dragonLit = new Set(MODES.DRAGON_TARGETS);
-    this.bus.emit('dragonStart', { seconds: MODES.DRAGON_SECONDS });
-  }
-
-  /** a hit while Dragon's Fire burns: a lit target is a jackpot and goes out; all out = a wave, then they relight */
-  _dragonHit(id, x = null, y = null) {
-    if (!this.dragonActive || !this.dragonLit.has(id)) return;
-    this.dragonLit.delete(id);
-    this.dragonJackpots++;
-    const points = this.award(this.dragonValue, 'dragonJackpot', x, y);
-    this.bus.emit('dragonJackpot', { id, count: this.dragonJackpots, left: this.dragonLit.size, points, x, y });
-    if (this.dragonLit.size === 0) {
-      this.dragonWaves++;
-      const wave = this.award(MODES.DRAGON_WAVE, 'dragonWave');
-      this.dragonValue += MODES.DRAGON_STEP;
-      this.dragonLit = new Set(MODES.DRAGON_TARGETS);
-      this.bus.emit('dragonWave', { wave: this.dragonWaves, points: wave });
-    }
-  }
-
-  _endDragon(completed) {
-    const jackpots = this.dragonJackpots;
-    this.dragonTicks = 0;
-    this.dragonLit = new Set();
-    if (!completed) { this.dragonReady = true; this.bus.emit('dragonEnd', { completed: false, jackpots }); return; } // lost the ball: shoot the scoop again
-    const victory = this.dragonWaves >= 1; // cleared every target at least once
-    if (victory) this.award(MODES.DRAGON_COMPLETE, 'dragonDefeated');
-    // the saga starts again on the next level
-    this.level++;
-    this.levelBase = this.score;
-    this.stageIndex = 0;
-    this.flags = { chapter3: false, multiball: false, rush: false };
-    this._startMission();
-    this.bus.emit('dragonEnd', { completed: true, victory, jackpots, waves: this.dragonWaves, level: this.level });
-    this.bus.emit('stage', { index: 0, stage: STAGES[0], level: this.level });
-  }
-
-  // ---------------------------------------------------------------- extra ball
-  _lightExtra(source) {
-    this.extraLit++;
-    this.bus.emit('extraBallLit', { source });
-  }
-
-  // ---------------------------------------------------------------- plunger / skill shot
-  /** The player released the plunger. Returns true when the skill shot is armed. */
-  onLaunch(leftHeld = false) {
-    if (leftHeld && this.skillAvailable) { // holding the left flipper: go for the Super Skill Shot instead
-      this.skillAvailable = false;
-      this.skillArmed = false;
-      this.superArmed = true;
-      this.superTicks = T.SUPER;
-      this.bus.emit('superSkillArmed', { seconds: MODES.SUPER_SKILL_WINDOW });
-      return false;
-    }
-    const armed = this.skillLit;
-    this.skillAvailable = false; // only the first launch of each served ball can be a skill shot
-    this.skillArmed = armed;
-    this.skillTicks = armed ? T.SKILL_TIMEOUT + secToTicks(3) : 0;
-    return armed;
-  }
-
-  /** Ball reached the top of the shooter lane. Returns true when the table should steer it to the skill target. */
-  onShooterExit() {
-    if (!this.saveStarted && !this.multiball) { // Ball Save starts when the served ball reaches the playfield
-      this.saveStarted = true;
-      this.saveTicks = Math.max(this.saveTicks, T.SAVE);
-      this.bus.emit('ballSaveStart', { seconds: TIMING.BALL_SAVE });
-    }
-    if (!this.skillArmed) return false;
-    this.skillTicks = T.SKILL_TIMEOUT + secToTicks(2); // time to come round the top of the table
-    return true;
-  }
-
-  onSkillTurn() { if (this.skillArmed) this.bus.emit('skillRedirect', {}); }
-
-  onBallHeld() { this.skillArmed = false; }
-
-  // ---------------------------------------------------------------- nudge / tilt
-  /** The player shoved the table. Returns true when the nudge happens (the table then pushes the balls). */
-  onNudge() {
-    if (this.state !== 'playing' || this.tilted || this.nudgeCd > 0) return false;
-    this.nudgeCd = T.NUDGE_CD;
-    this.danger += 1;
-    this.bus.emit('nudge', { danger: this.danger });
-    if (this.danger >= TILT.LIMIT) {
-      this.danger = 0;
-      this.tiltWarnings++;
-      if (this.tiltWarnings > TILT.WARNINGS) this._tilt();
-      else this.bus.emit('tiltWarning', { count: this.tiltWarnings, of: TILT.WARNINGS });
-    }
-    return true;
-  }
-
-  _tilt() {
-    this.tilted = true;
-    this.kickLit.L = this.kickLit.R = false;
-    this.saveTicks = 0;
-    this.ctl.tiltFlippers();
-    this.bus.emit('kickback', { lit: false });
-    this.bus.emit('tilt', {});
-  }
-
-  // ---------------------------------------------------------------- lanes (M-A-G-E) and bonus multiplier
-  /** A flipper press moves the lit lane letters (lane change), like a real table. */
-  onFlipperPress(side) {
-    if (this.state !== 'playing' || this.tilted) return;
-    const l = this.lanes;
-    this.lanes = side === 'L' ? [l[1], l[2], l[3], l[0]] : [l[3], l[0], l[1], l[2]];
-  }
-
-  /** ball rolled through lane i (0 outlane L, 1 inlane L, 2 inlane R, 3 outlane R) */
-  onLane(i) {
-    if (this.state !== 'playing' || !this._cool('lane' + i, T.ELEMENT_CD)) return;
-    if (!this.lanes[i]) {
-      this.lanes[i] = true;
-      this.award(MODES.LANE_POINTS, 'lane');
-      this._bonus('lane');
-      this.bus.emit('laneLit', { index: i, letter: LANES[i] });
-    }
-    if (this.lanes.every(Boolean)) {
-      this.lanes = [false, false, false, false];
-      const points = this.award(MODES.LANE_COMPLETE, 'lanesComplete');
-      const maxed = this.bonusX >= MODES.BONUS_X_MAX;
-      if (!maxed) { this.bonusX++; this.bus.emit('bonusX', { x: this.bonusX }); }
-      this.bus.emit('lanesComplete', { points, maxed }); // every completion (missions count it); maxed = points only
-    }
-  }
-
   // ---------------------------------------------------------------- table events
   onFlipperHit(ball) {
     if (this._cool('flip' + ball.id, T.FLIPPER_CD)) this.award(SCORE.FLIPPER, 'flipper');
@@ -496,202 +319,6 @@ export class GameRules {
     if (!this._cool(id, T.ELEMENT_CD)) return;
     this.award(SCORE.SLING, 'sling', x, y);
     this._bonus('sling');
-  }
-
-  onWizardHit(x, y) {
-    if (!this._cool('wizard', T.ELEMENT_CD)) return;
-    this.award(SCORE.WIZARD, 'wizard', x, y);
-    this._bonus('wizard');
-    this._dragonHit('wizard', x, y);
-    if (this.multiball || this.doorOpen) { this.bus.emit('wizardHit', { charge: this.wizardCharge }); return; }
-    this._chargeWizard();
-  }
-
-  _chargeWizard() {
-    this.wizardCharge = Math.min(WIZARD_CHARGES, this.wizardCharge + 1);
-    this.bus.emit('wizardHit', { charge: this.wizardCharge });
-    this.bus.emit('wizardCharge', { charge: this.wizardCharge });
-    if (this.wizardCharge >= WIZARD_CHARGES) {
-      this.doorTicks = T.DOOR;
-      this.ctl.setDoor(true);
-      this.award(SCORE.DOOR_OPEN, 'doorOpen');
-      this.bus.emit('doorOpen', { seconds: TIMING.DOOR_OPEN });
-    }
-  }
-
-  onDoorHit(x, y) {
-    if (this.multiball) {
-      if (this._cool('door', T.DOOR_CD)) {
-        this._missionStep('dragon');
-        this.award(SCORE.SUPER_JACKPOT, 'superJackpot', x, y);
-        this.bus.emit('superJackpot', { x, y });
-        this._dragonHit('tower', x, y);
-      }
-    } else if (this._cool('doorThud', T.DOOR_CD)) {
-      this.bus.emit('doorThud', {});
-      this._missionStep('dragon');
-      this._dragonHit('tower', x, y);
-    }
-  }
-
-  onTowerEnter(ball) {
-    if (!this.doorOpen || this.multiball) { this.ctl.ejectFromTower(ball, 0.6); return; }
-    const hurry = this.hurryValue;
-    this.doorTicks = 0;
-    this.ctl.setDoor(false);
-    this.wizardCharge = 0;
-    this.guests++;
-    this.bus.emit('doorClose', { entered: true });
-    this.bus.emit('wizardCharge', { charge: 0 });
-    this._missionStep('dragon'); // counts for the chapter it happened in (before the points can change the chapter)
-    this._dragonHit('tower');
-    if (this.locks < MODES.LOCKS) { // lock the ball in the tower; a new ball comes to the plunger
-      this.locks++;
-      this.award(MODES.LOCK_POINTS, 'lock');
-      const hpl = this.award(hurry, 'hurryUp');
-      this.bus.emit('hurryUp', { points: hpl });
-      this.ctl.lockBall(ball);
-      this.lockServeTicks = T.LOCK_RELAUNCH;
-      this.bus.emit('ballLock', { count: this.locks, of: MODES.LOCKS });
-      return;
-    }
-    this.locks = 0;
-    this.addBallUsed = 0;
-    this.bus.emit('towerEnter', {});
-    this.award(SCORE.TOWER_ENTRY, 'towerEntry');
-    const hp = this.award(hurry, 'hurryUp');
-    this.bus.emit('hurryUp', { points: hp });
-    this.multiball = true;
-    this.flags.multiball = true;
-    this.mbTicks = T.MB;
-    this.ctl.startMultiball(ball);
-    this.bus.emit('multiballStart', { seconds: TIMING.MULTIBALL });
-    this._checkDragon();
-  }
-
-  _endMultiball(reason) {
-    if (!this.multiball) return;
-    this.multiball = false;
-    this.mbTicks = 0;
-    if (reason === 'timeout') this.ctl.removeExtraBalls();
-    this.bus.emit('multiballEnd', { reason });
-  }
-
-  onRamp(id) {
-    this.award(SCORE.RAMP, id);
-    this._bonus('ramp');
-    this.bus.emit('ramp', { id });
-    this._chainHit();
-    this._dragonHit(id);
-    this._missionStep('moon');
-    if (id === 'rampB' && this.superArmed) { // Super Skill Shot
-      this.superArmed = false;
-      this.superTicks = 0;
-      const points = this.award(MODES.SUPER_SKILL, 'superSkillShot');
-      this.bus.emit('superSkillShot', { points });
-    }
-    if (id === 'rampA' && this.crystalLit) { // Crystal Jackpot (lit by alternating the crystals)
-      this.crystalLit = false;
-      const points = this.award(this.crystalValue, 'crystalJackpot');
-      this.crystalValue = Math.min(MODES.CRYSTAL_MAX, this.crystalValue + MODES.CRYSTAL_STEP);
-      this.bus.emit('crystalJackpot', { points });
-    }
-    // Double Orbit: the crystal ramp and the golden ramp back to back (either order)
-    const lr = this.lastRamp;
-    if (lr && lr.id !== id && this.tick - lr.tick <= secToTicks(TUNE.DOUBLE_ORBIT_WINDOW)) {
-      this.lastRamp = null;
-      const points = this.award(this.doubleOrbitValue, 'doubleOrbit');
-      this.doubleOrbitValue = Math.min(MODES.DOUBLE_ORBIT_MAX, this.doubleOrbitValue + MODES.DOUBLE_ORBIT_STEP);
-      this.bus.emit('doubleOrbit', { points });
-    } else this.lastRamp = { id, tick: this.tick };
-  }
-
-  onOrbit(ball, side, vy) {
-    if (vy > 0) { this.loopStart.set(ball.id, { side, tick: this.tick }); return; }
-    const s = this.loopStart.get(ball.id);
-    if (s && s.side !== side && this.tick - s.tick <= T.LOOP) {
-      this.loopStart.delete(ball.id);
-      this.award(SCORE.LOOP, 'loop');
-      this._bonus('loop');
-      this.bus.emit('loop', { side });
-      this._chainHit();
-    }
-  }
-
-  /** Magic pool: every pass fills the potion; the 6th pass after it is full collects the Pool Jackpot. */
-  onPool() {
-    if (this.state !== 'playing' || !this._cool('pool', T.POOL_CD)) return;
-    this.award(MODES.POOL_PASS, 'pool');
-    this._bonus('pool');
-    if (this.poolLit) {
-      this.poolLit = false;
-      this.poolCharge = 0;
-      const points = this.award(this.poolValue, 'poolJackpot');
-      this.poolValue = Math.min(MODES.POOL_MAX, this.poolValue + MODES.POOL_STEP);
-      this.bus.emit('poolJackpot', { points });
-      return;
-    }
-    this.poolCharge = Math.min(TUNE.POOL_PASSES, this.poolCharge + 1);
-    this.bus.emit('poolCharge', { charge: this.poolCharge, of: TUNE.POOL_PASSES });
-    if (this.poolCharge >= TUNE.POOL_PASSES) { this.poolLit = true; this.bus.emit('poolLit', { value: this.poolValue }); }
-  }
-
-  /** Mystery Scoop: Dragon's Fire when ready, else a lit Extra Ball, else a mystery award. */
-  onScoop() {
-    if (this.state !== 'playing') return;
-    this.award(MODES.SCOOP_BASE, 'scoop');
-    this._bonus('scoop');
-    if (this.tilted) return;
-    if (this.dragonReady) { this._startDragon(); return; }
-    if (this.extraLit > 0) {
-      this.extraLit--;
-      this.extraBalls++;
-      this.bus.emit('extraBall', { pending: this.extraBalls });
-      return;
-    }
-    if (this.multiball && this.addBallUsed < MODES.ADD_A_BALL_MAX && this.ctl.activeBallCount() < this.ctl.maxBalls) { // Add-a-Ball
-      this.addBallUsed++;
-      this.mbTicks += T.ADD_TIME;
-      this.award(MODES.ADD_A_BALL_POINTS, 'addABall');
-      this.ctl.addBall();
-      this.bus.emit('addABall', { seconds: MODES.ADD_A_BALL_TIME });
-      return;
-    }
-    this._mystery();
-  }
-
-  _mystery() {
-    let r = this.ctl.rand() * MYSTERY_TOTAL, pick = MODES.MYSTERY[0][1];
-    for (const [w, id] of MODES.MYSTERY) { if ((r -= w) < 0) { pick = id; break; } }
-    // awards that make no sense right now turn into points
-    if (pick === 'kickbacks' && this.kickLit.L && this.kickLit.R) pick = 'points5k';
-    if (pick === 'ballSave' && this.multiball) pick = 'points10k';
-    if (pick === 'boost' && (this.rushActive || this.boostActive)) pick = 'points10k';
-    if (pick === 'wizard' && (this.multiball || this.doorOpen)) pick = 'points5k';
-    if (pick === 'extraBall' && this.extraFrom.mystery) pick = 'points10k';
-    let label;
-    switch (pick) {
-      case 'points5k': label = `+${fmt(this.award(5000, 'mystery'))}`; break;
-      case 'points10k': label = `+${fmt(this.award(10000, 'mystery'))}`; break;
-      case 'points25k': label = `BIG POINTS +${fmt(this.award(25000, 'mystery'))}`; break;
-      case 'kickbacks': this.kickLit.L = this.kickLit.R = true; this.bus.emit('kickback', { lit: true }); label = 'KICKBACKS LIT'; break;
-      case 'ballSave': this.saveTicks = Math.max(this.saveTicks, T.MYSTERY_SAVE); label = `BALL SAVE ${MODES.MYSTERY_SAVE}s`; break;
-      case 'boost': this.boostTicks = T.BOOST; this.bus.emit('boostStart', { seconds: MODES.BOOST_SECONDS }); label = `DOUBLE SCORING ${MODES.BOOST_SECONDS}s`; break;
-      case 'wizard': this._chargeWizard(); label = 'WIZARD CHARGE +1'; break;
-      case 'extraBall': this.extraFrom.mystery = true; this._lightExtra('mystery'); label = 'EXTRA BALL LIT'; break;
-      default: label = '';
-    }
-    this.bus.emit('mystery', { award: pick, label });
-  }
-
-  /** Match: a number 00–90 is drawn against the tens digit of the score (10 % chance). Once per game. */
-  _match() {
-    this.matchDone = true;
-    const number = Math.floor(this.ctl.rand() * 10) * 10;
-    const digit = (Math.floor(this.score / 10) % 10) * 10;
-    const won = number === digit;
-    this.bus.emit('match', { number, digit, won });
-    return won;
   }
 
   onOutlane(ball, side) {
@@ -767,5 +394,14 @@ export class GameRules {
       if (newHigh) this.highScore = this.score;
       this.bus.emit('gameOver', { score: this.score, high: this.highScore, newHigh });
     }
+  }
+}
+
+/** the feature modules add their methods (and getters) to GameRules */
+for (const Mod of [SagaRules, ScoopRules, LaunchRules, LaneRules, TowerRules, ShotRules]) {
+  for (const name of Object.getOwnPropertyNames(Mod.prototype)) {
+    if (name === 'constructor') continue;
+    if (Object.prototype.hasOwnProperty.call(GameRules.prototype, name)) throw new Error(`rules: ${name} defined twice`);
+    Object.defineProperty(GameRules.prototype, name, Object.getOwnPropertyDescriptor(Mod.prototype, name));
   }
 }

@@ -167,6 +167,8 @@ const SPOTS = {
   rampA: { x: 800, y: 640, r: 125, color: 0x90fff8 }, // crystal ramp entrance: Crystal Jackpot lit
 };
 const DRAGON_RED = 0xff4a1a;
+// attract mode: the lights chase in this order (bottom to top and back), like a real machine waiting for a player
+const ATTRACT = ['slingL', 'slingR', 'kickback', 'kickbackR', 'mush1', 'pool', 'crystal2', 'scoop', 'mush2', 'crystal1', 'wizard', 'rampA', 'mush3', 'potion'];
 const DRAGON_GLOW = { mush1: 1, mush2: 1, mush3: 1, crystal1: 1, crystal2: 1, potion: 1, wizard: 1, rampA: 1 };
 const RUSH_IDS = ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'];
 const DOOR = { x: 636, y: 921, w: 64, h: 84 };
@@ -398,6 +400,14 @@ export class Effects {
         g.mesh.position.y = -(SPOTS.plunger.y + (this.layers.plungerDisp || 0)); // the glow rides on the moving gem
       }
       else if (id === 'wizard') base = Math.max(base, 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0));
+      if (rules.state !== 'playing') { // attract mode light show: a chase that sweeps up the table, then everything blinks twice
+        const i = ATTRACT.indexOf(id);
+        if (i >= 0) {
+          const cyc = t % 9;
+          if (cyc < 6) { const ph = cyc * 3.2 - i * 0.55; base = 0.06 + 0.7 * Math.pow(Math.max(0, Math.sin(ph)), 6); }
+          else base = cyc % 0.6 < 0.3 ? 0.55 : 0.05;
+        }
+      }
       g.mesh.material.opacity = Math.min(1, (base + g.flash * 0.95) * (this.glowBoost || 1));
       const s = 1 + g.flash * 0.25 + (id === 'wizard' ? charge * 0.12 : 0) + (g.lit ? 0.6 : 0);
       g.mesh.scale.set(s, s, 1);

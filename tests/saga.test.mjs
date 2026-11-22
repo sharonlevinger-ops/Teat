@@ -678,7 +678,9 @@ test('no ball ever leaves the cabinet (3 seeds × 6 minutes of bot play with eve
 test('every daily mission can be completed by a real game event', async () => {
   const { MISSION_POOL } = await import('../saga/js/core/progress.js');
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('../saga/js/core/rules.js', import.meta.url), 'utf8') + readFileSync(new URL('../saga/js/core/sim.js', import.meta.url), 'utf8');
+  const { readdirSync } = await import('node:fs');
+  const files = ['../saga/js/core/rules.js', '../saga/js/core/sim.js', ...readdirSync(new URL('../saga/js/core/rules/', import.meta.url)).map((f) => `../saga/js/core/rules/${f}`)];
+  const src = files.map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
   for (const m of MISSION_POOL) assert.ok(src.includes(`emit('${m.ev}'`), `mission ${m.id} waits for '${m.ev}', which the game never emits`);
   assert.equal(new Set(MISSION_POOL.map((m) => m.id)).size, MISSION_POOL.length, 'unique ids');
 });
@@ -822,4 +824,89 @@ test('plunger pull-down gesture: power follows the finger, no auto-charge while 
   sim.releaseLaunch();
   assert.equal(events.filter((e) => e.type === 'launch').pop().p.power, 0.6);
   assert.equal(sim.plunger.drag, false);
+});
+
+test('full game, start to finish: every mode in one game with the real table, journal and summary attached', async () => {
+  const { MODES, STAGES } = await import('../saga/js/core/config.js');
+  const { Progress, GameStats } = await import('../saga/js/core/progress.js');
+  const mem = {}; const storage = { get: (k, d) => (k in mem ? JSON.parse(mem[k]) : d), set: (k, v) => { mem[k] = JSON.stringify(v); } };
+  const sim = new Simulation();
+  const events = []; sim.bus.on('*', (t) => events.push(t));
+  const count = (t) => events.filter((e) => e === t).length;
+  const progress = new Progress(storage, () => '2026-11-22'); progress.bind(sim.bus);
+  const stats = new GameStats(sim.bus);
+  const r = sim.rules;
+  const live = () => sim.world.balls.find((b) => b.active && b.mode === 'free');
+  const play = (s) => run(sim, secs(s));
+  const launch = (opts = {}) => {
+    while (!sim.heldBall() || !sim.canLaunch()) sim.step();
+    if (opts.super) sim.setFlipper('L', true);
+    sim.pressLaunch();
+    if (opts.skill) { while (!r.skillLit || sim.plunger.power < 0.6) sim.step(); } else { run(sim, secs(0.9)); r.skillPhase = secs(TIMING.SKILL_LIT) + 3; }
+    sim.releaseLaunch();
+    if (opts.super) sim.setFlipper('L', false);
+    play(2.5);
+  };
+  const hit = (id) => { r.cooldowns.clear(); r.onElementHit(id, 0, 0); };
+  const openDoor = () => { for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); } };
+  const enterTower = () => { const b = live() || sim.world.balls.find((x) => x.active); b.mode = 'tower'; r.onTowerEnter(b); };
+  const drainAll = () => { r.saveTicks = 0; for (const b of sim.world.balls) if (b.active && b.mode !== 'held') sim._place(b, 10.5, -2, 0, -10, 'free'); run(sim, 3); };
+
+  r.startGame();
+  // ball 1: skill shot (real physics), the whole tower chain, multiball with add-a-ball and super jackpots
+  launch({ skill: true });
+  play(8);
+  assert.equal(count('skillShot'), 1, 'skill shot');
+  for (const k of [1, 2]) { openDoor(); enterTower(); assert.equal(r.locks, k); run(sim, secs(MODES.LOCK_RELAUNCH) + 2); launch(); }
+  openDoor(); enterTower();
+  assert.ok(r.multiball, 'multiball after two locks');
+  play(2);
+  r.onScoop(); // add-a-ball
+  for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onDoorHit(0, 0); }
+  assert.ok(count('superJackpot') >= 3);
+  // RUSH x2 (extra ball lit), lanes, pool, crystals, double orbit, frenzy — all through the rules API while the balls fly
+  for (const k of [0, 1]) { for (const id of ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion']) hit(id); r.rushTicks = 0; play(0.5); }
+  assert.equal(r.rushCount, 2); assert.ok(r.extraLit >= 1, 'extra ball lit');
+  for (let i = 0; i < 4; i++) { r.cooldowns.delete('lane' + i); r.onLane(i); }
+  assert.equal(r.bonusX, 2);
+  for (let i = 0; i < 6; i++) { r.cooldowns.delete('pool'); r.onPool(); }
+  assert.equal(count('poolJackpot'), 1);
+  for (const id of ['crystal1', 'crystal2', 'crystal1', 'crystal2']) hit(id);
+  r.onRamp('rampA'); r.onRamp('rampB');
+  assert.equal(count('crystalJackpot'), 1); assert.ok(count('doubleOrbit') >= 1);
+  for (let i = 0; i < 25; i++) hit('mush1');
+  assert.ok(count('frenzyStart') >= 1);
+  play(3);
+  // chapter 3 -> Dragon's Fire (needs multiball + RUSH + chapter 3 this saga)
+  if (r.stageIndex < 2) { r.score = r.stageMin(2) - 1; r.award(1, 'push'); }
+  assert.equal(r.stageIndex, 2); assert.ok(r.dragonReady, "Dragon's Fire ready");
+  r.extraLit = Math.max(0, r.extraLit); const extraBefore = r.extraLit;
+  r.onScoop(); // dragon takes priority over the lit extra ball
+  assert.ok(r.dragonActive); assert.equal(r.extraLit, extraBefore);
+  for (const id of ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion']) hit(id);
+  r.cooldowns.clear(); r.onWizardHit(0, 0); r.onRamp('rampA'); r.onRamp('rampB'); r.cooldowns.clear(); r.onDoorHit(0, 0);
+  assert.equal(count('dragonWave'), 1);
+  run(sim, r.dragonTicks + 1);
+  assert.equal(r.level, 2, 'saga level 2'); assert.equal(r.stageIndex, 0);
+  // collect the extra ball, then lose balls: bonus, shoot again, match, game over
+  r.onScoop();
+  assert.ok(count('extraBall') >= 1);
+  const ballsBefore = r.ball;
+  sim.rand = () => 0.01; // the match will not hit (tens digit is drawn as 00 – make sure the score does not end in 0x)
+  drainAll(); play(4);
+  assert.ok(count('bonus') >= 1, 'end-of-ball bonus');
+  assert.ok(count('shootAgain') >= 1 && r.ball === ballsBefore, 'shoot again keeps the ball number');
+  let guard = 0;
+  while (r.state === 'playing' && guard++ < 10) { if (sim.heldBall()) launch(); r.score += (Math.floor(r.score / 10) % 10 === 0) ? 10 : 0; drainAll(); play(4); }
+  assert.equal(r.state, 'gameover');
+  assert.equal(count('match'), 1, 'match drawn once');
+  // the journal and the summary saw the same game
+  assert.equal(progress.recordScore(r.score, r.stage.id), 1, 'first in the score table (as main.js records it at game over)');
+  assert.equal(progress.starCount, 5, 'all five stars: 50k, multiball, chapter 3, dragon lit, dragon defeated');
+  assert.ok(progress.hasAchievement('skill') && progress.hasAchievement('tower') && progress.hasAchievement('ch3'));
+  assert.equal(progress.bestChapter, 3);
+  assert.ok(stats.wizard >= 9 && stats.jackpots >= 3 && stats.skill === 1 && stats.chapter >= 1);
+  // nothing ever left the cabinet or broke the numbers
+  for (const b of sim.world.balls) if (b.active) assert.ok(Number.isFinite(b.x) && Number.isFinite(b.y));
+  assert.ok(Number.isFinite(r.score) && r.score > 100000, `big score: ${r.score}`);
 });

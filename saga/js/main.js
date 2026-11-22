@@ -63,7 +63,7 @@ async function boot() {
     if (kind === 'mission') messages.show(`MISSION COMPLETE<small>${item.text.toUpperCase()}</small>`);
     else if (kind === 'daily') messages.show(`ALL MISSIONS DONE!<small>STREAK: ${item.streak} ${item.streak === 1 ? 'DAY' : 'DAYS'}</small>`, true);
     else if (kind === 'achievement') messages.show(`ACHIEVEMENT<small>${item.name.toUpperCase()}</small>`);
-    else if (kind === 'star') messages.show(`★ STAR ${item.count} OF ${item.of}<small>${item.text.toUpperCase()}</small>`, true);
+    else if (kind === 'star') { audio.knocker(); messages.show(`★ STAR ${item.count} OF ${item.of}<small>${item.text.toUpperCase()}</small>`, true); }
     else if (kind === 'chapter') messages.show(`NEW SAGA RECORD<small>CHAPTER ${item.chapter} REACHED FOR THE FIRST TIME</small>`);
     if (audio.ready) audio.rampDone();
   };
@@ -218,24 +218,32 @@ async function boot() {
 
   // ------------------------------------------------------------------ sound (presentation only)
   let lastThud = 0;
-  bus.on('flipper', ({ pressed }) => audio.flipper(pressed));
+  // stereo: every sound comes from where it happens on the table (flat x 0..21, centre 10.5; painting x 0..1284)
+  const panF = (x) => Math.max(-0.9, Math.min(0.9, ((x - 10.5) / 10.5) * 0.85));
+  const panA = (x) => Math.max(-0.9, Math.min(0.9, ((x - 640) / 640) * 0.85));
+  const LANE_PAN = [panA(150), panA(238), panA(1042), panA(1130)];
+  bus.on('flipper', ({ side, pressed }) => audio.play(side === 'L' ? -0.45 : 0.45, 'flipper', pressed));
   bus.on('contact', (c) => {
     const now = performance.now();
-    if (c.kind === 'sling') audio.sling();
-    else if (c.kind === 'gate' || c.kind === 'post') audio.metalClick();
-    else if ((c.kind === 'wall' || c.kind === 'flipper') && c.impact > 7 && now - lastThud > 45) { lastThud = now; audio.thud(c.impact); }
+    const pan = panF(c.x);
+    if (c.kind === 'sling') audio.play(pan, 'sling');
+    else if (c.kind === 'gate' || c.kind === 'post') audio.play(pan, 'metalClick');
+    else if ((c.kind === 'wall' || c.kind === 'flipper') && c.impact > 7 && now - lastThud > 45) { lastThud = now; audio.play(pan, 'thud', c.impact); }
   });
-  bus.on('element', ({ id }) => {
-    if (id.startsWith('mush')) { audio.bumperThump(); audio.mushroomBell(); } else if (id.startsWith('crystal')) audio.crystal(); else if (id === 'potion') audio.potion();
+  bus.on('element', ({ id, x }) => {
+    const pan = x !== undefined && x !== null ? panF(x) : 0;
+    if (id.startsWith('mush')) { audio.play(pan, 'bumperThump'); audio.play(pan, 'mushroomBell'); } else if (id.startsWith('crystal')) audio.play(pan, 'crystal'); else if (id === 'potion') audio.play(pan, 'potion');
   });
-  bus.on('wizardHit', () => audio.wizardSpell());
-  bus.on('launch', ({ power }) => audio.launch(power));
-  bus.on('plungerPull', () => audio.plungerPull());
-  bus.on('railEnter', () => audio.metalClick());
+  bus.on('wizardHit', () => audio.play(panA(834), 'wizardSpell'));
+  bus.on('launch', ({ power }) => audio.play(0.85, 'launch', power));
+  bus.on('plungerPull', () => audio.play(0.85, 'plungerPull'));
+  bus.on('railEnter', ({ id }) => audio.play(id === 'rampA' ? panA(800) : panA(490), 'metalClick'));
   bus.on('ramp', () => audio.rampDone());
-  bus.on('kickbackFire', () => audio.kickback());
+  bus.on('kickbackFire', ({ x }) => audio.play(panF(x), 'kickback'));
   bus.on('skillShot', () => audio.skillShot());
-  bus.on('drain', () => audio.drain());
+  bus.on('drain', () => { audio.drain(); audio.troughDrop(); });
+  bus.on('ballSpawn', ({ where }) => { if (where === 'plunger') audio.play(0.85, 'troughKick'); });
+  bus.on('rollover', ({ index }) => audio.play(LANE_PAN[index], 'rollover'));
   bus.on('ballLost', () => audio.ballLost());
   bus.on('gameOver', ({ high, score, newHigh }) => {
     audio.gameOver(); store.set('high', high); refreshMusic();
@@ -245,16 +253,16 @@ async function boot() {
   });
   bus.on('nudge', () => audio.thud(26));
   // table features
-  bus.on('scoopCapture', () => { audio.thud(30); audio.metalClick(); });
-  bus.on('scoopEject', () => audio.kickback());
+  bus.on('scoopCapture', () => { audio.play(panA(395), 'thud', 30); audio.play(panA(395), 'metalClick'); });
+  bus.on('scoopEject', () => audio.play(panA(395), 'scoopKick'));
   bus.on('mystery', () => audio.rampDone());
   bus.on('extraBallLit', () => audio.skillShot());
-  bus.on('extraBall', () => audio.superJackpot());
+  bus.on('extraBall', () => { audio.knocker(); audio.superJackpot(); });
   bus.on('shootAgain', () => audio.chapter());
-  bus.on('laneLit', () => audio.metalClick());
+  bus.on('laneLit', ({ index }) => audio.play(LANE_PAN[index], 'metalClick'));
   bus.on('bonusX', () => audio.rampDone());
   bus.on('bonus', () => audio.rampDone());
-  bus.on('poolLit', () => audio.potion());
+  bus.on('poolLit', () => audio.play(0, 'potion'));
   bus.on('poolJackpot', () => audio.superJackpot());
   bus.on('crystalLit', () => audio.crystal());
   bus.on('crystalJackpot', () => audio.superJackpot());
@@ -271,7 +279,7 @@ async function boot() {
   bus.on('addABall', () => audio.superJackpot());
   bus.on('superSkillArmed', () => audio.metalClick());
   bus.on('superSkillShot', () => audio.superJackpot());
-  bus.on('match', ({ won }) => { if (won) audio.superJackpot(); });
+  bus.on('match', ({ won }) => { if (won) { audio.knocker(); audio.superJackpot(); } });
 
   // ------------------------------------------------------------------ hit-stop: big moments freeze the ball for a split second
   let hitStop = 0;
@@ -386,16 +394,18 @@ async function boot() {
     hud.set('hud-ball', String(r.ball));
     hud.set('hud-mult', r.chapterMult.toFixed(1) + 'X');
     hud.set('hud-guests', String(r.guests));
-    const waiting = r.state !== 'playing' || (sim.canLaunch() && !sim.plunger.pulling);
+    const waiting = r.state === 'playing' && sim.canLaunch() && !sim.plunger.pulling; // only while a ball waits (not over TAP FLIPPERS TO PLAY)
     const tl = hud.el('touch-launch');
     if (tl.classList.contains('hidden') === waiting) tl.classList.toggle('hidden', !waiting);
-    let roll = 0, onRail = false; // wood rumble on the table, metallic hiss on the ramps
+    let roll = 0, onRail = false, panSum = 0; // wood rumble on the table, metallic hiss on the ramps
     for (const b of sim.world.balls) {
       if (!b.active || paused) continue;
-      if (b.mode === 'free') roll += Math.hypot(b.vx, b.vy);
-      else if (b.mode === 'rail') { roll += b.railV; onRail = true; }
+      let v = 0;
+      if (b.mode === 'free') v = Math.hypot(b.vx, b.vy);
+      else if (b.mode === 'rail') { v = b.railV; onRail = true; }
+      roll += v; panSum += v * panF(b.x);
     }
-    audio.setRolling(roll, onRail);
+    audio.setRolling(roll, onRail, roll > 0 ? panSum / roll : 0);
     stage.render();
     // frame cost (JS + draw submission) and frame rate, averaged over half a second
     const js = performance.now() - t0;

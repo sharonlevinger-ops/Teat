@@ -15,6 +15,24 @@ export class AudioEngine {
     this.muted = false;
     this.bellIndex = 0;
     this.voices = 0;
+    this.pan = 0; // stereo position of the sound being made (-1 left … 1 right), see play()
+    this.panners = new Map();
+  }
+
+  /** play a sound effect from a place on the table: pan -1 (left) … 1 (right) */
+  play(pan, name, ...args) {
+    if (typeof this[name] !== 'function') return;
+    this.pan = Math.max(-1, Math.min(1, pan || 0));
+    try { this[name](...args); } finally { this.pan = 0; }
+  }
+
+  /** the effects bus, panned to the current position (one cached panner per 1/8 step) */
+  _panDest() {
+    const q = Math.round(this.pan * 8) / 8;
+    if (q === 0 || !this.ctx.createStereoPanner) return this.sfx;
+    let p = this.panners.get(q);
+    if (!p) { p = this.ctx.createStereoPanner(); p.pan.value = q; p.connect(this.sfx); this.panners.set(q, p); }
+    return p;
   }
 
   get ready() { return !!this.ctx; }
@@ -96,6 +114,7 @@ export class AudioEngine {
   /** oscillator voice -> destination. returns stop time */
   tone(dest, type, freq, t, a, peak, d, { glideTo = 0, glideTime = 0, detune = 0, send = 0, echo = 0 } = {}) {
     const ctx = this.ctx;
+    if (dest === this.sfx) dest = this._panDest();
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type = type;
@@ -115,6 +134,7 @@ export class AudioEngine {
 
   noiseHit(dest, t, { type = 'bandpass', freq = 1000, q = 1, a = 0.002, peak = 0.5, d = 0.1, sweepTo = 0, send = 0 } = {}) {
     const ctx = this.ctx;
+    if (dest === this.sfx) dest = this._panDest();
     const s = ctx.createBufferSource();
     s.buffer = this.noise;
     const f = ctx.createBiquadFilter();
@@ -141,14 +161,17 @@ export class AudioEngine {
     this.rollFilter.type = 'lowpass'; this.rollFilter.frequency.value = 300; this.rollFilter.Q.value = 0.7;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 60;
     this.rollGain = ctx.createGain(); this.rollGain.gain.value = 0;
-    src.connect(this.rollFilter).connect(hp).connect(this.rollGain).connect(this.sfx);
+    this.rollPan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    const tail = src.connect(this.rollFilter).connect(hp).connect(this.rollGain);
+    if (this.rollPan) tail.connect(this.rollPan).connect(this.sfx); else tail.connect(this.sfx);
     src.start();
   }
 
   /** speed: summed rolling speed of balls on the wood (0 when nothing rolls). */
-  setRolling(speed, onRail) {
+  setRolling(speed, onRail, pan = 0) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
+    if (this.rollPan) this.rollPan.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.08); // the rumble follows the ball
     const v = Math.min(1, speed / 60);
     this.rollGain.gain.setTargetAtTime(v * (onRail ? 0.08 : 0.16), t, 0.06);
     this.rollFilter.frequency.setTargetAtTime(onRail ? 2200 + v * 1800 : 180 + v * 700, t, 0.08);
@@ -313,6 +336,54 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     this.tone(this.sfx, 'sine', 70, t, 0.002, 0.8, 0.2, { glideTo: 35 });
     this.noiseHit(this.sfx, t, { freq: 600, q: 1, peak: 0.4, d: 0.3, sweepTo: 4000, send: 0.3 });
+  }
+
+  // ------------------------------------------------------------------------------- the machine itself
+  /** the knocker: the loud wooden knock a real machine makes for an extra ball, a replay or a match */
+  knocker() {
+    if (!this._ok(60)) return;
+    const t = this.ctx.currentTime;
+    for (const [dt, v] of [[0, 1], [0.035, 0.45]]) {
+      this.tone(this.sfx, 'sine', 78, t + dt, 0.001, 0.9 * v, 0.12, { glideTo: 42 });
+      this.noiseHit(this.sfx, t + dt, { type: 'lowpass', freq: 420, q: 0.9, peak: 0.9 * v, d: 0.08 });
+      this.noiseHit(this.sfx, t + dt, { freq: 1800, q: 3, peak: 0.25 * v, d: 0.03 });
+    }
+  }
+
+  /** a new ball: the trough kicker fires and the ball rolls down into the shooter lane */
+  troughKick() {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    this.noiseHit(this.sfx, t, { freq: 900, q: 2, peak: 0.35, d: 0.04 });
+    this.tone(this.sfx, 'sine', 120, t, 0.002, 0.4, 0.08, { glideTo: 55 });
+    this.noiseHit(this.sfx, t + 0.05, { type: 'lowpass', freq: 650, q: 0.8, peak: 0.16, d: 0.38, sweepTo: 260 }); // the roll
+    this.tone(this.sfx, 'square', 3100, t + 0.44, 0.001, 0.05, 0.03); // lands against the plunger
+  }
+
+  /** lane rollover switch under the ball: a tiny wire tick */
+  rollover() {
+    if (!this._ok(30)) return;
+    const t = this.ctx.currentTime;
+    this.tone(this.sfx, 'square', 4200, t, 0.001, 0.04, 0.02);
+    this.noiseHit(this.sfx, t, { freq: 6200, q: 8, peak: 0.08, d: 0.02 });
+  }
+
+  /** the scoop's kicker throws the ball back out */
+  scoopKick() {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    this.tone(this.sfx, 'sine', 90, t, 0.002, 0.7, 0.14, { glideTo: 40 });
+    this.noiseHit(this.sfx, t, { freq: 1300, q: 1.5, peak: 0.35, d: 0.06 });
+    this.tone(this.sfx, 'sine', 2900, t + 0.01, 0.001, 0.06, 0.18, { send: 0.3 }); // metal ring of the saucer
+  }
+
+  /** the ball drops through the drain into the trough */
+  troughDrop() {
+    if (!this._ok()) return;
+    const t = this.ctx.currentTime;
+    this.tone(this.sfx, 'sine', 140, t + 0.18, 0.002, 0.35, 0.1, { glideTo: 60 });
+    this.tone(this.sfx, 'square', 2500, t + 0.26, 0.001, 0.04, 0.02);
+    this.tone(this.sfx, 'square', 2300, t + 0.31, 0.001, 0.03, 0.02);
   }
 
   rampDone() {

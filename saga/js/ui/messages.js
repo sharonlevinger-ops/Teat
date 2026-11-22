@@ -52,6 +52,7 @@ export class Messages {
       return d;
     });
     this.count = null; // end-of-ball bonus count-up
+    this.attractScene = true; // between games the score window shimmers (attract mode)
     this.last = {};
     this.paused = false;
   }
@@ -169,13 +170,16 @@ export class Messages {
       if (tgt) { const [x, y] = GOAL_AT[g.target]; this.arrow.style.left = `${x - 40}px`; this.arrow.style.top = `${y - 100}px`; }
     }
     // a little animated scene in the score window for the mode in play (like the dot-matrix display of a real table)
-    const scene = r.state !== 'playing' || this.paused ? '' : r.dragonActive ? 'dragon' : r.multiball ? 'multiball' : r.frenzyActive ? 'frenzy' : r.rushActive ? 'rush' : r.boostActive ? 'boost' : '';
+    const scene = this.paused ? '' : r.state !== 'playing' ? (this.attractScene ? 'rush' : '') : r.dragonActive ? 'dragon' : r.multiball ? 'multiball' : r.frenzyActive ? 'frenzy' : r.rushActive ? 'rush' : r.boostActive ? 'boost' : '';
     if (this.last.scene !== scene) { this.last.scene = scene; this.hud.el('mode-scene').className = 'mode-scene' + (scene ? ' on ' + scene : ''); }
     // lane letters: lit ones glow; they move with every flipper press
-    const lk = r.state === 'playing' ? r.lanes.map((v) => (v ? 1 : 0)).join('') : '';
+    this.time = (this.time || 0) + dt;
+    // in attract mode the letters chase across the lanes (M → A → G → E)
+    const lit = r.state === 'playing' ? r.lanes : LANES.map((_, i) => Math.floor(this.time * 3) % 6 === i || Math.floor(this.time * 3) % 6 === 5);
+    const lk = lit.map((v) => (v ? 1 : 0)).join('');
     if (this.last.lanes !== lk) {
       this.last.lanes = lk;
-      this.letters.forEach((d, i) => { d.classList.toggle('on', r.state === 'playing' && r.lanes[i]); d.classList.toggle('hidden', r.state !== 'playing'); });
+      this.letters.forEach((d, i) => { d.classList.toggle('on', !!lit[i]); d.classList.remove('hidden'); });
     }
     // end-of-ball bonus: the total counts up inside the banner
     if (this.count && this.count.t !== undefined && !this.paused) {

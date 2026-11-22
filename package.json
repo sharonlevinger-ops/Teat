@@ -6,7 +6,7 @@
   "description": "יומן 2.0 – PWA אישי לאייפון (ללא שלב בנייה)",
   "scripts": {
     "test": "node --test tests/*.mjs",
-    "check": "for f in js/*.js sw.js pinball/sw.js pinball/js/*.js pinball/js/core/*.js pinball/js/render/*.js pinball/js/audio/*.js pinball/js/ui/*.js; do node --check $f || exit 1; done && for f in saga/js/*.js saga/js/core/*.js saga/js/render/*.js saga/js/ui/*.js saga/js/audio/*.js; do node --check $f || exit 1; done",
+    "check": "for f in js/*.js sw.js pinball/sw.js pinball/js/*.js pinball/js/core/*.js pinball/js/render/*.js pinball/js/audio/*.js pinball/js/ui/*.js; do node --check $f || exit 1; done && for f in saga/js/*.js saga/js/core/*.js saga/js/core/rules/*.js saga/js/render/*.js saga/js/ui/*.js saga/js/audio/*.js; do node --check $f || exit 1; done",
     "serve": "npx --yes serve -l 5173 ."
   }
 }
