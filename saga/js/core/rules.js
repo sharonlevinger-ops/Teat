@@ -30,6 +30,9 @@ const T = {
   DRAGON: secToTicks(MODES.DRAGON_SECONDS),
   FRENZY: secToTicks(MODES.FRENZY_SECONDS),
   POOL_CD: secToTicks(0.5),
+  LOCK_RELAUNCH: secToTicks(MODES.LOCK_RELAUNCH),
+  ADD_TIME: secToTicks(MODES.ADD_A_BALL_TIME),
+  SUPER: secToTicks(MODES.SUPER_SKILL_WINDOW),
 };
 export const RULE_TICKS = T;
 const MYSTERY_TOTAL = MODES.MYSTERY.reduce((a, [w]) => a + w, 0);
@@ -96,6 +99,12 @@ export class GameRules {
     this.crystalValue = MODES.CRYSTAL_JACKPOT;
     this.lastRamp = null;
     this.doubleOrbitValue = MODES.DOUBLE_ORBIT;
+    this.locks = 0; // balls locked in the tower (persist through the game)
+    this.lockServeTicks = 0;
+    this.addBallUsed = 0;
+    this.superArmed = false;
+    this.superTicks = 0;
+    this.matchDone = false;
     this._resetBallValues();
     this._startMission();
     this._resetTilt();
@@ -142,7 +151,8 @@ export class GameRules {
     else if (this.skillAvailable && !this.multiball && this.ctl.heldBall && this.ctl.heldBall()) { text = 'SKILL SHOT · RELEASE ON THE GOLD FLASH'; target = 'mush3'; }
     else if (this.dragonActive) { text = `DRAGON'S FIRE · ${this.dragonLit.size} LIT TARGETS LEFT · WAVE ${this.dragonWaves + 1}`; target = null; }
     else if (this.multiball) { text = 'SHOOT THE TOWER DOOR · SUPER JACKPOT'; target = 'door'; }
-    else if (this.doorOpen) { text = `SHOOT THE TOWER · HURRY-UP ${fmt(this.hurryValue)}`; target = 'door'; }
+    else if (this.superArmed) { text = 'SUPER SKILL SHOT · SHOOT THE GOLDEN RAMP'; target = 'rampB'; }
+    else if (this.doorOpen) { text = `SHOOT THE TOWER · ${this.locks < MODES.LOCKS ? `LOCK BALL ${this.locks + 1}` : 'MULTIBALL'} · ${fmt(this.hurryValue)}`; target = 'door'; }
     else if (this.dragonReady) { text = "DRAGON'S FIRE IS READY · SHOOT THE MYSTERY HOLE"; target = 'scoop'; }
     else if (this.extraLit > 0) { text = 'EXTRA BALL IS LIT · SHOOT THE MYSTERY HOLE'; target = 'scoop'; }
     else if (this.crystalLit) { text = `CRYSTAL JACKPOT ${fmt(this.crystalValue)} · RIDE THE CRYSTAL RAMP`; target = 'rampA'; }
@@ -228,6 +238,8 @@ export class GameRules {
     this.skillPhase++;
 
     if (this.serveTicks > 0 && --this.serveTicks === 0) this._serve();
+    if (this.lockServeTicks > 0 && --this.lockServeTicks === 0) this.ctl.serveBall(); // a new ball after a lock (no skill shot, no new ball save)
+    if (this.superTicks > 0 && --this.superTicks === 0) { this.superArmed = false; this.bus.emit('superSkillEnd', {}); }
 
     if (this.rushTicks > 0 && --this.rushTicks === 0) this.bus.emit('rushEnd', {});
     if (this.boostTicks > 0 && --this.boostTicks === 0) this.bus.emit('boostEnd', {});
@@ -340,7 +352,15 @@ export class GameRules {
 
   // ---------------------------------------------------------------- plunger / skill shot
   /** The player released the plunger. Returns true when the skill shot is armed. */
-  onLaunch() {
+  onLaunch(leftHeld = false) {
+    if (leftHeld && this.skillAvailable) { // holding the left flipper: go for the Super Skill Shot instead
+      this.skillAvailable = false;
+      this.skillArmed = false;
+      this.superArmed = true;
+      this.superTicks = T.SUPER;
+      this.bus.emit('superSkillArmed', { seconds: MODES.SUPER_SKILL_WINDOW });
+      return false;
+    }
     const armed = this.skillLit;
     this.skillAvailable = false; // only the first launch of each served ball can be a skill shot
     this.skillArmed = armed;
@@ -523,9 +543,21 @@ export class GameRules {
     this.guests++;
     this.bus.emit('doorClose', { entered: true });
     this.bus.emit('wizardCharge', { charge: 0 });
-    this.bus.emit('towerEnter', {});
     this._missionStep('dragon'); // counts for the chapter it happened in (before the points can change the chapter)
     this._dragonHit('tower');
+    if (this.locks < MODES.LOCKS) { // lock the ball in the tower; a new ball comes to the plunger
+      this.locks++;
+      this.award(MODES.LOCK_POINTS, 'lock');
+      const hpl = this.award(hurry, 'hurryUp');
+      this.bus.emit('hurryUp', { points: hpl });
+      this.ctl.lockBall(ball);
+      this.lockServeTicks = T.LOCK_RELAUNCH;
+      this.bus.emit('ballLock', { count: this.locks, of: MODES.LOCKS });
+      return;
+    }
+    this.locks = 0;
+    this.addBallUsed = 0;
+    this.bus.emit('towerEnter', {});
     this.award(SCORE.TOWER_ENTRY, 'towerEntry');
     const hp = this.award(hurry, 'hurryUp');
     this.bus.emit('hurryUp', { points: hp });
@@ -552,6 +584,12 @@ export class GameRules {
     this._chainHit();
     this._dragonHit(id);
     this._missionStep('moon');
+    if (id === 'rampB' && this.superArmed) { // Super Skill Shot
+      this.superArmed = false;
+      this.superTicks = 0;
+      const points = this.award(MODES.SUPER_SKILL, 'superSkillShot');
+      this.bus.emit('superSkillShot', { points });
+    }
     if (id === 'rampA' && this.crystalLit) { // Crystal Jackpot (lit by alternating the crystals)
       this.crystalLit = false;
       const points = this.award(this.crystalValue, 'crystalJackpot');
@@ -611,6 +649,14 @@ export class GameRules {
       this.bus.emit('extraBall', { pending: this.extraBalls });
       return;
     }
+    if (this.multiball && this.addBallUsed < MODES.ADD_A_BALL_MAX && this.ctl.activeBallCount() < this.ctl.maxBalls) { // Add-a-Ball
+      this.addBallUsed++;
+      this.mbTicks += T.ADD_TIME;
+      this.award(MODES.ADD_A_BALL_POINTS, 'addABall');
+      this.ctl.addBall();
+      this.bus.emit('addABall', { seconds: MODES.ADD_A_BALL_TIME });
+      return;
+    }
     this._mystery();
   }
 
@@ -636,6 +682,16 @@ export class GameRules {
       default: label = '';
     }
     this.bus.emit('mystery', { award: pick, label });
+  }
+
+  /** Match: a number 00–90 is drawn against the tens digit of the score (10 % chance). Once per game. */
+  _match() {
+    this.matchDone = true;
+    const number = Math.floor(this.ctl.rand() * 10) * 10;
+    const digit = (Math.floor(this.score / 10) % 10) * 10;
+    const won = number === digit;
+    this.bus.emit('match', { number, digit, won });
+    return won;
   }
 
   onOutlane(ball, side) {
@@ -674,6 +730,7 @@ export class GameRules {
     if (this.boostActive) { this.boostTicks = 0; this.bus.emit('boostEnd', {}); }
     if (this.frenzyActive) { this.frenzyTicks = 0; this.mushHits = 0; this.bus.emit('frenzyEnd', {}); }
     if (this.dragonActive) this._endDragon(false);
+    this.superArmed = false; this.superTicks = 0;
     if (this.doorOpen) {
       this.doorTicks = 0;
       this.ctl.setDoor(false);
@@ -702,6 +759,8 @@ export class GameRules {
       this.ball++;
       this.serveTicks = delay;
       this.bus.emit('ballLost', { nextBall: this.ball });
+    } else if (!this.matchDone && this._match()) { // MATCH: the tens digit matches the drawn number -> one more ball
+      this.serveTicks = delay + T.SERVE_DELAY;
     } else {
       this.state = 'gameover';
       const newHigh = this.score > this.highScore;

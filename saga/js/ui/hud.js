@@ -9,6 +9,7 @@ export class HudLayer {
     root.style.height = `${ART_H}px`;
     root.innerHTML = `
       <div class="plaque-title" style="left:${UI.plaque.cx - UI.plaque.w / 2}px;top:${UI.plaque.cy - 34}px;width:${UI.plaque.w}px">Forest Pinball Saga</div>
+      <div class="mode-scene" id="mode-scene" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => `<i style="--n:${i}"></i>`).join('')}</div>
       <div class="score" id="hud-score" style="left:${UI.score.cx - 400}px;top:${UI.score.cy - 70}px">0</div>
       <div class="mode" id="hud-mode" style="left:${UI.score.cx - 400}px;top:${UI.score.cy + 52}px"></div>
       <div class="val ball" id="hud-ball" style="left:${UI.values.ball[0]}px;top:${UI.values.ball[1] - 22}px">1</div>
@@ -19,8 +20,8 @@ export class HudLayer {
       <div class="tap-to-play" id="tap-to-play" style="left:${UI.tapToPlay.cx - 590}px;top:${UI.tapToPlay.cy - 46}px">TAP FLIPPERS TO PLAY</div>
       <div class="goal hidden" id="hud-goal" style="left:120px;top:${UI.tapToPlay.cy - 50}px"><b id="goal-text"></b><small id="goal-sub"></small></div>
       <div class="touch-launch" id="touch-launch" style="left:${UI.touchToLaunch.cx - 130}px;top:${UI.touchToLaunch.cy - 205}px">
-        <svg viewBox="0 0 120 150" aria-hidden="true"><path d="M30 145 C 30 90, 50 55, 86 30" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/><path d="M58 22 L92 24 L84 58" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>TOUCH TO<br>LAUNCH</span>
+        <svg viewBox="0 0 120 150" aria-hidden="true"><path d="M60 14 V 118" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round"/><path d="M28 88 L60 124 L92 88" fill="none" stroke="currentColor" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>PULL DOWN<br>&amp; RELEASE</span>
       </div>`;
     this.el = (id) => root.querySelector('#' + id);
   }

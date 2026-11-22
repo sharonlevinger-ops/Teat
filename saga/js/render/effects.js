@@ -349,6 +349,9 @@ export class Effects {
     bus.on('dragonWave', () => { this.fireworks(4, 1.6); this.jolt(16); });
     bus.on('dragonEnd', ({ completed }) => { if (completed) { this.fireworks(6, 2.8); this.jolt(20); } });
     bus.on('chapterMission', () => { this.fireworks(2, 1); this.jolt(10); });
+    bus.on('ballLocked', () => { P.burst(DOOR.x, DOOR.y + 30, gold, 50, 320, 18, 0.9); this.jolt(12); this.door.target = 0; });
+    bus.on('addABall', () => { P.burst(DOOR.x, DOOR.y + 30, white, 50, 380, 18, 0.8); this.jolt(10); });
+    bus.on('superSkillShot', () => { P.burst(232, 1560, gold, 70, 420, 20, 1); this.fireworks(2, 0.8); this.jolt(12); });
   }
 
   fireworks(shells, spread) {
@@ -392,6 +395,7 @@ export class Effects {
           this.particles.spawn(sp.x + Math.cos(a) * 34, sp.y - 10 + Math.sin(a) * 34, Math.cos(a) * 120, Math.sin(a) * 120 - 60, new THREE.Color(0xffd860), 16, 0.5, 0);
         }
         base = !waiting ? 0 : lit ? 1 : rules.skillAvailable ? 0.12 : 0.35 + 0.25 * Math.sin(t * 5);
+        g.mesh.position.y = -(SPOTS.plunger.y + (this.layers.plungerDisp || 0)); // the glow rides on the moving gem
       }
       else if (id === 'wizard') base = Math.max(base, 0.08 + 0.05 * Math.sin(t * 2.3) + charge * 0.22 + (rules.doorOpen ? 0.2 * Math.sin(t * 10) : 0));
       g.mesh.material.opacity = Math.min(1, (base + g.flash * 0.95) * (this.glowBoost || 1));

@@ -3,6 +3,7 @@
 
 const UI_SEL = 'button, input, label, textarea, .card, .tune-card, .overlay, .tune';
 const SWIPE_PX = 45, SWIPE_MS = 320; // a quick upward swipe nudges the table
+const PULL_PX = 110; // finger travel (CSS px) for a full plunger pull
 
 export class Input {
   constructor(target, sim, { onAnyTap = () => {}, isBlocked = () => false, isPlungerZone = () => false } = {}) {
@@ -52,7 +53,12 @@ export class Input {
     if (this.isBlocked()) return;
     for (const t of e.changedTouches) {
       const s = this.swipes.get(t.identifier);
-      if (!s || s.used || this.touches.get(t.identifier) === 'P') continue; // pulling the plunger is not a nudge
+      if (s && this.touches.get(t.identifier) === 'P') { // pulling the plunger down: power follows the finger
+        const dy = t.clientY - s.y;
+        if (dy > 6 || this.sim.plunger.drag) this.sim.dragPull(dy / PULL_PX);
+        continue;
+      }
+      if (!s || s.used) continue;
       const dy = s.y - t.clientY, dx = t.clientX - s.x;
       if (performance.now() - s.t > SWIPE_MS) { s.used = true; continue; }
       if (dy > SWIPE_PX && dy > Math.abs(dx)) {

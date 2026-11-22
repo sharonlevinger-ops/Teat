@@ -7,6 +7,7 @@ import { Input } from './ui/input.js';
 import { Simulation } from './core/sim.js';
 import { STEP } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
+import { Voice } from './audio/voice.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
 import { Messages, GOAL_AT } from './ui/messages.js';
@@ -41,6 +42,7 @@ async function boot() {
   const messages = new Messages(hud, sim, tableLayer);
   messages.bind(bus);
   const audio = new AudioEngine();
+  const voice = new Voice(true);
   const eventLog = new EventLog(sim);
   initViewerDownloads();
   const store = {
@@ -48,6 +50,7 @@ async function boot() {
     set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
   };
   sim.rules.highScore = store.get('high', 0);
+  voice.setEnabled(store.get('voice', true) !== false);
   // long-term progress: daily missions, achievements, high-score table
   const progress = new Progress(store);
   progress.bind(bus);
@@ -60,6 +63,7 @@ async function boot() {
     if (kind === 'mission') messages.show(`MISSION COMPLETE<small>${item.text.toUpperCase()}</small>`);
     else if (kind === 'daily') messages.show(`ALL MISSIONS DONE!<small>STREAK: ${item.streak} ${item.streak === 1 ? 'DAY' : 'DAYS'}</small>`, true);
     else if (kind === 'achievement') messages.show(`ACHIEVEMENT<small>${item.name.toUpperCase()}</small>`);
+    else if (kind === 'star') messages.show(`★ STAR ${item.count} OF ${item.of}<small>${item.text.toUpperCase()}</small>`, true);
     else if (kind === 'chapter') messages.show(`NEW SAGA RECORD<small>CHAPTER ${item.chapter} REACHED FOR THE FIRST TIME</small>`);
     if (audio.ready) audio.rampDone();
   };
@@ -87,6 +91,7 @@ async function boot() {
   const startGame = () => { audio.unlock(); summary.hide(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
+    voice.unlock();
     if (journal.open || summary.open || help.open) return true; // a card is on top: taps belong to it
     if (sim.rules.state !== 'playing') { startGame(); return true; } // the starting tap never flips or launches
     return false;
@@ -96,8 +101,8 @@ async function boot() {
   const isPlungerZone = (x, y) => { const L = stage.layout; return x > L.left + 1030 * L.s && y > L.top + 1560 * L.s; };
   const tuning = new TuningPanel(sim.world);
   const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open || journal.open || summary.open || help.open, isPlungerZone });
-  window.addEventListener('touchend', () => audio.unlock(), { passive: true });
-  window.addEventListener('click', () => audio.unlock());
+  window.addEventListener('touchend', () => { audio.unlock(); voice.unlock(); }, { passive: true });
+  window.addEventListener('click', () => { audio.unlock(); voice.unlock(); });
   const pauseCard = document.getElementById('pause');
   // report a problem: frozen at the moment of pausing, so it shows exactly what the player saw
   let report = null;
@@ -185,13 +190,18 @@ async function boot() {
     tuneNote.classList.toggle('hidden', !on || !tuningActive());
     paused = on;
     pauseCard.classList.toggle('hidden', !on);
-    if (on) { input.releaseAll(); audio.suspend(); document.getElementById('btn-resume').focus({ preventScroll: true }); } else audio.resume();
+    if (on) { input.releaseAll(); audio.suspend(); voice.stop(); document.getElementById('btn-resume').focus({ preventScroll: true }); } else audio.resume();
     messages.paused = on;
   };
   // between games the pause button opens the Journal (missions, achievements, scores)
   hud.el('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); if (sim.rules.state !== 'playing') journal.show(!journal.open); else setPaused(!paused); });
   document.getElementById('btn-journal').addEventListener('click', (e) => { e.stopPropagation(); journal.show(true); });
   document.getElementById('btn-help').addEventListener('click', (e) => { e.stopPropagation(); help.show(true); });
+  const btnVoice = document.getElementById('btn-voice');
+  const showVoice = () => { btnVoice.textContent = voice.enabled ? 'Voice: On' : 'Voice: Off'; btnVoice.setAttribute('aria-pressed', String(voice.enabled)); };
+  if (!voice.available) btnVoice.classList.add('hidden');
+  showVoice();
+  btnVoice.addEventListener('click', (e) => { e.stopPropagation(); voice.unlock(); voice.setEnabled(!voice.enabled); store.set('voice', voice.enabled); showVoice(); if (voice.enabled) voice.say('Welcome back', 3); });
   document.getElementById('btn-resume').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); });
   document.getElementById('btn-newgame').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); startGame(); });
   // camera: 1 = the whole painted table, 2 = closer view that follows the ball (remembered)
@@ -257,6 +267,52 @@ async function boot() {
   bus.on('dragonJackpot', () => audio.crystal());
   bus.on('dragonWave', () => audio.superJackpot());
   bus.on('dragonEnd', ({ completed }) => { if (completed) audio.chapter(); });
+  bus.on('ballLock', () => { audio.towerEnter(); });
+  bus.on('addABall', () => audio.superJackpot());
+  bus.on('superSkillArmed', () => audio.metalClick());
+  bus.on('superSkillShot', () => audio.superJackpot());
+  bus.on('match', ({ won }) => { if (won) audio.superJackpot(); });
+
+  // ------------------------------------------------------------------ hit-stop: big moments freeze the ball for a split second
+  let hitStop = 0;
+  const freeze = (s) => { hitStop = Math.max(hitStop, s); };
+  for (const [ev, s] of [['superJackpot', 0.07], ['towerEnter', 0.09], ['ballLock', 0.07], ['dragonWave', 0.09], ['dragonStart', 0.09],
+    ['crystalJackpot', 0.06], ['poolJackpot', 0.06], ['doubleOrbit', 0.05], ['superSkillShot', 0.07], ['skillShot', 0.05],
+    ['extraBall', 0.06], ['addABall', 0.05], ['chapterMission', 0.06], ['dragonJackpot', 0.035], ['scoopCapture', 0.04]]) bus.on(ev, () => freeze(s));
+
+  // ------------------------------------------------------------------ voice callouts (the wizard speaks)
+  const say = (t, p) => voice.say(t, p);
+  const words = ['one', 'two', 'three'];
+  bus.on('skillShot', () => say('Skill shot!', 3));
+  bus.on('superSkillShot', () => say('Super skill shot!', 3));
+  bus.on('doorOpen', () => say('The tower is open!', 2));
+  bus.on('ballLock', ({ count }) => say(`Ball ${words[count - 1] || count} locked`, 3));
+  bus.on('multiballStart', () => say('Multiball!', 3));
+  bus.on('superJackpot', () => say('Super jackpot!', 3));
+  bus.on('addABall', () => say('Add a ball!', 3));
+  bus.on('rushStart', () => say('Rush combo!', 3));
+  bus.on('frenzyStart', () => say('Spore frenzy!', 2));
+  bus.on('poolJackpot', () => say('Pool jackpot!', 3));
+  bus.on('crystalJackpot', () => say('Crystal jackpot!', 3));
+  bus.on('doubleOrbit', () => say('Double orbit!', 2));
+  bus.on('extraBallLit', () => say('Extra ball is lit', 2));
+  bus.on('extraBall', () => say('Extra ball!', 3));
+  bus.on('shootAgain', () => say('Shoot again', 2));
+  bus.on('ballSaved', () => say('Ball saved', 2));
+  bus.on('kickbackFire', () => say('Kickback!', 1));
+  bus.on('mystery', () => say('Mystery', 1));
+  bus.on('dragonReady', () => say("Dragon's fire is ready", 2));
+  bus.on('dragonStart', () => say("Dragon's fire! Strike every flame!", 3));
+  bus.on('dragonWave', () => say('Wave cleared!', 3));
+  bus.on('dragonEnd', ({ completed, victory }) => { if (completed) say(victory ? 'The dragon is defeated!' : 'The dragon sleeps', 3); });
+  bus.on('chapterMission', () => say('Mission complete', 2));
+  bus.on('stage', ({ index, initial }) => { if (!initial) say(['The forest awakens', 'Night falls', "The dragon's gate"][index] || 'New chapter', 3); });
+  bus.on('tiltWarning', () => say('Careful', 2));
+  bus.on('tilt', () => say('Tilt!', 3));
+  bus.on('bonusX', ({ x }) => say(`Bonus times ${x}`, 1));
+  bus.on('match', ({ won }) => { if (won) say('Match! One more ball', 3); });
+  bus.on('gameOver', ({ newHigh }) => say(newHigh ? 'A new high score!' : 'Game over', 3));
+  bus.on('gameStart', () => say('Welcome to the enchanted forest', 2));
   bus.on('tiltWarning', () => audio.doorThud());
   bus.on('tilt', () => audio.ballLost());
   bus.on('doorOpen', () => audio.towerOpen());
@@ -272,12 +328,23 @@ async function boot() {
   // ------------------------------------------------------------------ loop: fixed 120 Hz physics, interpolated drawing
   let last = performance.now(), acc = 0, jolted = false, tableKey = '', goodRuns = 0, skillWas = false;
   const frameTimes = [];
+  // FPS meter (for checking on the real phone): add #fps to the address, or the button in the tuning panel
+  const fpsEl = document.createElement('div');
+  fpsEl.className = 'fps-meter hidden';
+  document.body.appendChild(fpsEl);
+  const perf = { frames: 0, js: 0, worst: 0, t: performance.now() };
+  window.__perf = perf;
+  const setFps = (on) => fpsEl.classList.toggle('hidden', !on);
+  if (location.hash === '#fps') setFps(true);
+  window.addEventListener('saga-fps', () => setFps(fpsEl.classList.contains('hidden')));
   function frame(now) {
     requestAnimationFrame(frame);
+    const t0 = performance.now();
     let dt = (now - last) / 1000;
     last = now;
     if (dt > 0.1) dt = 0.1;
-    if (!paused) {
+    if (!paused && hitStop > 0) { hitStop -= dt; acc = 0; } // freeze-frame: the table holds its breath
+    else if (!paused) {
       acc += dt;
       let n = 0;
       while (acc >= STEP && n < 14) { sim.step(); acc -= STEP; n++; }
@@ -330,6 +397,14 @@ async function boot() {
     }
     audio.setRolling(roll, onRail);
     stage.render();
+    // frame cost (JS + draw submission) and frame rate, averaged over half a second
+    const js = performance.now() - t0;
+    perf.frames++; perf.js += js; perf.worst = Math.max(perf.worst, dt);
+    if (now - perf.t >= 500) {
+      perf.fps = (perf.frames * 1000) / (now - perf.t); perf.avgJs = perf.js / perf.frames; perf.worstMs = perf.worst * 1000;
+      if (!fpsEl.classList.contains('hidden')) fpsEl.textContent = `${perf.fps.toFixed(0)} FPS · JS ${perf.avgJs.toFixed(1)} ms · worst frame ${perf.worstMs.toFixed(0)} ms · DPR ${stage.renderer.getPixelRatio()}`;
+      perf.frames = 0; perf.js = 0; perf.worst = 0; perf.t = now;
+    }
   }
   requestAnimationFrame(frame);
   window.__saga = { sim, stage, layers, effects, chapters, hud, messages, startGame, progress, journal, version: APP_VERSION };

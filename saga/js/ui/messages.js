@@ -11,7 +11,7 @@ const ICONS = { // tiny inline icons for the RUSH progress row
   potion: '<svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5l5 7a5 5 0 0 1-4 7H9a5 5 0 0 1-4-7l5-7V4H9z"/></svg>',
 };
 // where the goal arrow points (painting pixels: the tip of the arrow)
-export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712], scoop: [395, 1182], rampA: [800, 612], pool: [630, 1340] };
+export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712], scoop: [395, 1182], rampA: [800, 612], pool: [630, 1340], rampB: [494, 676] };
 // the four painted lane inserts beside the flippers carry the letters M-A-G-E (outlane L, inlane L, inlane R, outlane R)
 const LANE_AT = [[207, 1692], [259, 1692], [1019, 1692], [1074, 1692]];
 const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
@@ -94,6 +94,11 @@ export class Messages {
     bus.on('comboChain', ({ level }) => { if (level >= 3) this.show(`COMBO x${level}!`); });
     bus.on('ballLost', ({ nextBall }) => this.show(`BALL ${nextBall}`, true));
     // ---- table features
+    bus.on('ballLock', ({ count, of }) => this.show(`BALL ${count} LOCKED<small>${count < of ? `OPEN THE TOWER AGAIN TO LOCK BALL ${count + 1}` : 'NEXT TIME: MULTIBALL!'}</small>`, true));
+    bus.on('addABall', ({ seconds }) => this.show(`ADD-A-BALL!<small>+1 BALL · +${seconds} SECONDS</small>`, true));
+    bus.on('superSkillArmed', () => this.show('<small>SUPER SKILL SHOT · SHOOT THE GOLDEN RAMP</small>'));
+    bus.on('superSkillShot', ({ points }) => this.show(`SUPER SKILL SHOT!<small>+${fmt(points)}</small>`, true));
+    bus.on('match', ({ number, digit, won }) => this.show(`MATCH ${String(number).padStart(2, '0')}<small>${won ? 'IT MATCHES! ONE MORE BALL' : `YOUR SCORE ENDS ${String(digit).padStart(2, '0')}`}</small>`, true));
     bus.on('mystery', ({ label }) => this.show(`MYSTERY<small>${label}</small>`, true));
     bus.on('extraBallLit', ({ source }) => this.show(`EXTRA BALL IS LIT<small>${source === 'mystery' ? 'FROM THE MYSTERY HOLE · ' : ''}SHOOT THE MYSTERY HOLE</small>`, true));
     bus.on('extraBall', () => this.show('EXTRA BALL!<small>YOU WILL SHOOT AGAIN</small>', true));
@@ -163,6 +168,9 @@ export class Messages {
       this.arrow.classList.toggle('hidden', !tgt);
       if (tgt) { const [x, y] = GOAL_AT[g.target]; this.arrow.style.left = `${x - 40}px`; this.arrow.style.top = `${y - 100}px`; }
     }
+    // a little animated scene in the score window for the mode in play (like the dot-matrix display of a real table)
+    const scene = r.state !== 'playing' || this.paused ? '' : r.dragonActive ? 'dragon' : r.multiball ? 'multiball' : r.frenzyActive ? 'frenzy' : r.rushActive ? 'rush' : r.boostActive ? 'boost' : '';
+    if (this.last.scene !== scene) { this.last.scene = scene; this.hud.el('mode-scene').className = 'mode-scene' + (scene ? ' on ' + scene : ''); }
     // lane letters: lit ones glow; they move with every flipper press
     const lk = r.state === 'playing' ? r.lanes.map((v) => (v ? 1 : 0)).join('') : '';
     if (this.last.lanes !== lk) {

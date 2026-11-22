@@ -9,7 +9,8 @@ function sections() {
   return [
     ['Controls', [
       ['Flippers', 'Tap the left or right half of the screen.'],
-      ['Launch', 'Touch and hold the bottom-right corner, release to shoot. Release on the gold flash of the plunger gem for a <b>skill shot</b> (+5,000).'],
+      ['Launch', 'Touch the plunger (bottom-right) and pull down: the further you pull, the harder the shot. Release to shoot. (Just holding works too: the power builds up.) Release on the gold flash of the gem for a <b>skill shot</b> (+5,000).'],
+      ['Super skill shot', `Hold the left flipper while you launch, then shoot the golden ramp within ${MODES.SUPER_SKILL_WINDOW} seconds (${fmt(MODES.SUPER_SKILL)}).`],
       ['Nudge', `Swipe up to shove the table (the sideways part of the swipe picks the direction). Too many nudges: ${TILT.WARNINGS} warnings, then <b>TILT</b> – flippers off and no points until the next ball.`],
     ]],
     ['Follow the arrow', [
@@ -18,7 +19,8 @@ function sections() {
     ["The wizard's tower", [
       ['Open the door', `Hit the wizard ${WIZARD_CHARGES} times: the door opens for ${TIMING.DOOR_OPEN} seconds.`],
       ['Hurry-up', `Get in fast: the open tower is worth ${fmt(MODES.HURRY_START)}, falling to ${fmt(MODES.HURRY_END)}, on top of the ${fmt(SCORE.TOWER_ENTRY)} entry.`],
-      ['Multiball', `Entering starts a ${TIMING.MULTIBALL}-second multiball. Every hit on the door during multiball is a <b>Super Jackpot</b> (${fmt(SCORE.SUPER_JACKPOT)}).`],
+      ['Lock and multiball', `The first ${MODES.LOCKS} times you get in, a ball is <b>locked</b> in the tower and a new one comes to the plunger. The next time starts a ${TIMING.MULTIBALL}-second multiball. Every hit on the door during multiball is a <b>Super Jackpot</b> (${fmt(SCORE.SUPER_JACKPOT)}).`],
+      ['Add-a-Ball', `During multiball, the mystery hole adds one more ball and ${MODES.ADD_A_BALL_TIME} seconds.`],
     ]],
     ['Combos and jackpots', [
       ['RUSH COMBO', `Hit all three mushrooms, both crystals and the potion: everything scores x2 for ${TIMING.RUSH} seconds.`],
@@ -34,6 +36,7 @@ function sections() {
     ]],
     ['Lanes and bonus', [
       [LANES.join('-'), 'The four lanes beside the flippers light the letters. Every flipper press moves the lit letters. Light all four to raise the bonus multiplier (up to x5).'],
+      ['Match', 'At the end of the game a number is drawn. If it matches the tens digit of your score, you get one more ball.'],
       ['End-of-ball bonus', 'When a ball is lost, everything you hit with it is counted and multiplied by the bonus multiplier. A tilted ball pays nothing.'],
     ]],
     ['Chapters and the saga', [
@@ -46,6 +49,7 @@ function sections() {
       ['Kickbacks', 'Both outlanes have a kickback that fires the ball back up once. The potion relights them.'],
     ]],
     ['Every day', [
+      ['Table stars', 'Five milestones that stay with the table: 50,000 points, the multiball, chapter 3, Dragon\'s Fire, and defeating the dragon.'],
       ['Journal', 'Three new missions every day (finish all three to grow your streak), achievements, your best scores and the saga map. Open it from the pause menu, or with the pause button between games.'],
     ]],
   ];

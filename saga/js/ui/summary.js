@@ -18,6 +18,7 @@ export class Summary {
       <div class="sum-score" id="sum-score">0</div>
       <div class="sum-place" id="sum-place"></div>
       <div class="sum-chapter" id="sum-chapter"></div>
+      <div class="sum-stars" id="sum-stars"></div>
       <dl class="sum-stats" id="sum-stats"></dl>
       <div class="sum-missions" id="sum-missions"></div>
       <button class="gold-btn" id="btn-again">Play again</button>
@@ -47,6 +48,9 @@ export class Summary {
       const dd = document.createElement('dd'); dd.textContent = String(v);
       d.append(dt, dd); dl.appendChild(d);
     }
+    const stars = this.$('sum-stars');
+    stars.textContent = '★★★★★'.slice(0, p.starCount) + '☆☆☆☆☆'.slice(0, 5 - p.starCount);
+    stars.setAttribute('aria-label', `${p.starCount} of 5 table stars`);
     const done = p.missions.filter((m) => m.done).length;
     this.$('sum-missions').textContent = `Today's missions: ${done} / 3 · streak ${p.streak} ${p.streak === 1 ? 'day' : 'days'}`;
     this.el.classList.remove('hidden');

@@ -207,3 +207,39 @@ html, body {
 .help-body dd { margin: 2px 0 0; font-family: Georgia, "Times New Roman", serif; font-size: 14px; line-height: 1.45; color: var(--ink-soft); }
 .help-body dd b { color: var(--ink); }
 .head-btns { display: flex; gap: 8px; }
+
+/* table stars */
+.stars-row { display: flex; justify-content: center; gap: 6px; font-size: 34px; line-height: 1; margin: 2px 0 6px; color: rgba(232, 191, 98, 0.25); }
+.stars-row span.on { color: var(--accent); text-shadow: 0 0 12px rgba(255, 211, 106, 0.7); }
+.star-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--ink-dim); }
+.star-list li i { font-style: normal; margin-right: 8px; color: rgba(232, 191, 98, 0.3); }
+.star-list li.on { color: var(--ink); }
+.star-list li.on i { color: var(--accent); }
+.sum-stars { font-size: 26px; letter-spacing: 4px; color: var(--accent); text-shadow: 0 0 10px rgba(255, 211, 106, 0.5); }
+
+/* mode scenes in the score window (painting pixels) */
+.mode-scene { left: 250px; top: 182px; width: 786px; height: 128px; overflow: hidden; opacity: 0; transition: opacity 0.4s; border-radius: 10px; }
+.mode-scene.on { opacity: 1; }
+.mode-scene i { position: absolute; display: block; }
+/* dragon: a row of flames licking up from the bottom */
+.mode-scene.dragon i { bottom: -30px; width: 66px; height: 78px; opacity: 0.8; border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%; background: radial-gradient(ellipse at 50% 85%, rgba(255, 240, 160, 0.95), rgba(255, 120, 30, 0.85) 38%, rgba(200, 30, 10, 0.55) 62%, rgba(120, 0, 0, 0) 74%); filter: blur(1.5px); mix-blend-mode: screen; animation: flame 0.9s ease-in-out infinite alternate; transform-origin: 50% 100%; }
+.mode-scene.dragon i { left: calc(var(--n) * 58px - 20px); animation-delay: calc(var(--n) * -0.27s); animation-duration: calc(0.7s + (var(--n) * 0.05s)); }
+@keyframes flame { from { transform: scaleY(0.75) scaleX(1.05); opacity: 0.75; } to { transform: scaleY(1.15) scaleX(0.92); opacity: 1; } }
+/* frenzy: glowing spores drifting up */
+.mode-scene.frenzy i { bottom: -12px; width: 12px; height: 12px; border-radius: 50%; background: #c8ff7a; box-shadow: 0 0 12px #a0ff50, 0 0 24px rgba(160, 255, 80, 0.6); animation: spore 2.6s linear infinite; }
+.mode-scene.frenzy i { left: calc(var(--n) * 56px + 10px); animation-delay: calc(var(--n) * -0.41s); }
+@keyframes spore { from { transform: translate(0, 0); opacity: 0; } 15% { opacity: 1; } to { transform: translate(30px, -150px); opacity: 0; } }
+/* multiball: silver balls bouncing across */
+.mode-scene.multiball i { top: 70px; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #b8c0cc 35%, #4a5260 70%, #20252c); box-shadow: 0 6px 8px rgba(0, 0, 0, 0.5); animation: mbounce 1.8s cubic-bezier(.3, 0, .7, 1) infinite; }
+.mode-scene.multiball i:nth-child(n+4) { display: none; }
+.mode-scene.multiball i { animation-delay: calc(var(--n) * -0.6s); }
+@keyframes mbounce { 0% { transform: translate(-60px, 0); } 25% { transform: translate(180px, -60px); } 50% { transform: translate(420px, 0); } 75% { transform: translate(640px, -60px); } 100% { transform: translate(860px, 0); } }
+/* rush / boost: a golden shine sweeping across */
+.mode-scene.rush i, .mode-scene.boost i { top: -20px; width: 120px; height: 170px; background: linear-gradient(90deg, rgba(255, 220, 120, 0), rgba(255, 230, 150, 0.55), rgba(255, 220, 120, 0)); transform: skewX(-20deg); animation: sweep 1.4s linear infinite; }
+.mode-scene.boost i { background: linear-gradient(90deg, rgba(150, 220, 255, 0), rgba(170, 230, 255, 0.5), rgba(150, 220, 255, 0)); }
+.mode-scene.rush i:nth-child(n+3), .mode-scene.boost i:nth-child(n+3) { display: none; }
+.mode-scene.rush i, .mode-scene.boost i { animation-delay: calc(var(--n) * -0.7s); }
+@keyframes sweep { from { left: -160px; } to { left: 860px; } }
+@media (prefers-reduced-motion: reduce) { .mode-scene i { animation: none !important; } }
+
+.fps-meter { position: fixed; left: 8px; top: calc(env(safe-area-inset-top, 0px) + 4px); z-index: 40; padding: 4px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.65); color: #9f9; font: 600 11px ui-monospace, monospace; pointer-events: none; }

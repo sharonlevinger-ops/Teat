@@ -63,6 +63,7 @@ export class TuningPanel {
       <h4>Table features</h4>
       ${TUNABLE.filter((t) => t[5] === 'feat').map(([k, label, min, max, step]) => `<label><span>${label}</span><input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}"><output data-o="${k}"></output></label>`).join('')}
       <div class="tune-row"><button class="gold-btn small" data-a="copy">Copy values</button><button class="gold-btn ghost small" data-a="reset">Defaults</button><button class="gold-btn ghost small" data-a="close">Close</button></div>
+      <div class="tune-row"><button class="gold-btn ghost small" data-a="fps">FPS meter on/off</button></div>
       <textarea readonly rows="3" aria-label="Values"></textarea></div>`;
     document.body.appendChild(el);
     this.el = el;
@@ -74,6 +75,7 @@ export class TuningPanel {
       e.stopPropagation();
       const a = e.target.dataset && e.target.dataset.a;
       if (a === 'close') this.show(false);
+      else if (a === 'fps') window.dispatchEvent(new Event('saga-fps'));
       else if (a === 'reset') { resetTune(this.world); try { localStorage.removeItem(KEY); } catch { /* ignore */ } this._sync(); }
       else if (a === 'copy') {
         this.text.select();

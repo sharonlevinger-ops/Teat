@@ -20,7 +20,7 @@ export class Simulation {
     this.world = new PhysicsWorld(this.table, MAX_BALLS);
     this.rules = new GameRules(bus, this);
     this.tick = 0;
-    this.plunger = { pulling: false, power: 0, cooldown: 0, auto: 0, pos: 0 };
+    this.plunger = { pulling: false, power: 0, cooldown: 0, auto: 0, pos: 0, drag: false };
     this.skillTarget = this.table.circles.find((c) => c.id === SKILL_TARGET);
     this._contact = { kind: '', id: null, impact: 0, x: 0, y: 0 }; // reused payload (no per-hit allocation)
     this.world.onContact = (b, c, impact) => this._onContact(b, c, impact);
@@ -68,6 +68,25 @@ export class Simulation {
     b.vx = 0;
     b.vy = PHYS.KICKBACK_SPEED;
     this.bus.emit('kickbackFire', { x: b.x, y: b.y });
+  }
+
+  get maxBalls() { return MAX_BALLS; }
+
+  /** a ball locked in the tower leaves the table (the lock is kept by the rules) */
+  lockBall(b) {
+    this.bus.emit('ballLocked', { id: b.id });
+    this._release(b);
+    this.bus.emit('ballRemoved', { id: b.id });
+  }
+
+  /** Add-a-Ball: a new ball shoots out of the tower door */
+  addBall() {
+    const b = this._take();
+    if (!b) return null;
+    const P = this.table.points;
+    this._place(b, P.towerEject[0], P.towerEject[1], (this.world._rand() - 0.5) * 6, -13, 'free');
+    this.bus.emit('ballSpawn', { id: b.id, where: 'tower' });
+    return b;
   }
 
   ejectFromTower(b, delaySec) {
@@ -154,9 +173,18 @@ export class Simulation {
     return true;
   }
 
+  /** pull-down gesture: the plunger goes as far as the finger (0..1); holding still keeps charging instead */
+  dragPull(p) {
+    const pl = this.plunger;
+    if (!pl.pulling) return;
+    pl.drag = true;
+    pl.power = Math.max(0, Math.min(1, p));
+  }
+
   releaseLaunch() {
     if (!this.plunger.pulling) return false;
     this.plunger.pulling = false;
+    this.plunger.drag = false;
     const b = this.heldBall();
     if (!b) return false;
     this._launch(b, this.plunger.power, true);
@@ -166,11 +194,13 @@ export class Simulation {
   /** Abort a pull without launching (pause, app switch). */
   cancelLaunch() {
     this.plunger.pulling = false;
+    this.plunger.drag = false;
     this.plunger.power = 0;
   }
 
   _launch(b, power, manual) {
-    const armed = manual ? this.rules.onLaunch() : false;
+    const left = this.world.flippers.find((f) => f.side === 'L');
+    const armed = manual ? this.rules.onLaunch(!!(left && left.pressed)) : false;
     if (armed) power = Math.max(power, 0.85);
     power = Math.max(0.25, Math.min(1, power));
     b.mode = 'free';
@@ -190,7 +220,7 @@ export class Simulation {
 
     const pl = this.plunger;
     if (pl.cooldown > 0) pl.cooldown--;
-    if (pl.pulling) pl.power = Math.min(1, pl.power + STEP / TIMING.PLUNGER_FULL);
+    if (pl.pulling && !pl.drag) pl.power = Math.min(1, pl.power + STEP / TIMING.PLUNGER_FULL);
     pl.pos += ((pl.pulling ? pl.power : 0) - pl.pos) * (pl.pulling ? 0.5 : 0.6);
 
     PHYS_DT = STEP * PHYS.TIME_SCALE;

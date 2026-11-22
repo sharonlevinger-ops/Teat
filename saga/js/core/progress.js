@@ -46,6 +46,15 @@ export const ACHIEVEMENTS = [
   { id: 'streak3', name: 'Faithful', text: 'Finish the missions 3 days in a row', ev: null },
 ];
 
+/** Table stars: five milestones that stay with the table (like the star ratings of real pinball apps). */
+export const STARS = [
+  { id: 'score50k', text: 'Score 50,000 in one game', ev: 'score', test: (p) => p.total >= 50000 },
+  { id: 'multiball', text: "Start the wizard's multiball", ev: 'multiballStart' },
+  { id: 'chapter3', text: "Reach chapter 3: Dragon's Gate", ev: 'stage', test: (p) => !p.initial && p.index >= 2 },
+  { id: 'dragonFire', text: "Light Dragon's Fire", ev: 'dragonStart' },
+  { id: 'slayer', text: 'Defeat the dragon', ev: 'dragonEnd', test: (p) => p.completed && p.victory },
+];
+
 /** Local calendar day as YYYY-MM-DD. */
 export function dayKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -77,7 +86,7 @@ export class Progress {
     this.onUnlock = () => {}; // (kind: 'mission' | 'daily' | 'achievement', item) – the UI shows a banner
     const s = storage.get(KEY, null);
     this.state = {
-      day: '', missions: [], streak: 0, lastFullDay: '', achievements: {}, scores: [],
+      day: '', missions: [], streak: 0, lastFullDay: '', achievements: {}, scores: [], stars: {},
       ...(s && typeof s === 'object' ? s : {}),
     };
     // never trust what comes back from storage: keep only well-formed entries
@@ -92,6 +101,8 @@ export class Progress {
     this.state.bestChapter = Math.min(3, Math.max(1, Math.round(num(this.state.bestChapter, 1))));
     const v = this.state.chapterVisits;
     this.state.chapterVisits = [1, 2, 3].map((i) => Math.max(0, Math.round(num(Array.isArray(v) ? v[i - 1] : 0))));
+    if (!this.state.stars || typeof this.state.stars !== 'object' || Array.isArray(this.state.stars)) this.state.stars = {};
+    for (const k of Object.keys(this.state.stars)) if (!STARS.some((x) => x.id === k)) delete this.state.stars[k];
     const okMissions = Array.isArray(this.state.missions) && this.state.missions.length === 3
       && this.state.missions.every((m) => m && MISSION_POOL.some((x) => x.id === m.id) && Number.isFinite(m.count));
     if (!okMissions) { this.state.missions = []; this.state.day = ''; }
@@ -118,6 +129,8 @@ export class Progress {
   get streak() { return this.state.streak; }
   /** furthest chapter ever reached (1–3) and how many games reached each chapter */
   get bestChapter() { return this.state.bestChapter; }
+  get starCount() { return STARS.filter((x) => this.state.stars[x.id]).length; }
+  hasStar(id) { return !!this.state.stars[id]; }
   get chapterVisits() { return this.state.chapterVisits; }
   get scores() { return this.state.scores; }
   hasAchievement(id) { return !!this.state.achievements[id]; }
@@ -143,6 +156,13 @@ export class Progress {
       if (m.count >= def.n) { m.done = true; this.onUnlock('mission', def); }
     }
     if (changed && this.state.missions.every((m) => m.done)) this._dayComplete();
+    for (const st of STARS) {
+      if (st.ev === type && !this.state.stars[st.id] && (!st.test || st.test(p))) {
+        this.state.stars[st.id] = this.today();
+        changed = true;
+        this.onUnlock('star', { ...st, count: this.starCount, of: STARS.length });
+      }
+    }
     for (const a of ACHIEVEMENTS) {
       if (a.ev === type && !this.state.achievements[a.id] && (!a.test || a.test(p))) { this._unlock(a.id); changed = true; }
     }

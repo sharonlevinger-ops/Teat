@@ -2,14 +2,15 @@
 // the tall painted objects redrawn over the ball whenever it passes behind them, so the flat painting
 // behaves like a real 3D table. Everything is pooled and created once.
 import * as THREE from '../vendor/three.module.min.js';
-import { flatToArt, artToFlat, unitScaleAt } from '../core/artmap.js';
+import { flatToArt, artToFlat, unitScaleAt, ART_W, ART_H } from '../core/artmap.js';
 import { FLIPPER_STRETCH } from '../core/table.js';
 import { SPRITES } from './sprite-meta.js';
 import { PHYS } from '../core/config.js';
-import { applyGrade } from './grade.js';
+import { applyGrade, gradeUniforms } from './grade.js';
 
 const R = PHYS.BALL_R;
-const KNOB = [1190, 1711]; // top of the painted green plunger gem (painting pixels): the waiting ball rests here
+const KNOB = [1190, 1709]; // top of the plunger gem at rest (painting pixels): the waiting ball sits here
+const PULL_PX = 38; // how far the plunger travels at full pull (painting pixels)
 // squash-and-stretch springs: what bounces when it is hit, and how hard
 const BOUNCE = { mush1: 1, mush2: 1, mush3: 1, crystal1: 0.6, crystal2: 0.6, potion: 0.8, wizard: 0.45, slingL: 0.5, slingR: 0.5, tower: 0.25 };
 const BREATHE = { mush1: 0.012, mush2: 0.014, mush3: 0.011, potion: 0.008, wizard: 0.006 }; // idle "alive" motion
@@ -48,6 +49,46 @@ function steelBallTexture() {
   return t;
 }
 
+/**
+ * The steel ball material: the chrome texture plus a live reflection of the painted table around the ball
+ * (fish-eye, mirrored, slightly blurred), so it picks up the forest green, the potion purple, the fire of
+ * chapter 3… The chapter grade is applied on top, like every other painted thing.
+ */
+function reflectiveBallMaterial(steelTex, fieldTex) {
+  const mat = new THREE.MeshBasicMaterial({ map: steelTex, transparent: true, depthTest: false, depthWrite: false, toneMapped: false });
+  const u = { uField: { value: fieldTex }, uPos: { value: new THREE.Vector2(0, 0) }, uRad: { value: 20 }, uArt: { value: new THREE.Vector2(ART_W, ART_H) } };
+  mat.userData.u = u;
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, gradeUniforms, u);
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uSat, uContrast, uBright; uniform vec3 uShadow, uHigh;
+        uniform sampler2D uField; uniform vec2 uPos, uArt; uniform float uRad;`)
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        {
+          vec2 q = vMapUv * 2.0 - 1.0;                       // -1..1 across the ball, y up
+          float r2 = dot(q, q);
+          vec3 n = vec3(q, sqrt(max(0.0, 1.0 - r2)));        // sphere normal
+          vec2 off = n.xy / (n.z + 0.35) * uRad * 1.7;       // fish-eye: the rim sees far away
+          vec2 p = uPos + vec2(-off.x, off.y);               // mirrored (painting y runs down)
+          vec3 env = texture2D(uField, vec2(p.x / uArt.x, 1.0 - p.y / uArt.y), 2.0).rgb;
+          vec3 steel = diffuseColor.rgb;
+          float lum = dot(steel, vec3(0.2126, 0.7152, 0.0722));
+          float rim = smoothstep(0.35, 1.0, sqrt(r2));
+          vec3 c = mix(steel * 0.8, env * 1.4 + steel * 0.12, 0.55 + 0.3 * rim); // the table in the steel, stronger at the rim
+          c += pow(max(lum - 0.62, 0.0), 1.4) * 2.2;          // keep the hot highlights
+          // chapter grade (same as the painting)
+          float gl = dot(c, vec3(0.2126, 0.7152, 0.0722));
+          c = mix(vec3(gl), c, uSat);
+          c = (c - 0.18) * uContrast + 0.18;
+          c *= uBright * mix(uShadow, uHigh, smoothstep(0.0, 0.6, gl));
+          diffuseColor.rgb = max(c, 0.0);
+        }`);
+  };
+  mat.customProgramCacheKey = () => 'ball-reflect';
+  return mat;
+}
+
 function shadowTexture() {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
@@ -68,7 +109,7 @@ export class TableLayers {
   async load() {
     const names = ['tower', 'wizard', 'mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'pedestal', 'slingL', 'slingR'];
     const tex = {};
-    await Promise.all([...names.map((n) => `sprites/${n}.png`), 'flipper-l.png', 'flipper-r.png'].map(async (f) => { tex[f] = await this.stage.texture(f); }));
+    await Promise.all([...names.map((n) => `sprites/${n}.png`), 'sprites/knob.png', 'sprites/spring.png', 'flipper-l.png', 'flipper-r.png'].map(async (f) => { tex[f] = await this.stage.texture(f); }));
     this.occ = {};
     // occluders
     for (const n of names) {
@@ -80,6 +121,16 @@ export class TableLayers {
       m.renderOrder = depth(flat[1]);
       this.group.add(m);
       this.occ[n] = { mesh: m, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, base, k: 0, v: 0, phase: Math.random() * 6.28 };
+    }
+    // the plunger: gem + brass cap (moves) and the coil spring (compresses), cut from the painting
+    {
+      const kb = SPRITES.knob.box, sb = SPRITES.spring.box;
+      const knob = spriteMesh(tex['sprites/knob.png'], kb[2] - kb[0], kb[3] - kb[1]);
+      const spring = spriteMesh(tex['sprites/spring.png'], sb[2] - sb[0], sb[3] - sb[1]);
+      const order = depth(artToFlat(1189, 1900)[1]);
+      knob.renderOrder = order + 1; spring.renderOrder = order;
+      this.group.add(spring, knob);
+      this.plunger = { knob, spring, kb, sb, disp: 0, vel: 0, order };
     }
     // flippers: the painted flipper sprite, rotated about its pivot (and stretched to the physics length)
     this.flippers = this.sim.world.flippers.map((f) => {
@@ -108,7 +159,7 @@ export class TableLayers {
     const shadowTex = shadowTexture();
     const ballTex = steelBallTexture();
     this.balls = this.sim.world.balls.map((b) => {
-      const mesh = spriteMesh(ballTex, 1, 1);
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), reflectiveBallMaterial(ballTex, this.stage.art.playfield));
       const shadow = spriteMesh(shadowTex, 1, 1);
       mesh.visible = shadow.visible = false;
       this.group.add(shadow, mesh);
@@ -147,8 +198,27 @@ export class TableLayers {
 
   _flatOf([x, y]) { return artToFlat(x, y); }
 
+  /** plunger travel on screen: follows the pull, snaps back past rest on release and settles (spring-damper) */
+  _animatePlunger(dt) {
+    const pl = this.plunger, target = this.sim.plunger.pos * PULL_PX;
+    if (target >= pl.disp - 0.5 && this.sim.plunger.pulling) { pl.disp += (target - pl.disp) * Math.min(1, dt * 30); pl.vel = 0; }
+    else {
+      const k = 1400, c = 26;
+      pl.vel += (k * (target - pl.disp) - c * pl.vel) * dt;
+      pl.disp = Math.max(-9, pl.disp + pl.vel * dt);
+      if (Math.abs(pl.disp - target) < 0.05 && Math.abs(pl.vel) < 0.5) { pl.disp = target; pl.vel = 0; }
+    }
+    const { kb, sb } = pl;
+    pl.knob.position.set((kb[0] + kb[2]) / 2, -((kb[1] + kb[3]) / 2 + pl.disp), 0);
+    const h0 = sb[3] - sb[1], h = Math.max(h0 * 0.45, h0 - pl.disp); // the spring is pressed between the cap and its bottom ring
+    pl.spring.scale.set(1, h / h0, 1);
+    pl.spring.position.set((sb[0] + sb[2]) / 2, -(sb[3] - h / 2), 0);
+    this.plungerDisp = pl.disp;
+  }
+
   update(alpha, dt = 1 / 60) {
     this._animateOccluders(Math.min(dt, 0.05));
+    this._animatePlunger(Math.min(Math.max(dt, 1 / 240), 0.05));
     for (const fl of this.flippers) {
       const f = fl.f;
       const [pvx, pvy] = f.pivotArt;
@@ -156,7 +226,6 @@ export class TableLayers {
       const delta = Math.atan2(tip[1] - pvy, tip[0] - pvx) - fl.restArt; // rotation in art space
       fl.spin.rotation.z = -(fl.a0 + delta);
     }
-    const plungerPull = this.sim.plunger.pos;
     for (const bl of this.balls) {
       const b = bl.b;
       const vis = b.active && b.mode !== 'tower';
@@ -167,23 +236,30 @@ export class TableLayers {
       const unit = unitScaleAt(x, y);
       const size = unit * 2 * R * (1 + z * 0.06) * (b.mode === 'scoop' ? 0.82 : 1); // sunk in the Mystery Scoop
       // the waiting ball sits centred on the painted plunger gem; after launch it blends back onto its physics path
-      if (b.mode === 'held') { bl.ox = KNOB[0] - ax; bl.oy = KNOB[1] - size * 0.47 - ay; }
+      if (b.mode === 'held') { bl.ox = KNOB[0] - ax; bl.oy = KNOB[1] + Math.max(0, this.plungerDisp || 0) - size * 0.48 - ay; }
       else if (bl.ox !== 0 || bl.oy !== 0) {
         const f = Math.exp(-dt * 14);
         bl.ox *= f; bl.oy *= f;
         if (Math.abs(bl.ox) < 0.2 && Math.abs(bl.oy) < 0.2) bl.ox = bl.oy = 0;
       }
       ax += bl.ox; ay += bl.oy;
-      if (b.mode === 'held') ay += plungerPull * 26; // pulled down with the plunger
       bl.mesh.scale.set(size, size, 1);
       bl.mesh.position.set(ax, -ay, 0);
+      bl.mesh.material.userData.u.uPos.value.set(ax, ay);
+      bl.mesh.material.userData.u.uRad.value = size / 2;
       const lift = z * unit * 0.5;
-      bl.shadow.scale.set(size * 1.25, size * 0.8, 1);
-      bl.shadow.position.set(ax + size * 0.18 + lift * 0.4, -(ay + size * 0.32 + lift), 0);
+      if (b.mode === 'held') { // seated in the cup on top of the gem: a tight contact shadow right under it
+        bl.shadow.scale.set(size * 0.95, size * 0.32, 1);
+        bl.shadow.position.set(ax, -(ay + size * 0.44), 0);
+      } else {
+        bl.shadow.scale.set(size * 1.25, size * 0.8, 1);
+        bl.shadow.position.set(ax + size * 0.18 + lift * 0.4, -(ay + size * 0.32 + lift), 0);
+      }
       bl.shadow.material.opacity = b.mode === 'scoop' ? 0 : 1 / (1 + z * 0.4);
       // a ball riding a ramp is above the table and everything on it
-      bl.mesh.renderOrder = b.mode === 'rail' ? 9e4 : depth(y) + 2;
-      bl.shadow.renderOrder = b.mode === 'rail' ? 9e4 - 1 : depth(y) + 1;
+      const po = this.plunger.order;
+      bl.mesh.renderOrder = b.mode === 'rail' ? 9e4 : b.mode === 'held' ? po + 4 : depth(y) + 2;
+      bl.shadow.renderOrder = b.mode === 'rail' ? 9e4 - 1 : b.mode === 'held' ? po + 3 : depth(y) + 1;
     }
   }
 }

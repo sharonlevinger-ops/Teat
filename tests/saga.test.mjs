@@ -244,8 +244,9 @@ test('next goal follows the game: wizard -> open tower -> super jackpot, with ch
   assert.match(r.goal.text, /2 MORE HITS/);
   for (let i = 0; i < 2; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
   assert.equal(r.goal.target, 'door');
-  assert.match(r.goal.text, /HURRY-UP 20,000/);
+  assert.match(r.goal.text, /LOCK BALL 1 · 20,000/);
   const b = sim.world.balls.find((x) => x.active);
+  r.locks = 2; // both balls already locked: this entry starts the multiball
   r.onTowerEnter(b);
   assert.match(r.goal.text, /SUPER JACKPOT/);
   r.score = 50000; r._checkStage();
@@ -587,6 +588,7 @@ test('7 Hurry-up: the open tower is worth 20,000 falling to 5,000; entering pays
   run(sim, secs(TIMING.DOOR_OPEN / 2));
   assert.ok(Math.abs(r.hurryValue - (MODES.HURRY_START + MODES.HURRY_END) / 2) <= 100);
   const v = r.hurryValue;
+  r.locks = 2;
   r.onTowerEnter(b);
   assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'hurryUp').p.base, v);
   assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'towerEntry').p.base, 15000);
@@ -698,4 +700,126 @@ test('tuning panel: feature values (scoop, frenzy, pool, crystals, double orbit)
   resetTune(sim.world);
   assert.equal(tuneIsCustom(), false);
   assert.deepEqual({ ...TUNE }, { ...TUNE_DEFAULTS });
+});
+
+test('8 ball lock: two entries lock balls (a new ball comes to the plunger), the third starts the multiball', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  const openAndEnter = () => {
+    for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+    const b = sim.world.balls.find((x) => x.active && x.mode === 'free');
+    b.mode = 'tower'; r.onTowerEnter(b);
+  };
+  freeBall(sim);
+  openAndEnter();
+  assert.equal(r.locks, 1); assert.equal(count('ballLock'), 1); assert.equal(r.multiball, false);
+  assert.equal(sim.activeBallCount(), 0, 'the locked ball left the table');
+  run(sim, secs(MODES.LOCK_RELAUNCH) + 1);
+  assert.ok(sim.heldBall(), 'a new ball waits on the plunger');
+  assert.equal(r.skillAvailable, false, 'no skill shot after a lock');
+  assert.equal(r.ball, 1, 'still the same ball number');
+  freeBall(sim); openAndEnter();
+  assert.equal(r.locks, 2);
+  run(sim, secs(MODES.LOCK_RELAUNCH) + 1); freeBall(sim);
+  r.extraLit = 0; r.poolLit = false; r.crystalLit = false; r.dragonReady = false; // (the lock points may have lit other goals)
+  assert.match(r.goal.text, /WIZARD/);
+  for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+  assert.match(r.goal.text, /MULTIBALL/);
+  const b = sim.world.balls.find((x) => x.active && x.mode === 'free'); b.mode = 'tower'; r.onTowerEnter(b);
+  assert.equal(r.multiball, true); assert.equal(count('towerEnter'), 1); assert.equal(r.locks, 0, 'locks reset for the next multiball');
+  run(sim, secs(2));
+  assert.ok(sim.activeBallCount() >= 3, 'several balls in play');
+});
+
+test('9 Add-a-Ball: the scoop adds one ball and 10 s during multiball (once per multiball)', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  const b = freeBall(sim);
+  r.locks = 2; for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onWizardHit(0, 0); }
+  b.mode = 'tower'; r.onTowerEnter(b);
+  run(sim, secs(2));
+  const balls = sim.activeBallCount(), t = r.mbTicks;
+  if (balls < sim.maxBalls) {
+    r.onScoop();
+    assert.equal(count('addABall'), 1);
+    assert.equal(sim.activeBallCount(), balls + 1);
+    assert.equal(r.mbTicks, t + secs(MODES.ADD_A_BALL_TIME));
+  } else {
+    // table already full: the award falls back to the mystery
+    r.onScoop(); assert.equal(count('addABall'), 0);
+  }
+  r.onScoop();
+  assert.ok(count('addABall') <= 1, 'once per multiball');
+});
+
+test('10 Super Skill Shot: hold the left flipper while launching, then ride the golden ramp in time', async () => {
+  const { MODES } = await import('../saga/js/core/config.js');
+  const { sim, count, events } = newGame();
+  const r = sim.rules;
+  sim.setFlipper('L', true);
+  sim.pressLaunch(); run(sim, secs(1)); sim.releaseLaunch();
+  sim.setFlipper('L', false);
+  assert.equal(r.superArmed, true); assert.equal(r.skillArmed, false);
+  assert.equal(r.goal.target, 'rampB');
+  r.onRamp('rampA'); assert.equal(count('superSkillShot'), 0, 'only the golden ramp');
+  r.onRamp('rampB'); assert.equal(count('superSkillShot'), 1);
+  assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'superSkillShot').p.base, MODES.SUPER_SKILL);
+  // too late
+  const { sim: s2, count: c2 } = newGame();
+  s2.setFlipper('L', true); s2.pressLaunch(); run(s2, secs(1)); s2.releaseLaunch(); s2.setFlipper('L', false);
+  run(s2, secs(MODES.SUPER_SKILL_WINDOW) + 1);
+  s2.rules.onRamp('rampB'); assert.equal(c2('superSkillShot'), 0);
+});
+
+test('11 Match: once per game, a drawn number vs the tens digit; a match gives one more ball', () => {
+  // force a win and a loss with the seeded generator stubbed
+  for (const won of [true, false]) {
+    const { sim, count, events } = newGame();
+    const r = sim.rules;
+    r.ball = 3; r.score = 12340; // tens digit 4 -> 40
+    sim.rand = () => (won ? 0.45 : 0.05);
+    freeBall(sim);
+    r.score = 12340; r.bonusBase = 0;
+    loseBall(sim);
+    const m = events.find((e) => e.type === 'match');
+    assert.ok(m, 'match drawn');
+    assert.equal(m.p.digit, 40);
+    assert.equal(m.p.won, won);
+    assert.equal(r.state, won ? 'playing' : 'gameover');
+    if (won) { run(sim, secs(5)); freeBall(sim); loseBall(sim); assert.equal(r.state, 'gameover', 'only once'); assert.equal(count('match'), 1); }
+  }
+});
+
+test('12 table stars: five milestones, each unlocked once, kept on the device, bad data ignored', async () => {
+  const { Progress, STARS } = await import('../saga/js/core/progress.js');
+  const mem = {}; const storage = { get: (k, d) => (k in mem ? JSON.parse(mem[k]) : d), set: (k, v) => { mem[k] = JSON.stringify(v); } };
+  const p = new Progress(storage, () => '2026-11-22');
+  const got = []; p.onUnlock = (k, i) => { if (k === 'star') got.push(i.id + ':' + i.count); };
+  p.onEvent('score', { total: 49999 }); assert.equal(p.starCount, 0);
+  p.onEvent('score', { total: 50000 }); p.onEvent('score', { total: 60000 });
+  p.onEvent('multiballStart', {}); p.onEvent('stage', { index: 2 }); p.onEvent('dragonStart', {});
+  p.onEvent('dragonEnd', { completed: true, victory: false });
+  assert.equal(p.hasStar('slayer'), false, 'the dragon must be defeated');
+  p.onEvent('dragonEnd', { completed: true, victory: true });
+  assert.deepEqual(got, ['score50k:1', 'multiball:2', 'chapter3:3', 'dragonFire:4', 'slayer:5']);
+  assert.equal(new Progress(storage, () => '2026-11-22').starCount, STARS.length);
+  const bad = { get: () => ({ stars: ['x'] }), set: () => {} };
+  assert.equal(new Progress(bad, () => '2026-11-22').starCount, 0);
+});
+
+test('plunger pull-down gesture: power follows the finger, no auto-charge while dragging, launch uses it', () => {
+  const { sim, events } = newGame();
+  sim.rules.skillPhase = secs(TIMING.SKILL_LIT) + 5; // indicator dark: a plain launch
+  assert.ok(sim.pressLaunch());
+  sim.dragPull(0.4);
+  run(sim, secs(1.5));
+  assert.equal(sim.plunger.power, 0.4, 'no auto-charge while the finger holds it');
+  sim.dragPull(1.7); assert.equal(sim.plunger.power, 1, 'clamped');
+  sim.dragPull(0.6);
+  sim.rules.skillPhase = secs(TIMING.SKILL_LIT) + 5; // release outside the skill-shot window (that one forces 0.85+)
+  sim.releaseLaunch();
+  assert.equal(events.filter((e) => e.type === 'launch').pop().p.power, 0.6);
+  assert.equal(sim.plunger.drag, false);
 });

@@ -63,6 +63,10 @@ export const MODES = Object.freeze({
   FRENZY_SECONDS: 20, FRENZY_MULT: 5,
   CRYSTAL_JACKPOT: 15000, CRYSTAL_STEP: 5000, CRYSTAL_MAX: 50000,
   DOUBLE_ORBIT: 10000, DOUBLE_ORBIT_STEP: 5000, DOUBLE_ORBIT_MAX: 40000,
+  // the tower locks balls: 2 locks, then the 3rd entry starts the multiball (locks persist through the game)
+  LOCKS: 2, LOCK_POINTS: 5000, LOCK_RELAUNCH: 1.2,
+  ADD_A_BALL_MAX: 1, ADD_A_BALL_TIME: 10, ADD_A_BALL_POINTS: 5000, // scoop during multiball
+  SUPER_SKILL: 15000, SUPER_SKILL_WINDOW: 12, // hold the left flipper while launching, then hit the golden ramp
   MISSIONS: [ // one per chapter
     { id: 'ring', name: 'MUSHROOM RING', text: 'HIT ALL 3 MUSHROOMS', n: 3, award: 10000 },
     { id: 'moon', name: 'MOONLIT RAMPS', text: 'RIDE 4 RAMPS', n: 4, award: 20000 },

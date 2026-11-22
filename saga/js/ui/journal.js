@@ -1,6 +1,6 @@
 // The Journal: today's three missions (+ streak), achievements and the high-score table, in one card with tabs.
 // Opens from the pause menu, or from the pause button between games. Reads everything from Progress.
-import { ACHIEVEMENTS } from '../core/progress.js';
+import { ACHIEVEMENTS, STARS } from '../core/progress.js';
 import { STAGES } from '../core/config.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -50,6 +50,8 @@ export class Journal {
     if (this.tab === 'saga') {
       const best = p.bestChapter, visits = p.chapterVisits;
       this.body.innerHTML = `
+        <div class="stars-row" aria-label="${p.starCount} of ${STARS.length} table stars">${STARS.map((st) => `<span class="${p.hasStar(st.id) ? 'on' : ''}">★</span>`).join('')}</div>
+        <ul class="star-list">${STARS.map((st) => `<li class="${p.hasStar(st.id) ? 'on' : ''}"><i>★</i>${esc(st.text)}</li>`).join('')}</ul>
         <p class="lead">Your journey through the forest. The furthest chapter you have reached is remembered.</p>
         <ol class="saga">${STAGES.map((st, i) => {
           const reached = i + 1 <= best;
