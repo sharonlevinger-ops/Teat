@@ -34,7 +34,8 @@ async function boot() {
   };
   // which table: ?table=… in the address, else the last one played (saved), else the Enchanted Forest
   const asked = new URLSearchParams(location.search).get('table');
-  const tableId = TABLES[asked] ? asked : TABLES[store.get('table', 'forest')] ? store.get('table', 'forest') : 'forest';
+  const fixed = window.__DEFAULT_TABLE__; // a build made for one table always opens on it (e.g. the Forest Kingdom link)
+  const tableId = TABLES[asked] ? asked : TABLES[fixed] ? fixed : TABLES[store.get('table', 'forest')] ? store.get('table', 'forest') : 'forest';
   store.set('table', tableId);
   setLook(tableId);
   const tkey = (k) => (tableId === 'forest' ? k : `${k}.${tableId}`); // separate saves per table (forest keeps its old keys)
