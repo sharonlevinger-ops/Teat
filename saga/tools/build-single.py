@@ -7,7 +7,7 @@ for f in ['cinzel-700', 'cinzel-decorative-700']:
     css = css.replace(f'url(../fonts/{f}.woff2)', 'url(data:font/woff2;base64,' + base64.b64encode(open(f'fonts/{f}.woff2', 'rb').read()).decode() + ')')
 urls = {}
 import os
-files = [f for f in os.listdir('art') if f.endswith(('.jpg', '.png'))] + ['sprites/' + f for f in os.listdir('art/sprites') if f.endswith('.png')]
+files = [f for f in os.listdir('art') if f.endswith(('.jpg', '.png'))] + ['sprites/' + f for f in os.listdir('art/sprites') if f.endswith('.png')] + ['kingdom/' + f for f in os.listdir('art/kingdom') if f.endswith(('.jpg', '.png'))]
 for f in files:
     mime = 'image/jpeg' if f.endswith('.jpg') else 'image/png'
     urls[f] = f'data:{mime};base64,' + base64.b64encode(open('art/' + f, 'rb').read()).decode()

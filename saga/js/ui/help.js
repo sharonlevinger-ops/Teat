@@ -1,12 +1,14 @@
 // "How to play": every rule of the table in one scrollable card. All numbers come from config.js,
 // so the explanation can never drift from the game. Opens from the pause menu and from the Journal.
-import { TIMING, MODES, TUNE, SCORE, STAGES, LANES, TILT, WIZARD_CHARGES } from '../core/config.js';
+import { TIMING, MODES, TUNE, SCORE, STAGES, LANES, TILT, WIZARD_CHARGES, KINGDOM_RULES as KR } from '../core/config.js';
+import { LOOK } from '../tables/looks.js';
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 function sections() {
   const ch = STAGES.map((s) => s.title.split(': ')[1]);
-  return [
+  const kingdom = LOOK.id === 'kingdom';
+  const list = [
     ['Controls', [
       ['Flippers', 'Tap the left or right half of the screen.'],
       ['Launch', 'Touch the plunger (bottom-right) and pull down: the further you pull, the harder the shot. Release to shoot. (Just holding works too: the power builds up.) Release on the gold flash of the gem for a <b>skill shot</b> (+5,000).'],
@@ -23,15 +25,15 @@ function sections() {
       ['Add-a-Ball', `During multiball, the mystery hole adds one more ball and ${MODES.ADD_A_BALL_TIME} seconds.`],
     ]],
     ['Combos and jackpots', [
-      ['RUSH COMBO', `Hit all three mushrooms, both crystals and the potion: everything scores x2 for ${TIMING.RUSH} seconds.`],
+      ['RUSH COMBO', `Hit all three mushrooms and ${kingdom ? "the prince's three shields" : 'both crystals and the potion'}: everything scores x2 for ${TIMING.RUSH} seconds.`],
       ['Combo chain', 'Ramps, loops and targets hit in quick succession build COMBO x2, x3… each worth more.'],
-      ['Crystal Jackpot', `Hit the two crystals alternately ${TUNE.CRYSTAL_SEQ} times, then ride the crystal ramp.`],
+      ...(kingdom ? [] : [['Crystal Jackpot', `Hit the two crystals alternately ${TUNE.CRYSTAL_SEQ} times, then ride the crystal ramp.`]]),
       ['Double Orbit', `Ride the crystal ramp and the golden ramp within ${TUNE.DOUBLE_ORBIT_WINDOW} seconds of each other.`],
       ['Spore Frenzy', `${TUNE.FRENZY_HITS} mushroom hits make the mushrooms worth x${MODES.FRENZY_MULT} for ${MODES.FRENZY_SECONDS} seconds.`],
       ['Magic pool', `Every pass fills the potion. After ${TUNE.POOL_PASSES} passes the pool glows: the next pass collects the <b>Pool Jackpot</b> (from ${fmt(MODES.POOL_JACKPOT)}, growing).`],
     ]],
     ['The mystery hole', [
-      ['Mystery award', 'The hole between mushrooms 1 and 2 catches a slow ball and gives a surprise: points, kickbacks, ball save, double scoring, a wizard charge – rarely an Extra Ball.'],
+      ['Mystery award', 'The mystery hole catches a slow ball and gives a surprise: points, kickbacks, ball save, double scoring, a wizard charge – rarely an Extra Ball.'],
       ['Extra Ball', 'Lit by a second RUSH COMBO, by reaching chapter 3, or by the mystery. Shoot the hole to collect it: you play the same ball again.'],
     ]],
     ['Lanes and bonus', [
@@ -53,6 +55,15 @@ function sections() {
       ['Journal', 'Three new missions every day (finish all three to grow your streak), achievements, your best scores and the saga map. Open it from the pause menu, or with the pause button between games.'],
     ]],
   ];
+  if (kingdom) {
+    list.splice(3, 0, ['The kingdom', [
+      ['The castle and the princess', `Hit the castle gate ${KR.GATE_HITS} times and it opens for ${KR.GATE_OPEN} seconds. Shoot into the castle to rescue the princess: from ${fmt(KR.RESCUE)} points (more each time) and x2 scoring for ${KR.ROYAL_BOOST} seconds.`],
+      ["The prince's shields", `The three shields drop when they are hit. Drop all three for the prince's quest: hit the castle gate within ${KR.QUEST_SECONDS} seconds (${fmt(KR.QUEST_START)} falling to ${fmt(KR.QUEST_END)}).`],
+      ["The dwarves' mine", `Every ball the mine catches wakes a dwarf. Wake all ${KR.DWARVES} for the gem jackpot (from ${fmt(KR.GEMS)}).`],
+      ['The fairy spinner', 'A fast ball through the left orbit spins the fairy spinner: every spin scores.'],
+    ]]);
+  }
+  return list;
 }
 
 export class HelpCard {

@@ -1,6 +1,7 @@
 // Step 5 – the three story chapters. Only light, colour, atmosphere (and music, in main.js) change;
 // nothing physical moves. Chapter changes cross-fade over 3 seconds.
 import * as THREE from '../vendor/three.module.min.js';
+import { LOOK } from '../tables/looks.js';
 import { GRADES, setGrade } from './grade.js';
 
 const FADE = 3;
@@ -62,7 +63,7 @@ export class ChapterLook {
     this.moonHalo = add(0xcfdcff, 260, 260, 64, 92, 9e4);
     this.moon = add(0xffffff, 64, 64, 64, 92, 9e4 + 1);
     // magical fire: around the tower base and over the pool
-    this.fireTower = add(0xff6a1a, 560, 420, 632, 930, 9e4 + 2);
+    this.fireTower = add(0xff6a1a, 560, 420, LOOK.fireTower[0], LOOK.fireTower[1], 9e4 + 2);
     this.firePool = add(0xff8a20, 520, 230, 630, 1425, 9e4 + 2);
     this.time = 0;
   }

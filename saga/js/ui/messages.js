@@ -3,32 +3,26 @@
 // Lives inside the HUD layer, so it is laid out in painting pixels. DOM nodes are pooled.
 import { STAGES, HZ, TIMING, LANES, MODES, TUNE } from '../core/config.js';
 import { flatToArt } from '../core/artmap.js';
+import { LOOK } from '../tables/looks.js';
 
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const ICONS = { // tiny inline icons for the RUSH progress row
   mush: '<svg viewBox="0 0 24 24"><path d="M2 13a10 9 0 0 1 20 0z"/><rect x="9" y="12" width="6" height="9" rx="2"/></svg>',
   gem: '<svg viewBox="0 0 24 24"><path d="M12 1l7 9-7 13-7-13z"/></svg>',
   potion: '<svg viewBox="0 0 24 24"><path d="M9 2h6v2h-1v5l5 7a5 5 0 0 1-4 7H9a5 5 0 0 1-4-7l5-7V4H9z"/></svg>',
+  shield: '<svg viewBox="0 0 24 24"><path d="M4 3h16v8c0 6-4 9-8 11-4-2-8-5-8-11z"/></svg>',
 };
-// where the goal arrow points (painting pixels: the tip of the arrow)
-export const GOAL_AT = { wizard: [834, 930], door: [640, 880], mush3: [432, 712], scoop: [395, 1182], rampA: [800, 612], pool: [630, 1340], rampB: [494, 676] };
-// the four painted lane inserts beside the flippers carry the letters M-A-G-E (outlane L, inlane L, inlane R, outlane R)
-const LANE_AT = [[207, 1692], [259, 1692], [1019, 1692], [1074, 1692]];
-// progress lamps (painting pixels) like the insert lights of a real table
-const LAMPS = {
-  wizard: [[808, 1152], [836, 1156], [864, 1152]], // charges until the tower opens
-  pool: [[548, 1488], [600, 1497], [652, 1500], [704, 1497], [756, 1488]], // pool passes until the jackpot
-  crystal: [[770, 706], [796, 712], [822, 712], [848, 706]], // alternating crystal hits until the Crystal Jackpot
-};
-const LOCK_WINDOWS = [[590, 727], [707, 690]]; // locked balls glow in these tower windows
-const RUSH = [['mush1', 'mush', 190, '#ff9a3a'], ['mush2', 'mush', 252, '#b070ff'], ['mush3', 'mush', 314, '#40ffd8'],
-  ['crystal1', 'gem', 970, '#60fff0'], ['crystal2', 'gem', 1032, '#ffe060'], ['potion', 'potion', 1094, '#c080ff']];
+// where the goal arrow points on the active table (painting pixels: the tip of the arrow) – filled from LOOK
+export const GOAL_AT = {};
 
 export class Messages {
   constructor(hud, sim, tableLayer = hud.root) {
     this.hud = hud;
     this.sim = sim;
     const root = hud.root;
+    for (const k of Object.keys(GOAL_AT)) delete GOAL_AT[k];
+    Object.assign(GOAL_AT, LOOK.goalAt);
+    const RUSH = LOOK.rushIcons, LANE_AT = LOOK.laneAt;
     root.insertAdjacentHTML('beforeend', `
       <div class="banner" id="banner"></div>
       <div class="rush-row" id="rush-row">${RUSH.map(([id, kind, x, col]) => `<i data-id="${id}" style="left:${x - 22}px;--c:${col}">${ICONS[kind]}</i>`).join('')}</div>`);
@@ -59,17 +53,33 @@ export class Messages {
       return d;
     });
     this.count = null; // end-of-ball bonus count-up
-    this.lamps = {};
-    for (const [group, pts] of Object.entries(LAMPS)) {
-      this.lamps[group] = pts.map(([x, y]) => {
-        const d = document.createElement('i');
-        d.className = `lamp lamp-${group}`;
-        d.style.left = `${x - 11}px`; d.style.top = `${y - 11}px`;
-        tableLayer.appendChild(d);
-        return d;
-      });
+    // progress lamps of this table: each group says how many are lit and when they blink
+    this.lampGroups = LOOK.lamps.map((g) => ({ ...g, els: g.pts.map(([x, y]) => {
+      const d = document.createElement('i');
+      d.className = `lamp lamp-${g.cls}`;
+      d.style.left = `${x - 11}px`; d.style.top = `${y - 11}px`;
+      tableLayer.appendChild(d);
+      return d;
+    }) }));
+    // drop targets (live: they sink into the table when hit) and an opening gate, on tables that have them
+    this.dropEls = LOOK.dropTargets.map(({ seg: [a, b] }) => {
+      const d = document.createElement('div');
+      d.className = 'drop-target';
+      const cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2, ang = (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI - 90;
+      d.style.left = `${cx - 30}px`; d.style.top = `${cy - 34}px`; d.style.setProperty('--rot', `${ang}deg`);
+      d.innerHTML = '<svg viewBox="0 0 60 70" aria-hidden="true"><path d="M4 4 H56 V30 Q56 56 30 66 Q4 56 4 30 Z"/><path d="M30 12 V54 M14 32 H46" fill="none"/></svg>';
+      tableLayer.appendChild(d);
+      return d;
+    });
+    if (LOOK.gate) {
+      const [[gx0, gy], [gx1]] = LOOK.gate.seg;
+      this.gateEl = document.createElement('div');
+      this.gateEl.className = 'castle-gate';
+      this.gateEl.style.left = `${gx0}px`; this.gateEl.style.top = `${LOOK.gate.top}px`;
+      this.gateEl.style.width = `${gx1 - gx0}px`; this.gateEl.style.height = `${gy - LOOK.gate.top}px`;
+      tableLayer.appendChild(this.gateEl);
     }
-    this.lockOrbs = LOCK_WINDOWS.map(([x, y]) => {
+    this.lockOrbs = LOOK.lockWindows.map(([x, y]) => {
       const d = document.createElement('i');
       d.className = 'lock-orb';
       d.style.left = `${x - 17}px`; d.style.top = `${y - 17}px`;
@@ -120,6 +130,14 @@ export class Messages {
     bus.on('ballLost', ({ nextBall }) => this.show(`BALL ${nextBall}`, true));
     // ---- table features
     bus.on('playerUp', ({ player, ball }) => this.show(`PLAYER ${player}<small>BALL ${ball} · YOUR TURN</small>`, true));
+    // Forest Kingdom
+    bus.on('gateCharge', ({ hits, of }) => { if (hits < of) this.show(`<small>CASTLE GATE ${hits} / ${of}</small>`); });
+    bus.on('gateOpen', ({ seconds }) => this.show(`THE CASTLE GATE OPENS!<small>SHOOT INTO THE CASTLE · ${seconds} SECONDS</small>`, true));
+    bus.on('princessRescued', ({ count, points }) => this.show(`PRINCESS RESCUED!<small>+${fmt(points)} · ROYAL X2 SCORING${count > 1 ? ` · RESCUE ${count}` : ''}</small>`, true));
+    bus.on('princeQuest', ({ seconds }) => this.show(`THE PRINCE'S QUEST!<small>HIT THE CASTLE GATE · ${seconds} SECONDS</small>`, true));
+    bus.on('questEnd', ({ collected, points }) => this.show(collected ? `QUEST COMPLETE!<small>+${fmt(points)}</small>` : '<small>THE QUEST IS OVER</small>', collected));
+    bus.on('dwarfLit', ({ count, of }) => { if (count < of) this.show(`<small>DWARF ${count} OF ${of} AWAKE</small>`); });
+    bus.on('gemJackpot', ({ points }) => this.show(`GEM JACKPOT!<small>THE DWARVES DUG DEEP · +${fmt(points)}</small>`, true));
     bus.on('ballLock', ({ count, of }) => this.show(`BALL ${count} LOCKED<small>${count < of ? `OPEN THE TOWER AGAIN TO LOCK BALL ${count + 1}` : 'NEXT TIME: MULTIBALL!'}</small>`, true));
     bus.on('addABall', ({ seconds }) => this.show(`ADD-A-BALL!<small>+1 BALL · +${seconds} SECONDS</small>`, true));
     bus.on('superSkillArmed', () => this.show('<small>SUPER SKILL SHOT · SHOOT THE GOLDEN RAMP</small>'));
@@ -175,6 +193,8 @@ export class Messages {
       if (r.rushActive) { parts.push(`RUSH COMBO! X2 · ${sec(r.rushTicks)}`); flash = true; }
       if (r.frenzyActive) parts.push(`SPORE FRENZY · ${sec(r.frenzyTicks)}`);
       if (r.boostActive) parts.push(`X2 · ${sec(r.boostTicks)}`);
+      if (r.questActive) parts.push(`PRINCE'S QUEST · ${sec(r.questTicks)}`);
+      if (r.gateOpen) parts.push(`CASTLE OPEN · ${sec(r.gateTicks)}`);
       if (r.ballSaveActive) parts.push(`BALL SAVE · ${sec(r.saveTicks)}`);
       if (r.bonusX > 1) parts.push(`BONUS X${r.bonusX}`);
       if (!r.multiball && !r.doorOpen && r.wizardCharge > 0) parts.push(`WIZARD ${'✦'.repeat(r.wizardCharge)}${'·'.repeat(3 - r.wizardCharge)}`);
@@ -211,18 +231,18 @@ export class Messages {
     }
     // progress lamps + locked balls in the tower windows
     const playing = r.state === 'playing';
-    const crystalCount = r.crystalLit ? 4 : Math.min(4, Math.round((r.crystalSeq.count / Math.max(1, TUNE.CRYSTAL_SEQ)) * 4));
-    const poolCount = r.poolLit ? 5 : Math.round((r.poolCharge / Math.max(1, TUNE.POOL_PASSES)) * 5);
-    const wiz = r.doorOpen ? 3 : r.wizardCharge;
     const blink = Math.floor(this.time * 4) % 2 === 0;
-    const lampKey = playing ? `${wiz}${r.doorOpen && blink}|${poolCount}${r.poolLit && blink}|${crystalCount}${r.crystalLit && blink}|${r.locks}` : '';
+    const states = playing ? this.lampGroups.map((g) => [g.count(r, TUNE), g.flash(r)]) : [];
+    const lampKey = playing ? states.map(([n, f]) => `${n}${f && blink}`).join('|') + `|${r.locks}|${(r.shieldsDown || []).join()}|${r.gateOpen}` : '';
     if (this.last.lampKey !== lampKey) {
       this.last.lampKey = lampKey;
-      const set = (arr, n, flashOn, special) => arr.forEach((d, i) => { d.classList.toggle('on', playing && i < n && (!special || flashOn)); d.classList.toggle('hidden', !playing); });
-      set(this.lamps.wizard, wiz, blink, r.doorOpen);
-      set(this.lamps.pool, poolCount, blink, r.poolLit);
-      set(this.lamps.crystal, crystalCount, blink, r.crystalLit);
+      this.lampGroups.forEach((g, gi) => {
+        const [n, flashing] = states[gi] || [0, false];
+        g.els.forEach((d, i) => { d.classList.toggle('on', playing && i < n && (!flashing || blink)); d.classList.toggle('hidden', !playing); });
+      });
       this.lockOrbs.forEach((d, i) => d.classList.toggle('on', playing && i < r.locks));
+      this.dropEls.forEach((d, i) => d.classList.toggle('down', playing && !!(r.shieldsDown && r.shieldsDown[i])));
+      if (this.gateEl) this.gateEl.classList.toggle('open', playing && !!r.gateOpen);
     }
     // end-of-ball bonus: the total counts up inside the banner
     if (this.count && this.count.t !== undefined && !this.paused) {

@@ -259,3 +259,14 @@ html, body {
 .lock-orb.on { opacity: 1; transform: scale(1); animation: lockglow 1.6s ease-in-out infinite alternate; }
 @keyframes lockglow { from { box-shadow: 0 0 10px rgba(255, 220, 140, 0.7), 0 0 20px rgba(255, 190, 80, 0.4); } to { box-shadow: 0 0 18px rgba(255, 230, 160, 1), 0 0 36px rgba(255, 200, 90, 0.75); } }
 @media (prefers-reduced-motion: reduce) { .lock-orb.on { animation: none; } }
+
+/* Forest Kingdom live parts (painting pixels, ride on the table) */
+.drop-target { width: 60px; height: 70px; transform: rotate(var(--rot, 0deg)); transform-origin: 50% 60%; transition: transform 0.12s ease-in, opacity 0.12s ease-in; filter: drop-shadow(4px 6px 3px rgba(0, 0, 0, 0.55)); }
+.drop-target svg { width: 100%; height: 100%; }
+.drop-target svg path:first-child { fill: #3f6fc8; stroke: #ffd36a; stroke-width: 4; }
+.drop-target svg path:last-child { stroke: #ffd36a; stroke-width: 4; }
+.drop-target.down { transform: rotate(var(--rot, 0deg)) translateY(18px) scale(0.85, 0.15); opacity: 0.25; }
+.castle-gate { border-radius: 50px 50px 0 0; background: radial-gradient(ellipse at 50% 90%, rgba(255, 220, 130, 0.95), rgba(255, 170, 60, 0.55) 45%, rgba(40, 20, 6, 0.9) 75%); opacity: 0; transform: scaleY(0.2); transform-origin: 50% 100%; transition: opacity 0.25s, transform 0.25s; box-shadow: 0 0 24px rgba(255, 200, 90, 0.8); }
+.castle-gate.open { opacity: 1; transform: scaleY(1); animation: gateglow 1s ease-in-out infinite alternate; }
+@keyframes gateglow { from { box-shadow: 0 0 14px rgba(255, 200, 90, 0.6); } to { box-shadow: 0 0 34px rgba(255, 210, 110, 1); } }
+@media (prefers-reduced-motion: reduce) { .castle-gate.open { animation: none; } }

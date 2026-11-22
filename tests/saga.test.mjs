@@ -681,7 +681,7 @@ test('every daily mission can be completed by a real game event', async () => {
   const { readdirSync } = await import('node:fs');
   const files = ['../saga/js/core/rules.js', '../saga/js/core/sim.js', ...readdirSync(new URL('../saga/js/core/rules/', import.meta.url)).map((f) => `../saga/js/core/rules/${f}`)];
   const src = files.map((f) => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
-  for (const m of MISSION_POOL) assert.ok(src.includes(`emit('${m.ev}'`), `mission ${m.id} waits for '${m.ev}', which the game never emits`);
+  for (const m of MISSION_POOL) assert.ok(new RegExp(`emit\\([^;]*'${m.ev}'`).test(src), `mission ${m.id} waits for '${m.ev}', which the game never emits`);
   assert.equal(new Set(MISSION_POOL.map((m) => m.id)).size, MISSION_POOL.length, 'unique ids');
 });
 
@@ -954,4 +954,116 @@ test('one player: no turns, unchanged flow', () => {
   assert.equal(r.numPlayers, 1);
   freeBall(sim); r.saveTicks = 0; for (const b of sim.world.balls) if (b.active && b.mode !== 'held') sim._place(b, 10.5, -2, 0, -10, 'free'); run(sim, 2);
   assert.equal(count('playerUp'), 0); assert.equal(count('ballLost'), 1); assert.equal(r.ball, 2);
+});
+
+// ------------------------------------------------------------------ table 2: Forest Kingdom
+const kingdomGame = () => { const sim = new Simulation(undefined, 'kingdom'); const events = []; sim.bus.on('*', (type, p) => events.push({ type, p: p && typeof p === 'object' ? { ...p } : p })); sim.rules.startGame(); return { sim, events, count: (t) => events.filter((e) => e.type === t).length }; };
+
+test('Kingdom: the table is built from the shared cabinet, without the forest-only targets', () => {
+  const sim = new Simulation(undefined, 'kingdom');
+  const ids = new Set([...sim.table.circles, ...sim.table.walls, ...sim.table.sensors].map((x) => x.id).filter(Boolean));
+  for (const id of ['mush1', 'mush2', 'mush3', 'wizard', 'castleGate', 'shield1', 'shield2', 'shield3', 'castleIn', 'mine', 'spinner', 'scoop', 'towerIn', 'rampA', 'rampB', 'slingL', 'slingR', 'inlaneL', 'outlaneR']) assert.ok(ids.has(id), `missing ${id}`);
+  for (const id of ['crystal1', 'crystal2', 'potion']) assert.ok(!ids.has(id), `forest-only ${id} present`);
+  assert.equal(sim.table.id, 'kingdom');
+  assert.equal(new Simulation().table.id, 'forest');
+});
+
+test('Kingdom: no dead spots anywhere on the table', () => {
+  assert.deepEqual(findDeadSpots({ step: 0.5, enclosed: outsideOrEnclosed, table: 'kingdom' }), []);
+});
+
+test('Kingdom: 10 minutes of bot play – nothing escapes, nothing sticks, every target is reached', () => {
+  const sim = new Simulation(undefined, 'kingdom');
+  const seen = new Set(); let escapes = 0, rescues = 0;
+  sim.bus.on('element', (p) => seen.add(p.id)); sim.bus.on('castleGateHit', () => seen.add('castleGate'));
+  sim.bus.on('wizardHit', () => seen.add('wizard')); sim.bus.on('ramp', (p) => seen.add(p.id));
+  sim.bus.on('mineCapture', () => seen.add('mine')); sim.bus.on('scoopCapture', () => seen.add('scoop')); sim.bus.on('spin', () => seen.add('spinner'));
+  sim.bus.on('ballRescue', () => rescues++);
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const hold = { L: 0, R: 0, cdL: 0, cdR: 0 }; let pull = 0;
+  sim.rules.startGame();
+  for (let i = 0; i < secs(10 * 60); i++) {
+    if (sim.rules.state !== 'playing') sim.rules.startGame();
+    botFlippers(sim, hold, rnd, 0.6);
+    if (sim.heldBall() && sim.canLaunch()) { if (!sim.plunger.pulling) { sim.pressLaunch(); pull = 20 + Math.floor(rnd() * 100); } else if (--pull <= 0) sim.releaseLaunch(); }
+    sim.step();
+    for (const b of sim.world.balls) if (b.active && b.mode === 'free' && !insideCabinet(b.x, b.y, sim)) escapes++;
+  }
+  assert.equal(escapes, 0);
+  assert.ok(rescues < 5, `stuck-ball rescues: ${rescues}`);
+  for (const id of ['mush1', 'mush2', 'mush3', 'shield1', 'shield2', 'shield3', 'castleGate', 'wizard', 'rampA', 'rampB', 'mine', 'scoop', 'spinner']) assert.ok(seen.has(id), `never reached: ${id}`);
+});
+
+test('Kingdom: castle gate – 3 hits open it, shooting in rescues the princess (x2 scoring), the ball comes back out', async () => {
+  const { KINGDOM_RULES: K } = await import('../saga/js/core/config.js');
+  const { sim, count } = kingdomGame();
+  const r = sim.rules;
+  const b = freeBall(sim);
+  for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onElementHit('castleGate', 0, 0); }
+  assert.ok(r.gateOpen); assert.equal(count('gateOpen'), 1);
+  assert.match(r.goal.text, /RESCUE THE PRINCESS/);
+  b.mode = 'castle'; r.onCastleEnter(b);
+  assert.equal(count('princessRescued'), 1); assert.ok(r.boostActive); assert.equal(r.gateOpen, false);
+  assert.equal(r.rescueValue, K.RESCUE + K.RESCUE_STEP);
+  run(sim, secs(K.CASTLE_HOLD) + 2);
+  assert.equal(b.mode, 'free', 'kicked back out');
+  assert.equal(count('castleEject'), 1);
+  // the gate closes by itself after its time
+  for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onElementHit('castleGate', 0, 0); }
+  run(sim, secs(K.GATE_OPEN) + 1);
+  assert.equal(r.gateOpen, false);
+});
+
+test("Kingdom: the prince's shields drop, all three start his quest, the castle gate collects it", async () => {
+  const { KINGDOM_RULES: K } = await import('../saga/js/core/config.js');
+  const { sim, events, count } = kingdomGame();
+  const r = sim.rules;
+  freeBall(sim);
+  for (const id of ['shield1', 'shield2']) { r.cooldowns.clear(); r.onElementHit(id, 0, 0); }
+  assert.deepEqual(r.shieldsDown, [true, true, false]);
+  assert.equal(sim.world.isOn('shield1Up'), false, 'a dropped shield is gone from the table');
+  r.cooldowns.clear(); r.onElementHit('shield1', 0, 0);
+  assert.equal(count('shieldDown'), 2, 'a dropped shield cannot be hit again');
+  r.cooldowns.clear(); r.onElementHit('shield3', 0, 0);
+  assert.ok(r.questActive); assert.equal(r.questValue, K.QUEST_START);
+  run(sim, secs(K.SHIELD_RESET) + 1);
+  assert.deepEqual(r.shieldsDown, [false, false, false], 'bank reset');
+  assert.equal(sim.world.isOn('shield2Up'), true);
+  run(sim, secs(5));
+  const v = r.questValue; assert.ok(v < K.QUEST_START && v > K.QUEST_END);
+  r.cooldowns.clear(); r.onElementHit('castleGate', 0, 0);
+  assert.equal(events.find((e) => e.type === 'score' && e.p.reason === 'princeQuest').p.base, v);
+  assert.equal(r.questActive, false);
+});
+
+test("Kingdom: the dwarves' mine – each catch lights a dwarf, the seventh pays the gem jackpot; the spinner spins", async () => {
+  const { KINGDOM_RULES: K } = await import('../saga/js/core/config.js');
+  const { sim, count } = kingdomGame();
+  const r = sim.rules;
+  const b = freeBall(sim);
+  const [mx, my] = sim.table.points.mine;
+  sim._place(b, mx, my + 1.5, 0, -8, 'free'); run(sim, 20);
+  assert.equal(count('mineCapture'), 1); assert.equal(r.dwarves, 1);
+  run(sim, secs(2));
+  assert.equal(b.mode, 'free', 'kicked out of the mine');
+  for (let i = 0; i < K.DWARVES - 1; i++) r.onMine();
+  assert.equal(count('gemJackpot'), 1); assert.equal(r.dwarves, 0); assert.equal(r.gemValue, K.GEMS + K.GEMS_STEP);
+  r.onSpinner(48);
+  assert.equal(count('spin'), 1);
+  r.onSpinner(48);
+  assert.equal(count('spin'), 1, 'one pass, one spin burst');
+});
+
+test('Kingdom: skill shot is steered at mushroom 1; RUSH uses the mushrooms and the shields', () => {
+  const { sim, count } = kingdomGame();
+  const r = sim.rules;
+  assert.equal(r.skillTarget, 'mush1');
+  run(sim, 100);
+  sim.pressLaunch();
+  while (!r.skillLit || sim.plunger.power < 0.6) sim.step();
+  sim.releaseLaunch();
+  run(sim, secs(8));
+  assert.equal(count('skillShot'), 1, 'skill shot on the Kingdom table');
+  for (const id of ['mush1', 'mush2', 'mush3', 'shield1', 'shield2', 'shield3']) { r.cooldowns.clear(); r.onElementHit(id, 0, 0); }
+  assert.equal(count('rushStart'), 1);
 });

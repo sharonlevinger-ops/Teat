@@ -36,7 +36,7 @@ export class SagaRules {
     this.dragonJackpots = 0;
     this.dragonWaves = 0;
     this.dragonValue = MODES.DRAGON_JACKPOT;
-    this.dragonLit = new Set(MODES.DRAGON_TARGETS);
+    this.dragonLit = new Set(this.dragonTargets);
     this.bus.emit('dragonStart', { seconds: MODES.DRAGON_SECONDS });
   }
 
@@ -51,7 +51,7 @@ export class SagaRules {
       this.dragonWaves++;
       const wave = this.award(MODES.DRAGON_WAVE, 'dragonWave');
       this.dragonValue += MODES.DRAGON_STEP;
-      this.dragonLit = new Set(MODES.DRAGON_TARGETS);
+      this.dragonLit = new Set(this.dragonTargets);
       this.bus.emit('dragonWave', { wave: this.dragonWaves, points: wave });
     }
   }

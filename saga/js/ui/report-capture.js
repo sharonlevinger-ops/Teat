@@ -3,6 +3,7 @@
 import { UI } from '../core/artmap.js';
 import { GOAL_AT } from './messages.js';
 import { buildReport } from './report.js';
+import { LOOK } from '../tables/looks.js';
 
 function composeShot(stage, sim, hud) {
   const gl = stage.renderer.domElement, c = document.createElement('canvas');
@@ -20,7 +21,7 @@ function composeShot(stage, sim, hud) {
     g.fillStyle = color; g.fillText(str, sx, sy);
   };
   const r = sim.rules;
-  text('Forest Pinball Saga', UI.plaque.cx, UI.plaque.cy, 46, '#edc35c');
+  text(LOOK.title, UI.plaque.cx, UI.plaque.cy, 46, '#edc35c');
   text(r.score.toLocaleString('en-US'), UI.score.cx, 226, 104, '#f6cf5a');
   text(hud.el('hud-mode').textContent, UI.score.cx, 304, 27, '#c8f2ff');
   text(String(r.ball), UI.values.ball[0], UI.values.ball[1], 36, '#c6ecb0', 'left');

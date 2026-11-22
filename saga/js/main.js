@@ -23,20 +23,32 @@ import { Progress, GameStats } from './core/progress.js';
 import { Summary } from './ui/summary.js';
 import { HelpCard } from './ui/help.js';
 import { Journal } from './ui/journal.js';
+import { TABLES } from './core/tables.js';
+import { LOOK, setLook } from './tables/looks.js';
 
 async function boot() {
   if (document.fonts && document.fonts.load) await Promise.race([document.fonts.load('700 40px "Cinzel"'), new Promise((r) => setTimeout(r, 1200))]);
-  const sim = new Simulation();
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('saga.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
+  };
+  // which table: ?table=… in the address, else the last one played (saved), else the Enchanted Forest
+  const asked = new URLSearchParams(location.search).get('table');
+  const tableId = TABLES[asked] ? asked : TABLES[store.get('table', 'forest')] ? store.get('table', 'forest') : 'forest';
+  store.set('table', tableId);
+  setLook(tableId);
+  const tkey = (k) => (tableId === 'forest' ? k : `${k}.${tableId}`); // separate saves per table (forest keeps its old keys)
+  const sim = new Simulation(undefined, tableId);
   const bus = sim.bus;
   loadSavedTune(sim.world); // designer values saved on this device (if any)
-  const stage = await Stage.load(document.getElementById('stage'), window.__ART_BASE__ || 'art/');
+  const stage = await Stage.load(document.getElementById('stage'), window.__ART_BASE__ || 'art/', LOOK.art);
   const layers = new TableLayers(stage, sim);
   await layers.load();
   const effects = new Effects(stage, sim, layers);
   effects.bind(bus);
   const chapters = new ChapterLook(stage, effects);
   chapters.bind(bus);
-  const hud = new HudLayer(document.getElementById('hud-layer'));
+  const hud = new HudLayer(document.getElementById('hud-layer'), LOOK.title);
   if (window.__ART_URLS__) {
     hud.el('btn-pause').style.backgroundImage = `url(${window.__ART_URLS__['btn-pause.png']})`;
     hud.el('btn-camera').style.backgroundImage = `url(${window.__ART_URLS__['btn-camera.png']})`;
@@ -49,14 +61,10 @@ async function boot() {
   const voice = new Voice(true);
   const eventLog = new EventLog(sim);
   initViewerDownloads();
-  const store = {
-    get(k, d) { try { const v = localStorage.getItem('saga.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
-    set(k, v) { try { localStorage.setItem('saga.' + k, JSON.stringify(v)); } catch { /* private mode / storage blocked */ } },
-  };
-  sim.rules.highScore = store.get('high', 0);
+  sim.rules.highScore = store.get(tkey('high'), 0);
   voice.setEnabled(store.get('voice', true) !== false);
   // long-term progress: daily missions, achievements, high-score table
-  const progress = new Progress(store);
+  const progress = new Progress(store, undefined, { key: tkey('progress'), table: tableId });
   progress.bind(bus);
   const journal = new Journal(progress);
   const stats = new GameStats(bus);
@@ -98,6 +106,14 @@ async function boot() {
   const showPlayers = () => { btnPlayers.textContent = players === 1 ? '1 PLAYER' : `${players} PLAYERS`; };
   showPlayers();
   btnPlayers.addEventListener('click', (e) => { e.stopPropagation(); players = (players % 4) + 1; store.set('players', players); showPlayers(); });
+  const btnTable = hud.el('btn-table');
+  btnTable.textContent = `TABLE: ${TABLES[tableId].name.toUpperCase()}`;
+  btnTable.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const ids = Object.keys(TABLES), next = ids[(ids.indexOf(tableId) + 1) % ids.length];
+    store.set('table', next);
+    const u = new URL(location.href); u.searchParams.set('table', next); location.replace(u.toString()); // the game is rebuilt for that table
+  });
   const startGame = () => { audio.unlock(); summary.hide(); show('tap-to-play', false); sim.rules.startGame(players); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
@@ -186,7 +202,7 @@ async function boot() {
   bindVoice(bus, voice);
   const hitStop = bindHitStop(bus);
   bus.on('gameOver', ({ high, score, newHigh, scores, winner }) => {
-    audio.gameOver(); store.set('high', high); refreshMusic();
+    audio.gameOver(); store.set(tkey('high'), high); refreshMusic();
     // every player's game goes into the score table; the best one is highlighted
     const places = (scores && scores.length > 1 ? scores : [score]).map((sc) => progress.recordScore(sc, sim.rules.stage.id));
     const place = scores && scores.length > 1 ? progress.scores.findIndex((e) => e.score === score) + 1 : places[0];
@@ -261,7 +277,7 @@ async function boot() {
     hud.set('hud-guests', String(r.guests));
     const waiting = r.state === 'playing' && sim.canLaunch() && !sim.plunger.pulling; // only while a ball waits (not over TAP FLIPPERS TO PLAY)
     const pb = r.state !== 'playing' && !summary.open; // the player-count button only between games
-    if (btnPlayers.classList.contains('hidden') === pb) btnPlayers.classList.toggle('hidden', !pb);
+    if (btnPlayers.classList.contains('hidden') === pb) { btnPlayers.classList.toggle('hidden', !pb); btnTable.classList.toggle('hidden', !pb); }
     const tl = hud.el('touch-launch');
     if (tl.classList.contains('hidden') === waiting) tl.classList.toggle('hidden', !waiting);
     let roll = 0, onRail = false, panSum = 0; // wood rumble on the table, metallic hiss on the ramps
@@ -284,7 +300,7 @@ async function boot() {
     }
   }
   requestAnimationFrame(frame);
-  window.__saga = { sim, stage, layers, effects, chapters, hud, messages, startGame, progress, journal, version: APP_VERSION };
+  window.__saga = { sim, stage, layers, effects, chapters, hud, messages, startGame, progress, journal, table: tableId, version: APP_VERSION };
 }
 
 boot().catch((e) => {

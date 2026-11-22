@@ -7,6 +7,7 @@ import { FLIPPER_STRETCH } from '../core/table.js';
 import { SPRITES } from './sprite-meta.js';
 import { PHYS } from '../core/config.js';
 import { applyGrade, gradeUniforms } from './grade.js';
+import { LOOK } from '../tables/looks.js';
 
 const R = PHYS.BALL_R;
 const KNOB = [1190, 1709]; // top of the plunger gem at rest (painting pixels): the waiting ball sits here
@@ -107,7 +108,7 @@ export class TableLayers {
   }
 
   async load() {
-    const names = ['tower', 'wizard', 'mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'pedestal', 'slingL', 'slingR'];
+    const names = LOOK.occluders; // the tall painted objects of this table (none on a prototype table)
     const tex = {};
     await Promise.all([...names.map((n) => `sprites/${n}.png`), 'sprites/knob.png', 'sprites/spring.png', 'flipper-l.png', 'flipper-r.png'].map(async (f) => { tex[f] = await this.stage.texture(f); }));
     this.occ = {};

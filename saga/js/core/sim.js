@@ -2,10 +2,10 @@
 // Presentation code reads `sim.world.balls` / `sim.world.flippers` / `sim.rules` and listens on `sim.bus`.
 
 import { EventBus } from './events.js';
-import { buildTable } from './table.js';
+import { buildTableById } from './tables.js';
 import { PhysicsWorld } from './physics.js';
 import { GameRules } from './rules.js';
-import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT, SCOOP, TUNE } from './config.js';
+import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT, SCOOP, TUNE, KINGDOM_RULES } from './config.js';
 
 const LAUNCH_CD = secToTicks(TIMING.LAUNCH_COOLDOWN);
 let PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step (re-read each step: the tuning panel can change it)
@@ -14,14 +14,14 @@ const STUCK_TICKS = secToTicks(PHYS.STUCK_TIME);
 const SCOOP_HOLD = secToTicks(SCOOP.HOLD), SCOOP_REARM = secToTicks(SCOOP.REARM);
 
 export class Simulation {
-  constructor(bus = new EventBus()) {
+  constructor(bus = new EventBus(), tableId = 'forest') {
     this.bus = bus;
-    this.table = buildTable();
+    this.table = buildTableById(tableId);
     this.world = new PhysicsWorld(this.table, MAX_BALLS);
     this.rules = new GameRules(bus, this);
     this.tick = 0;
     this.plunger = { pulling: false, power: 0, cooldown: 0, auto: 0, pos: 0, drag: false };
-    this.skillTarget = this.table.circles.find((c) => c.id === SKILL_TARGET);
+    this.skillTarget = this.table.circles.find((c) => c.id === ((this.table.rules && this.table.rules.skillTarget) || SKILL_TARGET));
     this._contact = { kind: '', id: null, impact: 0, x: 0, y: 0 }; // reused payload (no per-hit allocation)
     this.world.onContact = (b, c, impact) => this._onContact(b, c, impact);
     this.world.onSensor = (b, s) => this._onSensor(b, s);
@@ -232,6 +232,7 @@ export class Simulation {
       if (!b.active) continue;
       if (b.mode === 'rail') this._updateRail(b);
       else if (b.mode === 'tower') this._updateTower(b);
+      else if (b.mode === 'castle') this._updateCastle(b);
       else if (b.mode === 'scoop') this._updateScoop(b);
       else if (b.mode === 'held') {
         if (rules.multiball && pl.cooldown === 0 && ++pl.auto >= AUTO_TICKS) { pl.auto = 0; this._launch(b, 1, false); }
@@ -342,11 +343,26 @@ export class Simulation {
   /** Ball held in the Mystery Scoop: rules decide the award at capture; after HOLD it is kicked out. */
   _updateScoop(b) {
     if (b.timer > 0) { b.timer--; return; }
-    const [x, y] = this.table.points.scoop;
-    this._place(b, x, y, SCOOP.EJECT_VX + (this.world._rand() - 0.5) * 1.5, SCOOP.EJECT_VY, 'free');
+    const mine = b.hole === 'mine';
+    const [x, y] = mine ? this.table.points.mine : this.table.points.scoop;
+    const vx = mine ? KINGDOM_RULES.MINE_EJECT_VX : SCOOP.EJECT_VX, vy = mine ? KINGDOM_RULES.MINE_EJECT_VY : SCOOP.EJECT_VY;
+    this._place(b, x, y, vx + (this.world._rand() - 0.5) * 1.5, vy, 'free');
     b.scoopCd = SCOOP_REARM;
-    this.bus.emit('scoopEject', { id: b.id, x, y });
+    this.bus.emit(mine ? 'mineEject' : 'scoopEject', { id: b.id, x, y });
   }
+
+  // ---- Forest Kingdom (table 2)
+  setGate(open) { this.world.setToggle('gateClosed', !open); this.world.setToggle('gateOpen', open); }
+  setShield(i, up) { this.world.setToggle(`shield${i}Up`, up); }
+
+  _updateCastle(b) {
+    if (b.timer > 0) { b.timer--; return; }
+    const [x, y] = this.table.points.castleEject;
+    this._place(b, x, y, (this.world._rand() - 0.5) * 4, -11, 'free');
+    this.bus.emit('castleEject', { id: b.id, x, y });
+  }
+
+  ejectFromCastle(b, delaySec) { b.mode = 'castle'; b.timer = secToTicks(delaySec); }
 
   _updateTower(b) {
     if (b.timer > 0) { b.timer--; return; }
@@ -425,14 +441,21 @@ export class Simulation {
         break;
       }
       case 'inlaneL': case 'inlaneR': r.onLane(s.id === 'inlaneL' ? 1 : 2); break;
-      case 'scoop': {
+      case 'scoop':
+      case 'mine': {
         if (b.mode !== 'free' || b.scoopCd > 0 || Math.hypot(b.vx, b.vy) > TUNE.SCOOP_CATCH) break; // too fast: it skims over the hole
-        const [x, y] = this.table.points.scoop;
-        b.mode = 'scoop'; b.x = b.px = x; b.y = b.py = y; b.vx = b.vy = 0; b.timer = SCOOP_HOLD;
-        this.bus.emit('scoopCapture', { id: b.id, x, y });
-        r.onScoop(b);
+        const [x, y] = s.id === 'mine' ? this.table.points.mine : this.table.points.scoop;
+        b.mode = 'scoop'; b.hole = s.id; b.x = b.px = x; b.y = b.py = y; b.vx = b.vy = 0; b.timer = SCOOP_HOLD;
+        this.bus.emit(s.id === 'mine' ? 'mineCapture' : 'scoopCapture', { id: b.id, x, y });
+        if (s.id === 'mine') r.onMine(b); else r.onScoop(b);
         break;
       }
+      case 'castleIn':
+        b.mode = 'castle'; b.timer = 0; b.vx = b.vy = 0;
+        this.bus.emit('castleCapture', { id: b.id });
+        r.onCastleEnter(b);
+        break;
+      case 'spinner': if (b.vy !== 0) r.onSpinner(Math.hypot(b.vx, b.vy)); break;
       default: break;
     }
   }

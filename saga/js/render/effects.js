@@ -2,6 +2,7 @@
 // golden light, pool shimmer + ripples, flowing waterfalls, fireflies, particles and fireworks.
 // Everything lives in painting pixels inside stage.artGroup and is created once (pooled).
 import * as THREE from '../vendor/three.module.min.js';
+import { LOOK } from '../tables/looks.js';
 import { flatToArt } from '../core/artmap.js';
 
 const FX_ORDER = 1e5; // above the table, balls and occluders
@@ -149,34 +150,14 @@ function fireflies(count) {
 
 // ---------------------------------------------------------------------------------------------- effects
 // painted positions (art px) of everything that reacts
-const SPOTS = {
-  mush1: { x: 337, y: 1295, r: 120, color: 0xff9a3a },
-  mush2: { x: 880, y: 1200, r: 115, color: 0xb070ff },
-  mush3: { x: 435, y: 765, r: 110, color: 0x40ffd8 },
-  crystal1: { x: 230, y: 1080, r: 150, color: 0x60fff0 },
-  crystal2: { x: 1140, y: 1320, r: 140, color: 0xffe060 },
-  potion: { x: 1000, y: 605, r: 140, color: 0xb070ff },
-  wizard: { x: 760, y: 946, r: 90, color: 0xfff2a0 },
-  slingL: { x: 352, y: 1690, r: 170, color: 0x7dff8a },
-  slingR: { x: 928, y: 1690, r: 170, color: 0x7dff8a },
-  kickback: { x: 138, y: 1840, r: 110, color: 0x50ff80 },
-  kickbackR: { x: 1142, y: 1840, r: 110, color: 0x50ff80 },
-  plunger: { x: 1186, y: 1760, r: 120, color: 0x40ff90 },
-  scoop: { x: 395, y: 1222, r: 115, color: 0xffc040 }, // Mystery Scoop (kickout hole)
-  pool: { x: 630, y: 1410, r: 250, color: 0x40e0ff }, // magic pool: fills with each pass, glows when the jackpot is lit
-  rampA: { x: 800, y: 640, r: 125, color: 0x90fff8 }, // crystal ramp entrance: Crystal Jackpot lit
-};
+// table-specific positions (js/tables/looks.js), set when Effects is built for the chosen table
+let SPOTS, ATTRACT, DRAGON_GLOW, RUSH_IDS, DOOR, POOL, TOWER_TOP;
 const DRAGON_RED = 0xff4a1a;
-// attract mode: the lights chase in this order (bottom to top and back), like a real machine waiting for a player
-const ATTRACT = ['slingL', 'slingR', 'kickback', 'kickbackR', 'mush1', 'pool', 'crystal2', 'mush2', 'scoop', 'crystal1', 'wizard', 'rampA', 'mush3', 'potion'];
-const DRAGON_GLOW = { mush1: 1, mush2: 1, mush3: 1, crystal1: 1, crystal2: 1, potion: 1, wizard: 1, rampA: 1 };
-const RUSH_IDS = ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'];
-const DOOR = { x: 636, y: 921, w: 64, h: 84 };
-const POOL = { x: 630, y: 1425, rx: 162, ry: 50 };
-const TOWER_TOP = { x: 632, y: 610 }; // fireworks burst below the HUD frame, around the roof
 
 export class Effects {
   constructor(stage, sim, layers) {
+    SPOTS = LOOK.spots; ATTRACT = LOOK.attract; RUSH_IDS = LOOK.rushIds; DOOR = LOOK.door; POOL = LOOK.pool; TOWER_TOP = LOOK.fireworks;
+    DRAGON_GLOW = Object.fromEntries(LOOK.dragonGlow.map((id) => [id, 1]));
     this.stage = stage; this.sim = sim; this.layers = layers;
     this.group = new THREE.Group();
     stage.artGroup.add(this.group);
@@ -255,7 +236,7 @@ export class Effects {
     this.scale = 1;
     // "alive" layer: table jolt, flipper rune glow, ball trails, ambient flicker
     this.shake = 0; this.shakeX = 0; this.shakeY = 0;
-    this.windows = [[642, 612, 46], [600, 708, 38], [674, 710, 38], [694, 800, 30]].map(([x, y, r]) => {
+    this.windows = LOOK.windows.map(([x, y, r]) => {
       const m = quad(additive(glow, 0xffc060, 0), r * 2, r * 2, x, y, FX_ORDER - 30);
       this.group.add(m);
       return { mesh: m, phase: Math.random() * 10 };
@@ -323,7 +304,7 @@ export class Effects {
     bus.on('superJackpot', () => { this.fireworks(3, 1.2); this.jolt(16); P.burst(DOOR.x, DOOR.y + 40, gold, 60, 420, 22, 1); });
     bus.on('skillShot', () => { hit('mush3', 50, 380); this.fireworks(1, 0); });
     bus.on('kickbackFire', ({ x, y }) => { this.jolt(9); const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, green, 30, 360, 18, 0.6, -100); });
-    bus.on('railEnter', ({ id }) => { const s = id === 'rampA' ? [796, 660] : [494, 724]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 16, 200, 14, 0.5); });
+    bus.on('railEnter', ({ id }) => { const s = LOOK.rampEntrances[id] || LOOK.rampEntrances.rampA; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 16, 200, 14, 0.5); });
     bus.on('ramp', ({ id }) => { const s = id === 'rampA' ? [1068, 1572] : [232, 1560]; P.burst(s[0], s[1], id === 'rampA' ? c(0x9fe8ff) : gold, 30, 280, 16, 0.8); });
     bus.on('towerEject', ({ x, y }) => { const [ax, ay] = flatToArt(x, y); P.burst(ax, ay, gold, 24, 240, 16, 0.6); });
     bus.on('ballSpawn', ({ where }) => { if (where === 'portal') P.burst(200, 760, c(0xff70e0), 40, 260, 18, 0.8, 0); });
@@ -351,6 +332,15 @@ export class Effects {
     bus.on('dragonWave', () => { this.fireworks(4, 1.6); this.jolt(16); });
     bus.on('dragonEnd', ({ completed }) => { if (completed) { this.fireworks(6, 2.8); this.jolt(20); } });
     bus.on('chapterMission', () => { this.fireworks(2, 1); this.jolt(10); });
+    // Forest Kingdom
+    bus.on('castleGateHit', () => { hit('castleGate', 22, 240); this.jolt(5); });
+    bus.on('gateOpen', () => { hit('castleGate', 60, 360); this.jolt(10); });
+    bus.on('shieldDown', ({ index }) => { hit(`shield${index + 1}`, 30, 300); this.jolt(6); });
+    bus.on('princeQuest', () => { for (const id of ['shield1', 'shield2', 'shield3']) hit(id, 30, 300); this.jolt(10); });
+    bus.on('princessRescued', () => { this.fireworks(4, 1.6); this.jolt(16); hit('castleGate', 80, 460); });
+    bus.on('mineCapture', () => { hit('mine', 30, 240); this.jolt(6); });
+    bus.on('gemJackpot', () => { this.fireworks(3, 1.2); this.jolt(14); hit('mine', 90, 480); });
+    bus.on('spin', ({ spins }) => { const g = this.glows.spinner; if (g) g.flash = Math.min(1, 0.3 + spins / 12); });
     bus.on('ballLocked', () => { P.burst(DOOR.x, DOOR.y + 30, gold, 50, 320, 18, 0.9); this.jolt(12); this.door.target = 0; });
     bus.on('addABall', () => { P.burst(DOOR.x, DOOR.y + 30, white, 50, 380, 18, 0.8); this.jolt(10); });
     bus.on('superSkillShot', () => { P.burst(232, 1560, gold, 70, 420, 20, 1); this.fireworks(2, 0.8); this.jolt(12); });
@@ -466,9 +456,9 @@ export class Effects {
       const n = Math.sin(t * 2.1 + w.phase) * 0.5 + Math.sin(t * 7.3 + w.phase * 3) * 0.25 + Math.sin(t * 13.7 + w.phase) * 0.12;
       w.mesh.material.opacity = 0.16 + 0.1 * n + (rules.multiball ? 0.2 : 0);
     }
-    if (Math.random() < dt * 3) this.particles.spawn(992 + Math.random() * 16, 560, (Math.random() - 0.5) * 10, -40 - Math.random() * 30, new THREE.Color(0.75, 0.4, 1), 9 + Math.random() * 6, 1.4, -10);
+    if (LOOK.bubbles && Math.random() < dt * 3) this.particles.spawn(LOOK.bubbles[0] + Math.random() * 16, LOOK.bubbles[1], (Math.random() - 0.5) * 10, -40 - Math.random() * 30, new THREE.Color(0.75, 0.4, 1), 9 + Math.random() * 6, 1.4, -10);
     if (Math.random() < dt * 2.5) {
-      const spots = [[230, 1080, 60], [1140, 1320, 50], [128, 1310, 30]];
+      const spots = LOOK.twinkles;
       const [cx, cy, r] = spots[Math.floor(Math.random() * spots.length)];
       this.particles.spawn(cx + (Math.random() - 0.5) * r * 2, cy + (Math.random() - 0.5) * r * 2, 0, 0, new THREE.Color(1, 1, 1), 22, 0.35, 0);
     }

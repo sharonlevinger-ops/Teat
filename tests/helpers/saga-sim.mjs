@@ -5,9 +5,9 @@ import { HZ } from '../../saga/js/core/config.js';
 export { Simulation };
 
 /** Drop a resting ball on a grid over the table; report spots where it stays put. */
-export function findDeadSpots({ step = 0.5, seconds = 8, flippersUp = false, enclosed = () => false } = {}) {
+export function findDeadSpots({ step = 0.5, seconds = 8, flippersUp = false, enclosed = () => false, table = 'forest' } = {}) {
   const dead = [];
-  const sim = new Simulation();
+  const sim = new Simulation(undefined, table);
   sim.rules.state = 'playing';
   const w = sim.world, b = w.balls[0];
   if (flippersUp) { w.setFlipper('L', true); w.setFlipper('R', true); }

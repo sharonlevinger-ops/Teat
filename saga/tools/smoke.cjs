@@ -63,6 +63,28 @@ const server = http.createServer((req, res) => {
     await page.click('#btn-again'); await page.waitForTimeout(500);
   });
   await step('camera view 2', async () => { await page.click('#btn-camera'); await page.waitForTimeout(800); await page.click('#btn-camera'); });
+  await step('table 2 (Forest Kingdom): switch, play, every Kingdom feature', async () => {
+    await page.goto(url + '?table=kingdom');
+    await page.waitForFunction(() => window.__saga && window.__saga.table === 'kingdom', null, { timeout: 30000 });
+    await page.evaluate(() => window.__saga.startGame());
+    await page.waitForTimeout(300);
+    for (let i = 0; i < 16; i++) {
+      if (await page.evaluate(() => window.__saga.sim.canLaunch())) { await page.keyboard.down('Space'); await page.waitForTimeout(400); await page.keyboard.up('Space'); }
+      await page.keyboard.down(i % 2 ? 'ArrowLeft' : 'ArrowRight'); await page.waitForTimeout(120); await page.keyboard.up(i % 2 ? 'ArrowLeft' : 'ArrowRight');
+      await page.waitForTimeout(380);
+    }
+    await page.evaluate(() => { const s = window.__saga.sim, r = s.rules; for (const id of ['shield1', 'shield2', 'shield3']) { r.cooldowns.clear(); r.onElementHit(id, 0, 0); } for (let i = 0; i < 3; i++) { r.cooldowns.clear(); r.onElementHit('castleGate', 0, 0); } for (let i = 0; i < 7; i++) r.onMine(); r.onSpinner(50); });
+    await page.waitForTimeout(2500);
+    await page.click('#btn-pause'); await page.waitForTimeout(200); await page.click('#btn-help'); await page.keyboard.press('Escape'); await page.click('#btn-resume');
+  });
+  await step('back to table 1 with the table button', async () => {
+    await page.evaluate(() => { const s = window.__saga.sim, r = s.rules; r.ball = 3; r.extraBalls = 0; r.matchDone = true; r.saveTicks = 0; for (const b of s.world.balls) if (b.active && b.mode !== 'held') s._place(b, 10.5, -2, 0, -10, 'free'); });
+    await page.waitForFunction(() => window.__saga.sim.rules.state === 'gameover', null, { timeout: 15000 });
+    await page.waitForSelector('.summary:not(.hidden)', { timeout: 8000 });
+    await page.click('#btn-sum-close');
+    await Promise.all([page.waitForNavigation(), page.click('#btn-table')]);
+    await page.waitForFunction(() => window.__saga && window.__saga.table === 'forest', null, { timeout: 30000 });
+  });
 
   await browser.close(); server.close();
   if (errors.length) { console.error('\nSMOKE TEST FAILED:\n' + errors.join('\n')); process.exit(1); }

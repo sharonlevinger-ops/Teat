@@ -70,8 +70,8 @@ export class Stage {
     this.tableXf = { x: 0, y: 0, s: 1 }; // current table transform (screen px), for screenToArt / DOM layers
   }
 
-  static async load(canvas, base = 'art/') {
-    const [playfield, extTop, extBottom] = await Promise.all(['playfield.jpg', 'ext-top.jpg', 'ext-bottom.jpg'].map((f) => loadTexture(artUrl(base, f))));
+  static async load(canvas, base = 'art/', files = { playfield: 'playfield.jpg', extTop: 'ext-top.jpg', extBottom: 'ext-bottom.jpg' }) {
+    const [playfield, extTop, extBottom] = await Promise.all([files.playfield, files.extTop, files.extBottom].map((f) => loadTexture(artUrl(base, f))));
     return new Stage(canvas, { playfield, extTop, extBottom }, base);
   }
 

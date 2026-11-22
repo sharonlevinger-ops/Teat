@@ -3,11 +3,11 @@
 import { artToFlat } from './artmap.js';
 
 export const FLIPPER_STRETCH = 1.15;
-const F = ([x, y]) => artToFlat(x, y);
-const P = (pts) => pts.map(F);
+export const F = ([x, y]) => artToFlat(x, y);
+export const P = (pts) => pts.map(F);
 
 /** Catmull-Rom through art points, `per` samples per span */
-function spline(pts, per) {
+export function spline(pts, per) {
   const out = [];
   const Q = [pts[0], ...pts, pts[pts.length - 1]];
   for (let i = 1; i < Q.length - 2; i++) {
@@ -22,14 +22,14 @@ function spline(pts, per) {
   return out;
 }
 
-function arcFlat(cx, cy, r, a0, a1, n) {
+export function arcFlat(cx, cy, r, a0, a1, n) {
   const pts = [];
   for (let i = 0; i <= n; i++) { const a = ((a0 + (a1 - a0) * (i / n)) * Math.PI) / 180; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
   return pts;
 }
 
 /** A rail the ball rides: drawn exactly on the painted ramp (art points), timed in flat units. */
-function rail(artPts, heights) {
+export function rail(artPts, heights) {
   const pts = artPts.map((p, i) => { const [x, y] = F(p); return [x, y, heights[i] ?? 0]; });
   // resample evenly (about every 0.35 units) so the ball moves smoothly
   const dense = [];
@@ -74,18 +74,18 @@ export function buildTable() {
   }
 
   // the clear crystal on its pedestal, joined to the left wall with a sloped top
-  wall([[95, 1392], [168, 1424], [170, 1462], [95, 1494]], { e: 0.5, solidPoly: P([[95, 1392], [168, 1424], [170, 1462], [95, 1494]]) });
+  wall([[95, 1392], [168, 1424], [170, 1462], [95, 1494]], { e: 0.5, solidPoly: P([[95, 1392], [168, 1424], [170, 1462], [95, 1494]]), forest: true });
   // the yellow crystal: a wedge attached to the launch-lane wall (its faces count as crystal hits)
-  walls.push({ pts: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]), kind: 'element', id: 'crystal2', e: 0.7, fr: 0.02, solidPoly: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]) });
+  walls.push({ pts: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]), kind: 'element', id: 'crystal2', e: 0.7, fr: 0.02, solidPoly: P([[1185, 1268], [1098, 1328], [1092, 1398], [1185, 1424]]), forest: true });
 
   // the mushroom tower: a round wall with a door facing the flippers
   const [tx, ty] = F([632, 968]);
   const tower = { x: tx, y: ty, r: 2.15, doorA0: -118, doorA1: -62 };
-  walls.push({ pts: arcFlat(tower.x, tower.y, tower.r, tower.doorA1, tower.doorA0 + 360, 22), kind: 'wall', e: 0.4, fr: 0.04 });
+  walls.push({ pts: arcFlat(tower.x, tower.y, tower.r, tower.doorA1, tower.doorA0 + 360, 22), kind: 'wall', e: 0.4, fr: 0.04, forest: true });
   const rad = (a) => (a * Math.PI) / 180;
   const doorL = [tower.x + tower.r * Math.cos(rad(tower.doorA0)), tower.y + tower.r * Math.sin(rad(tower.doorA0))];
   const doorR = [tower.x + tower.r * Math.cos(rad(tower.doorA1)), tower.y + tower.r * Math.sin(rad(tower.doorA1))];
-  walls.push({ pts: [doorL, doorR], kind: 'door', id: 'door', e: 0.35, fr: 0.03, toggle: 'doorClosed' });
+  walls.push({ pts: [doorL, doorR], kind: 'door', id: 'door', e: 0.35, fr: 0.03, toggle: 'doorClosed', forest: true });
 
   // circles: pop-bumper mushrooms (at their stems), crystals, potion, the wizard, posts
   const C = (id, kind, art, r, o = {}) => { const [x, y] = F(art); return { id, kind, x, y, r, e: 0.6, ...o }; };
@@ -179,6 +179,10 @@ export function buildTable() {
   };
 
   return {
+    id: 'forest',
+    // which targets the shared rules use on this table
+    rules: { skillTarget: 'mush3', rushElements: ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'],
+      dragonTargets: ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion', 'wizard', 'rampA', 'rampB', 'tower'] },
     walls, circles, flippers, sensors, ramps, points,
     plungerZone: { minX: laneBottom[0], maxY: laneBottom[1] },
     bounds: { minX: -2, maxX: 24, maxY: 42 }, // the launch lane runs past x = 22 in flat units (perspective)

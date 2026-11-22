@@ -24,11 +24,16 @@ export const MISSION_POOL = [
   { id: 'pool1', text: 'Collect a Pool Jackpot', ev: 'poolJackpot', n: 1 },
   { id: 'mage2', text: 'Complete M-A-G-E twice', ev: 'lanesComplete', n: 2 },
   { id: 'bonusX3', text: 'Reach bonus X3', ev: 'bonusX', test: (p) => p.x >= 3, n: 1 },
-  { id: 'crystalJP', text: 'Collect a Crystal Jackpot', ev: 'crystalJackpot', n: 1 },
+  { id: 'crystalJP', text: 'Collect a Crystal Jackpot', ev: 'crystalJackpot', n: 1, tables: ['forest'] },
   { id: 'orbit1', text: 'Make a Double Orbit', ev: 'doubleOrbit', n: 1 },
   { id: 'frenzy1', text: 'Start a Spore Frenzy', ev: 'frenzyStart', n: 1 },
   { id: 'chapterM2', text: 'Finish 2 chapter missions', ev: 'chapterMission', n: 2 },
   { id: 'extra1', text: 'Win an Extra Ball', ev: 'extraBall', n: 1 },
+  // Forest Kingdom only
+  { id: 'rescue1', text: 'Rescue the princess', ev: 'princessRescued', n: 1, tables: ['kingdom'] },
+  { id: 'gems1', text: 'Collect a gem jackpot in the mine', ev: 'gemJackpot', n: 1, tables: ['kingdom'] },
+  { id: 'quest1', text: "Complete the prince's quest", ev: 'questEnd', test: (p) => p.collected, n: 1, tables: ['kingdom'] },
+  { id: 'spin20', text: 'Spin the fairy spinner 20 times', ev: 'spin', n: 20, tables: ['kingdom'] },
 ];
 
 export const ACHIEVEMENTS = [
@@ -66,10 +71,10 @@ function prevDay(key) {
 }
 
 /** The same three missions for everyone on a given day (seeded by the date). */
-export function dailyMissions(key) {
+export function dailyMissions(key, table = 'forest') {
   let h = 2166136261;
   for (const c of key) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
-  const pool = MISSION_POOL.map((m) => m.id);
+  const pool = MISSION_POOL.filter((m) => !m.tables || m.tables.includes(table)).map((m) => m.id);
   const out = [];
   while (out.length < 3) {
     h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
@@ -80,11 +85,13 @@ export function dailyMissions(key) {
 }
 
 export class Progress {
-  constructor(storage, today = () => dayKey()) {
+  constructor(storage, today = () => dayKey(), { key = KEY, table = 'forest' } = {}) {
     this.storage = storage;
     this.today = today;
+    this.key = key; // each table keeps its own journal
+    this.table = table;
     this.onUnlock = () => {}; // (kind: 'mission' | 'daily' | 'achievement', item) – the UI shows a banner
-    const s = storage.get(KEY, null);
+    const s = storage.get(this.key, null);
     this.state = {
       day: '', missions: [], streak: 0, lastFullDay: '', achievements: {}, scores: [], stars: {},
       ...(s && typeof s === 'object' ? s : {}),
@@ -109,14 +116,14 @@ export class Progress {
     this._checkDay();
   }
 
-  _save() { this.storage.set(KEY, this.state); }
+  _save() { this.storage.set(this.key, this.state); }
 
   /** New day: three new missions (yesterday's progress does not carry over). */
   _checkDay() {
     const key = this.today();
     if (this.state.day === key && Array.isArray(this.state.missions) && this.state.missions.length === 3) return;
     this.state.day = key;
-    this.state.missions = dailyMissions(key).map((id) => ({ id, count: 0, done: false }));
+    this.state.missions = dailyMissions(key, this.table).map((id) => ({ id, count: 0, done: false }));
     if (this.state.lastFullDay && this.state.lastFullDay !== prevDay(key) && this.state.lastFullDay !== key) this.state.streak = 0;
     this._save();
   }

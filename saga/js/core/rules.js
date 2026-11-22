@@ -15,13 +15,14 @@ import { LaunchRules } from './rules/launch.js';
 import { LaneRules } from './rules/lanes.js';
 import { TowerRules } from './rules/tower.js';
 import { ShotRules } from './rules/shots.js';
+import { KingdomRules } from './rules/kingdom.js';
 
 export const RULE_TICKS = T;
 export const MAX_PLAYERS = 4;
 // what belongs to each player in a multi-player game (everything timed ends with the ball anyway)
 const PLAYER_KEYS = ['score', 'ball', 'stageIndex', 'guests', 'combo', 'wizardCharge', 'level', 'levelBase', 'rushCount', 'extraLit', 'extraBalls',
   'extraFrom', 'flags', 'dragonReady', 'dragonValue', 'poolCharge', 'poolLit', 'poolValue', 'lanes', 'mushHits', 'crystalSeq', 'crystalLit',
-  'crystalValue', 'doubleOrbitValue', 'locks', 'matchDone', 'mission', 'finished'];
+  'crystalValue', 'doubleOrbitValue', 'locks', 'matchDone', 'mission', 'finished', 'rescues', 'rescueValue', 'dwarves', 'gemValue'];
 const copy = (v) => (v instanceof Set ? new Set(v) : Array.isArray(v) ? v.slice()
   : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, x instanceof Set ? new Set(x) : x])) : v);
 
@@ -29,6 +30,11 @@ export class GameRules {
   constructor(bus, ctl) {
     this.bus = bus;
     this.ctl = ctl;
+    // the targets this table uses for the skill shot, RUSH COMBO and Dragon's Fire
+    const tr = (ctl.table && ctl.table.rules) || {};
+    this.skillTarget = tr.skillTarget || SKILL_TARGET;
+    this.rushElements = tr.rushElements || RUSH_ELEMENTS;
+    this.dragonTargets = tr.dragonTargets || MODES.DRAGON_TARGETS;
     this.highScore = 0;
     this.state = 'attract'; // attract | playing | gameover
     this._resetValues();
@@ -96,6 +102,7 @@ export class GameRules {
     this.numPlayers = 1;
     this.player = 0;
     this.players = [];
+    this._kingdomReset();
     this._resetBallValues();
     this._startMission();
     this._resetTilt();
@@ -139,11 +146,12 @@ export class GameRules {
     if (this.state !== 'playing') return null;
     let text, target = null;
     if (this.tilted) text = 'TILT · WAIT FOR THE NEXT BALL';
-    else if (this.skillAvailable && !this.multiball && this.ctl.heldBall && this.ctl.heldBall()) { text = 'SKILL SHOT · RELEASE ON THE GOLD FLASH'; target = 'mush3'; }
+    else if (this.skillAvailable && !this.multiball && this.ctl.heldBall && this.ctl.heldBall()) { text = 'SKILL SHOT · RELEASE ON THE GOLD FLASH'; target = this.skillTarget; }
     else if (this.dragonActive) { text = `DRAGON'S FIRE · ${this.dragonLit.size} LIT TARGETS LEFT · WAVE ${this.dragonWaves + 1}`; target = null; }
     else if (this.multiball) { text = 'SHOOT THE TOWER DOOR · SUPER JACKPOT'; target = 'door'; }
     else if (this.superArmed) { text = 'SUPER SKILL SHOT · SHOOT THE GOLDEN RAMP'; target = 'rampB'; }
     else if (this.doorOpen) { text = `SHOOT THE TOWER · ${this.locks < TUNE.LOCKS ? `LOCK BALL ${this.locks + 1}` : 'MULTIBALL'} · ${fmt(this.hurryValue)}`; target = 'door'; }
+    else if (this._kingdomGoal()) ({ text, target } = this._kingdomGoal());
     else if (this.dragonReady) { text = "DRAGON'S FIRE IS READY · SHOOT THE MYSTERY HOLE"; target = 'scoop'; }
     else if (this.extraLit > 0) { text = 'EXTRA BALL IS LIT · SHOOT THE MYSTERY HOLE'; target = 'scoop'; }
     else if (this.crystalLit) { text = `CRYSTAL JACKPOT ${fmt(this.crystalValue)} · RIDE THE CRYSTAL RAMP`; target = 'rampA'; }
@@ -258,6 +266,8 @@ export class GameRules {
     if (this.danger > 0) this.danger = Math.max(0, this.danger - TILT.DECAY / HZ);
     if (this.nudgeCd > 0) this.nudgeCd--;
 
+    this._kingdomUpdate();
+
     if (this.chainTicks > 0 && --this.chainTicks === 0) {
       if (this.chain >= 2) this.bus.emit('comboChainEnd', { level: this.chain });
       this.chain = 0;
@@ -280,8 +290,10 @@ export class GameRules {
   }
 
   onElementHit(id, x, y) {
+    if (id === 'castleGate') { this.onCastleGate(x, y); return; } // Forest Kingdom
     if (!this._cool(id, T.ELEMENT_CD)) return;
-    if (this.skillArmed && id === SKILL_TARGET) {
+    if (id.startsWith('shield') && !this.onShield(id, x, y)) return; // Forest Kingdom drop targets
+    if (this.skillArmed && id === this.skillTarget) {
       this.skillArmed = false;
       this.award(SCORE.SKILL_SHOT, 'skillShot', x, y);
       this.bus.emit('skillShot', { x, y });
@@ -313,10 +325,10 @@ export class GameRules {
         this.bus.emit('crystalLit', { value: this.crystalValue });
       }
     }
-    if (!this.rushActive && RUSH_ELEMENTS.includes(id) && !this.combo.has(id)) {
+    if (!this.rushActive && this.rushElements.includes(id) && !this.combo.has(id)) {
       this.combo.add(id);
       this.bus.emit('comboProgress', { ids: [...this.combo], count: this.combo.size });
-      if (this.combo.size === RUSH_ELEMENTS.length) this._startRush();
+      if (this.combo.size === this.rushElements.length) this._startRush();
     }
   }
 
@@ -374,6 +386,7 @@ export class GameRules {
     if (this.frenzyActive) { this.frenzyTicks = 0; this.mushHits = 0; this.bus.emit('frenzyEnd', {}); }
     if (this.dragonActive) this._endDragon(false);
     this.superArmed = false; this.superTicks = 0;
+    this._kingdomBallLost();
     if (this.doorOpen) {
       this.doorTicks = 0;
       this.ctl.setDoor(false);
@@ -448,7 +461,7 @@ export class GameRules {
 }
 
 /** the feature modules add their methods (and getters) to GameRules */
-for (const Mod of [SagaRules, ScoopRules, LaunchRules, LaneRules, TowerRules, ShotRules]) {
+for (const Mod of [SagaRules, ScoopRules, LaunchRules, LaneRules, TowerRules, ShotRules, KingdomRules]) {
   for (const name of Object.getOwnPropertyNames(Mod.prototype)) {
     if (name === 'constructor') continue;
     if (Object.prototype.hasOwnProperty.call(GameRules.prototype, name)) throw new Error(`rules: ${name} defined twice`);

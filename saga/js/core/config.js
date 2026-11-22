@@ -86,6 +86,18 @@ export const TUNE = {
 };
 export const TUNE_DEFAULTS = Object.freeze({ ...TUNE });
 
+/** Table 2 (Forest Kingdom) features */
+export const KINGDOM_RULES = Object.freeze({
+  GATE_HITS: 3, GATE_OPEN: 15, GATE_HIT_POINTS: 250, // castle gate: hits to open, seconds it stays open
+  RESCUE: 25000, RESCUE_STEP: 10000, RESCUE_MAX: 75000, ROYAL_BOOST: 20, // princess rescue + x2 scoring seconds
+  SHIELD_POINTS: 500, SHIELD_RESET: 1.5, // drop targets
+  QUEST_START: 30000, QUEST_END: 10000, QUEST_SECONDS: 20, // prince's quest hurry-up (collect at the castle gate)
+  MINE_POINTS: 1000, DWARVES: 7, GEMS: 50000, GEMS_STEP: 25000, GEMS_MAX: 150000, // dwarves' mine
+  MINE_EJECT_VX: 6, MINE_EJECT_VY: -9,
+  SPIN_POINTS: 100, SPIN_MAX: 12, // fairy spinner: points per spin, most spins per pass
+  CASTLE_HOLD: 1.5,
+});
+
 /** The Mystery Scoop (kickout hole): catches balls slower than CATCH_SPEED, holds them, kicks them out. */
 export const SCOOP = Object.freeze({ HOLD: 1.1, EJECT_VX: 4, EJECT_VY: -10, REARM: 0.6 }); // eject aim: measured 0/60 drains
 
