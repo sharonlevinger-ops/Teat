@@ -20,21 +20,24 @@ reading "FOREST KINGDOM" and an EMPTY dark score panel below it (no numbers), wi
 label boxes underneath. Below the frame, two round purple buttons: pause (left) and camera (right).
 
 The playfield, from top to bottom:
-- Upper LEFT corner: a tall wizard's tower with a mushroom-shaped roof and glowing windows, a small
-  wooden door at its base with stone steps. An old wizard in a blue robe with a staff stands beside it.
-  A thin wire ramp curves around the left side of the tower.
+- Upper LEFT corner: a tall wizard's tower with a mushroom-shaped roof and two glowing windows side by side,
+  a small wooden door at its base facing the flippers. An old wizard in a blue robe with a glowing staff stands
+  just below and to the right of the tower door. A thin golden wire ramp starts just right of the tower,
+  wraps over the top of the tower and runs down the far left side of the table to the left inlane.
 - Upper RIGHT corner: a white stone fairy-tale castle with two round turrets with blue conical roofs and
-  red flags, a big wooden arched gate at the front, and a princess in a pink dress waving from a small
-  balcony above the gate.
+  red flags, a peaked roof between them, a big wooden arched gate at the front (facing the flippers), and a
+  princess in a pink dress waving from a small balcony above the gate.
 - Upper CENTRE, between tower and castle: three large glowing mushroom bumpers (orange, purple, teal)
   in a triangle, each with a white stem.
 - Middle LEFT: the entrance of a dwarves' mine dug into a rocky hill, with wooden beams, a small mine cart
   full of glowing gems on rails, and seven tiny red dwarf hats lined up in front of it.
-- Middle RIGHT: a long transparent crystal ramp on a golden wire frame, starting to the right of the castle
-  and running down the right side of the table to the lower right.
-- CENTRE: three blue-and-gold heraldic shields standing upright in a row (drop targets), and a young
-  prince in blue with a small crown standing next to them.
-- A small dark round kickout hole with a stone rim to the right of centre.
+- A long transparent crystal ramp on a golden wire frame: its entrance is just LEFT of the castle, it climbs
+  up and over the castle, then runs down the right side of the table to the lower right.
+- RIGHT of centre, below the castle: three blue-and-gold heraldic shields standing in a slanted diagonal row
+  (drop targets, top-left to bottom-right), with a young prince in blue with a small crown standing to their
+  right.
+- A small dark round kickout hole with a stone rim right of centre, between the shields and the pool.
+- The CENTRE of the table stays open grass (the shots to the ramps and the castle gate go through it).
 - Lower centre: a round magic pool with glowing turquoise water inside a stone-and-root ring.
 - Bottom: two triangular slingshots with glowing green rune rubbers, curved wooden inlane/outlane rails
   with four small empty slot-shaped light inserts (two on each side), two wooden flippers with glowing
