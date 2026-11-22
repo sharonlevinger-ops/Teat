@@ -343,7 +343,7 @@ test('daily missions: 3 per day, same for a given date, counted from game events
   const p = new Progress(storage, () => today);
   const bus = new EventBus(); p.bind(bus);
   const unlocked = []; p.onUnlock = (kind, item) => unlocked.push(kind + ':' + (item.id || item.streak));
-  const fire = (m) => { const def = MISSION_POOL.find((x) => x.id === m.id); const payload = { wizardHit: {}, doorOpen: {}, ramp: { id: m.id === 'rampA3' ? 'rampA' : 'rampB' }, rushStart: {}, multiballStart: {}, skillShot: {}, loop: {}, element: { id: 'mush1' }, stage: { index: 1 }, comboChain: { level: 5 }, score: { total: 60000 } }[def.ev]; for (let i = 0; i < def.n; i++) bus.emit(def.ev, payload); };
+  const fire = (m) => { const def = MISSION_POOL.find((x) => x.id === m.id); const payload = { wizardHit: {}, doorOpen: {}, ramp: { id: m.id === 'rampA3' ? 'rampA' : 'rampB' }, rushStart: {}, multiballStart: {}, skillShot: {}, loop: {}, element: { id: 'mush1' }, stage: { index: 1 }, comboChain: { level: 5 }, score: { total: 60000 }, scoopCapture: {}, poolJackpot: {}, lanesComplete: {}, bonusX: { x: 3 }, crystalJackpot: {}, doubleOrbit: {}, frenzyStart: {}, chapterMission: {}, extraBall: {} }[def.ev]; for (let i = 0; i < def.n; i++) bus.emit(def.ev, payload); };
   for (const m of p.missions) fire(m);
   assert.ok(p.missions.every((m) => m.done));
   assert.equal(p.streak, 1);
@@ -597,7 +597,8 @@ test('8 Spore Frenzy: 25 mushroom hits make mushrooms worth ×5 for exactly 20 s
   const { sim, events } = newGame();
   const r = sim.rules;
   freeBall(sim);
-  hitEl(r, 'mush1', MODES.FRENZY_HITS - 1); assert.equal(r.frenzyActive, false);
+  const { TUNE } = await import('../saga/js/core/config.js');
+  hitEl(r, 'mush1', TUNE.FRENZY_HITS - 1); assert.equal(r.frenzyActive, false);
   hitEl(r, 'mush2'); assert.equal(r.frenzyActive, true);
   hitEl(r, 'mush3');
   assert.equal(events.filter((e) => e.type === 'score' && e.p.reason === 'mush3').pop().p.base, SCORE.ELEMENT * MODES.FRENZY_MULT);
@@ -628,7 +629,8 @@ test('10 Double Orbit: crystal + golden ramp back to back (either order, within 
   freeBall(sim);
   r.onRamp('rampA'); run(sim, secs(2)); r.onRamp('rampB');
   assert.equal(count('doubleOrbit'), 1);
-  r.onRamp('rampB'); run(sim, secs(MODES.DOUBLE_ORBIT_WINDOW) + 1); r.onRamp('rampA');
+  const { TUNE } = await import('../saga/js/core/config.js');
+  r.onRamp('rampB'); run(sim, secs(TUNE.DOUBLE_ORBIT_WINDOW) + 1); r.onRamp('rampA');
   assert.equal(count('doubleOrbit'), 1, 'too slow');
   run(sim, secs(1)); r.onRamp('rampB');
   assert.equal(count('doubleOrbit'), 2, 'either order');
@@ -669,4 +671,31 @@ test('no ball ever leaves the cabinet (3 seeds × 6 minutes of bot play with eve
     }
     assert.equal(escapes, 0, `seed ${seed0}`);
   }
+});
+
+test('every daily mission can be completed by a real game event', async () => {
+  const { MISSION_POOL } = await import('../saga/js/core/progress.js');
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../saga/js/core/rules.js', import.meta.url), 'utf8') + readFileSync(new URL('../saga/js/core/sim.js', import.meta.url), 'utf8');
+  for (const m of MISSION_POOL) assert.ok(src.includes(`emit('${m.ev}'`), `mission ${m.id} waits for '${m.ev}', which the game never emits`);
+  assert.equal(new Set(MISSION_POOL.map((m) => m.id)).size, MISSION_POOL.length, 'unique ids');
+});
+
+test('tuning panel: feature values (scoop, frenzy, pool, crystals, double orbit) apply live and reset', async () => {
+  const { applyTune, tuneIsCustom, resetTune } = await import('../saga/js/ui/tuning.js');
+  const { TUNE, TUNE_DEFAULTS } = await import('../saga/js/core/config.js');
+  const { sim, count } = newGame();
+  const r = sim.rules;
+  freeBall(sim);
+  assert.equal(tuneIsCustom(), false);
+  applyTune({ POOL_PASSES: 3, FRENZY_HITS: 10, SCOOP_CATCH: 999 }, sim.world);
+  assert.equal(TUNE.SCOOP_CATCH, TUNE_DEFAULTS.SCOOP_CATCH, 'out of range ignored');
+  assert.ok(tuneIsCustom());
+  for (let i = 0; i < 3; i++) { r.cooldowns.delete('pool'); r.onPool(); }
+  assert.equal(r.poolLit, true, 'lit after 3 passes');
+  hitEl(r, 'mush1', 10);
+  assert.equal(count('frenzyStart'), 1, 'frenzy after 10');
+  resetTune(sim.world);
+  assert.equal(tuneIsCustom(), false);
+  assert.deepEqual({ ...TUNE }, { ...TUNE_DEFAULTS });
 });

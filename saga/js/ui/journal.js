@@ -19,7 +19,7 @@ export class Journal {
     el.setAttribute('aria-label', 'Journal');
     el.setAttribute('aria-modal', 'true');
     el.innerHTML = `<div class="card journal-card">
-      <header class="card-head"><h2>Journal</h2><button class="icon-btn" data-a="close" aria-label="Close">✕</button></header>
+      <header class="card-head"><h2>Journal</h2><span class="head-btns"><button class="icon-btn" data-a="help" aria-label="How to play">?</button><button class="icon-btn" data-a="close" aria-label="Close">✕</button></span></header>
       <nav class="tabs" role="tablist">${TABS.map(([id, label]) => `<button role="tab" data-tab="${id}">${label}</button>`).join('')}</nav>
       <div class="tab-body" role="tabpanel"></div></div>`;
     document.body.appendChild(el);
@@ -29,9 +29,11 @@ export class Journal {
       e.stopPropagation();
       const t = e.target.closest('[data-tab]');
       if (t) { this.tab = t.dataset.tab; this.render(); return; }
+      if (e.target.closest('[data-a="help"]')) { this.onHelp(); return; }
       if (e.target.closest('[data-a="close"]') || e.target === el) this.show(false);
     });
     this.onClose = () => {};
+    this.onHelp = () => {};
   }
 
   get open() { return !this.el.classList.contains('hidden'); }

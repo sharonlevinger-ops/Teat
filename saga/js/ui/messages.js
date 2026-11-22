@@ -101,7 +101,7 @@ export class Messages {
     bus.on('poolLit', ({ value }) => this.show(`POOL JACKPOT LIT<small>${fmt(value)} · ROLL THROUGH THE POOL</small>`));
     bus.on('poolJackpot', ({ points }) => this.show(`POOL JACKPOT!<small>+${fmt(points)}</small>`, true));
     bus.on('bonusX', ({ x }) => this.show(`BONUS X${x}<small>M-A-G-E COMPLETE</small>`));
-    bus.on('lanesComplete', ({ points }) => this.show(`<small>M-A-G-E COMPLETE · +${fmt(points)}</small>`));
+    bus.on('lanesComplete', ({ points, maxed }) => { if (maxed) this.show(`<small>M-A-G-E COMPLETE · +${fmt(points)}</small>`); });
     bus.on('bonus', ({ base, x, points }) => this.show(`BONUS 0<small>${fmt(base)} × ${x}</small>`, true, { base, x, points }));
     bus.on('frenzyStart', ({ seconds }) => this.show(`SPORE FRENZY!<small>MUSHROOMS X${MODES.FRENZY_MULT} · ${seconds} SECONDS</small>`, true));
     bus.on('frenzyEnd', () => this.show('<small>SPORE FRENZY OVER</small>'));

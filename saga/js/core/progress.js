@@ -19,6 +19,16 @@ export const MISSION_POOL = [
   { id: 'ch2', text: 'Reach chapter 2', ev: 'stage', test: (p) => !p.initial && p.index >= 1, n: 1 },
   { id: 'combo4', text: 'Build a COMBO x4', ev: 'comboChain', test: (p) => p.level >= 4, n: 1 },
   { id: 'score30k', text: 'Score 30,000 in one game', ev: 'score', test: (p) => p.total >= 30000, n: 1 },
+  // the table features
+  { id: 'scoop3', text: 'Sink 3 balls in the mystery hole', ev: 'scoopCapture', n: 3 },
+  { id: 'pool1', text: 'Collect a Pool Jackpot', ev: 'poolJackpot', n: 1 },
+  { id: 'mage2', text: 'Complete M-A-G-E twice', ev: 'lanesComplete', n: 2 },
+  { id: 'bonusX3', text: 'Reach bonus X3', ev: 'bonusX', test: (p) => p.x >= 3, n: 1 },
+  { id: 'crystalJP', text: 'Collect a Crystal Jackpot', ev: 'crystalJackpot', n: 1 },
+  { id: 'orbit1', text: 'Make a Double Orbit', ev: 'doubleOrbit', n: 1 },
+  { id: 'frenzy1', text: 'Start a Spore Frenzy', ev: 'frenzyStart', n: 1 },
+  { id: 'chapterM2', text: 'Finish 2 chapter missions', ev: 'chapterMission', n: 2 },
+  { id: 'extra1', text: 'Win an Extra Ball', ev: 'extraBall', n: 1 },
 ];
 
 export const ACHIEVEMENTS = [

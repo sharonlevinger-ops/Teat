@@ -6,7 +6,7 @@
 
 import {
   SCORE, TIMING, STAGES, RUSH_MULT, BALLS_PER_GAME, WIZARD_CHARGES, RUSH_ELEMENTS, SKILL_TARGET, secToTicks, COMBO_MAX, TILT, HZ,
-  MODES, LANES,
+  MODES, LANES, TUNE,
 } from './config.js';
 
 const T = {
@@ -29,7 +29,6 @@ const T = {
   BOOST: secToTicks(MODES.BOOST_SECONDS),
   DRAGON: secToTicks(MODES.DRAGON_SECONDS),
   FRENZY: secToTicks(MODES.FRENZY_SECONDS),
-  DOUBLE_ORBIT: secToTicks(MODES.DOUBLE_ORBIT_WINDOW),
   POOL_CD: secToTicks(0.5),
 };
 export const RULE_TICKS = T;
@@ -410,8 +409,9 @@ export class GameRules {
     if (this.lanes.every(Boolean)) {
       this.lanes = [false, false, false, false];
       const points = this.award(MODES.LANE_COMPLETE, 'lanesComplete');
-      if (this.bonusX < MODES.BONUS_X_MAX) { this.bonusX++; this.bus.emit('bonusX', { x: this.bonusX }); }
-      else this.bus.emit('lanesComplete', { points }); // multiplier already maxed: points only
+      const maxed = this.bonusX >= MODES.BONUS_X_MAX;
+      if (!maxed) { this.bonusX++; this.bus.emit('bonusX', { x: this.bonusX }); }
+      this.bus.emit('lanesComplete', { points, maxed }); // every completion (missions count it); maxed = points only
     }
   }
 
@@ -439,7 +439,7 @@ export class GameRules {
     }
     if (mush) {
       this._missionStep('ring', id);
-      if (!this.frenzyActive && ++this.mushHits >= MODES.FRENZY_HITS) { // Spore Frenzy: mushrooms ×5 for 20 s
+      if (!this.frenzyActive && ++this.mushHits >= TUNE.FRENZY_HITS) { // Spore Frenzy: mushrooms ×5 for 20 s
         this.frenzyTicks = T.FRENZY;
         this.bus.emit('frenzyStart', { seconds: MODES.FRENZY_SECONDS });
       }
@@ -448,7 +448,7 @@ export class GameRules {
       const q = this.crystalSeq;
       q.count = q.last && q.last !== id ? q.count + 1 : 1;
       q.last = id;
-      if (!this.crystalLit && q.count >= MODES.CRYSTAL_SEQ) {
+      if (!this.crystalLit && q.count >= TUNE.CRYSTAL_SEQ) {
         this.crystalLit = true;
         q.count = 0; q.last = null;
         this.bus.emit('crystalLit', { value: this.crystalValue });
@@ -560,7 +560,7 @@ export class GameRules {
     }
     // Double Orbit: the crystal ramp and the golden ramp back to back (either order)
     const lr = this.lastRamp;
-    if (lr && lr.id !== id && this.tick - lr.tick <= T.DOUBLE_ORBIT) {
+    if (lr && lr.id !== id && this.tick - lr.tick <= secToTicks(TUNE.DOUBLE_ORBIT_WINDOW)) {
       this.lastRamp = null;
       const points = this.award(this.doubleOrbitValue, 'doubleOrbit');
       this.doubleOrbitValue = Math.min(MODES.DOUBLE_ORBIT_MAX, this.doubleOrbitValue + MODES.DOUBLE_ORBIT_STEP);
@@ -593,9 +593,9 @@ export class GameRules {
       this.bus.emit('poolJackpot', { points });
       return;
     }
-    this.poolCharge = Math.min(MODES.POOL_PASSES, this.poolCharge + 1);
-    this.bus.emit('poolCharge', { charge: this.poolCharge, of: MODES.POOL_PASSES });
-    if (this.poolCharge >= MODES.POOL_PASSES) { this.poolLit = true; this.bus.emit('poolLit', { value: this.poolValue }); }
+    this.poolCharge = Math.min(TUNE.POOL_PASSES, this.poolCharge + 1);
+    this.bus.emit('poolCharge', { charge: this.poolCharge, of: TUNE.POOL_PASSES });
+    if (this.poolCharge >= TUNE.POOL_PASSES) { this.poolLit = true; this.bus.emit('poolLit', { value: this.poolValue }); }
   }
 
   /** Mystery Scoop: Dragon's Fire when ready, else a lit Extra Ball, else a mystery award. */

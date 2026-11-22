@@ -5,7 +5,7 @@ import { TableLayers } from './render/layers.js';
 import { HudLayer } from './ui/hud.js';
 import { Input } from './ui/input.js';
 import { Simulation } from './core/sim.js';
-import { STEP, PHYS, PHYS_DEFAULTS } from './core/config.js';
+import { STEP } from './core/config.js';
 import { AudioEngine } from './audio/audio.js';
 import { Effects } from './render/effects.js';
 import { APP_VERSION } from './version.js';
@@ -13,9 +13,10 @@ import { Messages, GOAL_AT } from './ui/messages.js';
 import { ChapterLook } from './render/chapters.js';
 import { flatToArt, UI } from './core/artmap.js';
 import { EventLog, buildReport, shareReport, initViewerDownloads } from './ui/report.js';
-import { TuningPanel, loadSavedTune } from './ui/tuning.js';
+import { TuningPanel, loadSavedTune, tuneIsCustom } from './ui/tuning.js';
 import { Progress, GameStats } from './core/progress.js';
 import { Summary } from './ui/summary.js';
+import { HelpCard } from './ui/help.js';
 import { Journal } from './ui/journal.js';
 
 async function boot() {
@@ -53,6 +54,8 @@ async function boot() {
   const journal = new Journal(progress);
   const stats = new GameStats(bus);
   const summary = new Summary(progress, stats);
+  const help = new HelpCard();
+  journal.onHelp = () => help.show(true);
   progress.onUnlock = (kind, item) => {
     if (kind === 'mission') messages.show(`MISSION COMPLETE<small>${item.text.toUpperCase()}</small>`);
     else if (kind === 'daily') messages.show(`ALL MISSIONS DONE!<small>STREAK: ${item.streak} ${item.streak === 1 ? 'DAY' : 'DAYS'}</small>`, true);
@@ -84,7 +87,7 @@ async function boot() {
   const startGame = () => { audio.unlock(); summary.hide(); show('tap-to-play', false); sim.rules.startGame(); refreshMusic(); };
   const onAnyTap = () => {
     audio.unlock();
-    if (journal.open || summary.open) return true; // a card is on top: taps belong to it
+    if (journal.open || summary.open || help.open) return true; // a card is on top: taps belong to it
     if (sim.rules.state !== 'playing') { startGame(); return true; } // the starting tap never flips or launches
     return false;
   };
@@ -92,7 +95,7 @@ async function boot() {
   // (screen space, from the un-zoomed fit, so it is the same corner in both camera views)
   const isPlungerZone = (x, y) => { const L = stage.layout; return x > L.left + 1030 * L.s && y > L.top + 1560 * L.s; };
   const tuning = new TuningPanel(sim.world);
-  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open || journal.open || summary.open, isPlungerZone });
+  const input = new Input(window, sim, { onAnyTap, isBlocked: () => paused || tuning.open || journal.open || summary.open || help.open, isPlungerZone });
   window.addEventListener('touchend', () => audio.unlock(), { passive: true });
   window.addEventListener('click', () => audio.unlock());
   const pauseCard = document.getElementById('pause');
@@ -150,7 +153,7 @@ async function boot() {
   tuneNote.className = 'tune-note hidden';
   tuneNote.textContent = 'Custom tuning is active (hold "Paused" to change).';
   btnReport.before(tuneNote);
-  const tuningActive = () => Object.keys(PHYS_DEFAULTS).some((k) => PHYS[k] !== PHYS_DEFAULTS[k]);
+  const tuningActive = () => tuneIsCustom();
   btnReport.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!report) captureReport();
@@ -170,6 +173,7 @@ async function boot() {
   window.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (tuning.open) tuning.show(false);
+    else if (help.open) help.show(false);
     else if (journal.open) journal.show(false);
     else if (summary.open) { summary.hide(); show('tap-to-play', true); }
     else if (paused) setPaused(false);
@@ -187,6 +191,7 @@ async function boot() {
   // between games the pause button opens the Journal (missions, achievements, scores)
   hud.el('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); if (sim.rules.state !== 'playing') journal.show(!journal.open); else setPaused(!paused); });
   document.getElementById('btn-journal').addEventListener('click', (e) => { e.stopPropagation(); journal.show(true); });
+  document.getElementById('btn-help').addEventListener('click', (e) => { e.stopPropagation(); help.show(true); });
   document.getElementById('btn-resume').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); });
   document.getElementById('btn-newgame').addEventListener('click', (e) => { e.stopPropagation(); setPaused(false); startGame(); });
   // camera: 1 = the whole painted table, 2 = closer view that follows the ball (remembered)

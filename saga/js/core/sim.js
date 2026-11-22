@@ -5,7 +5,7 @@ import { EventBus } from './events.js';
 import { buildTable } from './table.js';
 import { PhysicsWorld } from './physics.js';
 import { GameRules } from './rules.js';
-import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT, SCOOP } from './config.js';
+import { STEP, PHYS, TIMING, MAX_BALLS, SKILL_TARGET, secToTicks, TILT, SCOOP, TUNE } from './config.js';
 
 const LAUNCH_CD = secToTicks(TIMING.LAUNCH_COOLDOWN);
 let PHYS_DT = STEP * PHYS.TIME_SCALE; // physics time per fixed step (re-read each step: the tuning panel can change it)
@@ -396,7 +396,7 @@ export class Simulation {
       }
       case 'inlaneL': case 'inlaneR': r.onLane(s.id === 'inlaneL' ? 1 : 2); break;
       case 'scoop': {
-        if (b.mode !== 'free' || b.scoopCd > 0 || Math.hypot(b.vx, b.vy) > SCOOP.CATCH_SPEED) break; // too fast: it skims over the hole
+        if (b.mode !== 'free' || b.scoopCd > 0 || Math.hypot(b.vx, b.vy) > TUNE.SCOOP_CATCH) break; // too fast: it skims over the hole
         const [x, y] = this.table.points.scoop;
         b.mode = 'scoop'; b.x = b.px = x; b.y = b.py = y; b.vx = b.vy = 0; b.timer = SCOOP_HOLD;
         this.bus.emit('scoopCapture', { id: b.id, x, y });
