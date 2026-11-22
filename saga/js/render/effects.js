@@ -151,7 +151,7 @@ function fireflies(count) {
 // painted positions (art px) of everything that reacts
 const SPOTS = {
   mush1: { x: 337, y: 1295, r: 120, color: 0xff9a3a },
-  mush2: { x: 395, y: 1078, r: 115, color: 0xb070ff },
+  mush2: { x: 880, y: 1200, r: 115, color: 0xb070ff },
   mush3: { x: 435, y: 765, r: 110, color: 0x40ffd8 },
   crystal1: { x: 230, y: 1080, r: 150, color: 0x60fff0 },
   crystal2: { x: 1140, y: 1320, r: 140, color: 0xffe060 },
@@ -168,7 +168,7 @@ const SPOTS = {
 };
 const DRAGON_RED = 0xff4a1a;
 // attract mode: the lights chase in this order (bottom to top and back), like a real machine waiting for a player
-const ATTRACT = ['slingL', 'slingR', 'kickback', 'kickbackR', 'mush1', 'pool', 'crystal2', 'scoop', 'mush2', 'crystal1', 'wizard', 'rampA', 'mush3', 'potion'];
+const ATTRACT = ['slingL', 'slingR', 'kickback', 'kickbackR', 'mush1', 'pool', 'crystal2', 'mush2', 'scoop', 'crystal1', 'wizard', 'rampA', 'mush3', 'potion'];
 const DRAGON_GLOW = { mush1: 1, mush2: 1, mush3: 1, crystal1: 1, crystal2: 1, potion: 1, wizard: 1, rampA: 1 };
 const RUSH_IDS = ['mush1', 'mush2', 'mush3', 'crystal1', 'crystal2', 'potion'];
 const DOOR = { x: 636, y: 921, w: 64, h: 84 };

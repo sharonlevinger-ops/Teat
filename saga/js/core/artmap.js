@@ -35,7 +35,7 @@ export const FEATURES = {
   tower: { base: [632, 978, 112, 44], door: [640, 926, 46, 62], roofTop: [632, 428] },
   wizard: { body: [834, 1010, 62, 96], staffOrb: [760, 946] },
   pool: [630, 1408, 212, 96],
-  mushrooms: { mush1: [335, 1300, 56], mush2: [405, 1086, 50], mush3: [432, 770, 46] },
+  mushrooms: { mush1: [335, 1300, 56], mush2: [890, 1208, 50], mush3: [432, 770, 46] },
   crystals: { crystal1: [240, 1084, 72], crystal2: [1142, 1300, 62] },
   potion: [1000, 600, 58],
   kickoutHole: [372, 1226, 42],

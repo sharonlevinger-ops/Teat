@@ -91,7 +91,7 @@ export function buildTable() {
   const C = (id, kind, art, r, o = {}) => { const [x, y] = F(art); return { id, kind, x, y, r, e: 0.6, ...o }; };
   const circles = [
     C('mush1', 'element', [337, 1370], 0.95, { e: 0.9, kick: 'bumper' }),
-    C('mush2', 'element', [398, 1146], 0.9, { e: 0.9, kick: 'bumper' }),
+    C('mush2', 'element', [882, 1267], 0.9, { e: 0.9, kick: 'bumper' }), // moved to the right (tools/move_mush2.py)
     C('mush3', 'element', [440, 832], 0.85, { e: 0.9, kick: 'bumper' }),
     C('crystal1', 'element', [232, 1136], 1.0, { e: 0.7 }),
     C('potion', 'element', [1000, 655], 0.85, { e: 0.55 }),
