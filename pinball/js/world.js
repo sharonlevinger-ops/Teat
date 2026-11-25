@@ -320,7 +320,7 @@ export class World {
     this.ballMeshes = [];
     this.ballShadows = [];
     const geo = new THREE.SphereGeometry(R * S, 32, 24);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.06, envMapIntensity: 1.8 });
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 1, roughness: 0.16, envMapIntensity: 1.6 });
     for (let i = 0; i < 4; i++) {
       const m = new THREE.Mesh(geo, mat); m.visible = false; this.add(m); this.ballMeshes.push(m);
       const sh = new THREE.Mesh(flat(R * 3, R * 3), this.shadowMat); sh.visible = false; sh.renderOrder = 3; this.add(sh); this.ballShadows.push(sh);

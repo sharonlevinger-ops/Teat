@@ -25,8 +25,8 @@ poly([[680, 1077], [362, 1252]]);
 export const TOWER_POLY = [[150, 296], [285, 300], [292, 432], [262, 468], [205, 468], [150, 380]];
 poly(TOWER_POLY, { closed: true, kind: 'rock' });
 // tower ramp mouth side walls
-poly([[297, 474], [297, 400]]);
-poly([[346, 474], [346, 400]]);
+poly([[290, 474], [290, 400]]);
+poly([[372, 474], [372, 404]]);
 // top rail closing the mushroom glade
 poly([[290, 300], [286, 205], [322, 166], [382, 150], [442, 150], [474, 172]]);
 
@@ -51,7 +51,7 @@ poly([[618, 945], [618, 1040], [492, 1111]]);               // right inlane guid
 export const posts = [
   { x: 100, y: 875, r: 6 }, { x: 618, y: 945, r: 6 },
   { x: 162, y: 896, r: 7 }, { x: 212, y: 1032, r: 6 }, { x: m(162), y: 896, r: 7 }, { x: m(212), y: 1032, r: 6 },
-  { x: 297, y: 474, r: 5 }, { x: 346, y: 474, r: 5 }, { x: 655, y: 605, r: 6 },
+  { x: 290, y: 474, r: 5 }, { x: 372, y: 474, r: 5 }, { x: 655, y: 605, r: 6 },
 ];
 export const slings = [
   { a: SLING_L[0], b: SLING_L[2], side: 'L' },
@@ -65,13 +65,12 @@ export const bumpers = [
   { x: 388, y: 326, r: 24, color: 0x1affc6, cap: [386, 302] },
 ];
 
-// ---- flippers: lower pair, upper-left, castle flipper (the right-middle one was removed) --
+// ---- flippers: lower pair + upper-left (right-middle and castle flippers removed) ---------
 const deg = Math.PI / 180;
 export const flippers = [
   { id: 'LL', side: 'L', x: 239, y: 1135, len: 86, r0: 14, r1: 9, rest: 31.6 * deg, up: -28 * deg },
   { id: 'LR', side: 'R', x: m(239), y: 1135, len: 86, r0: 14, r1: 9, rest: Math.PI - 31.6 * deg, up: Math.PI + 28 * deg },
   { id: 'UL', side: 'L', x: 185, y: 619, len: 70, r0: 12, r1: 8, rest: 27 * deg, up: -25 * deg },
-  { id: 'CL', side: 'R', x: 394, y: 464, len: 64, r0: 11, r1: 8, rest: 40 * deg, up: 4 * deg },
 ];
 
 // ---- drop targets: the 3 shields under the castle ---------------------------------------
@@ -106,7 +105,7 @@ export const pool = { x: 376, y: 726, rx: 102, ry: 72, r: 80 };
 // ---- rails: one-way wireforms/ramps following the drawn ramps. points [x, y, height]
 export const ramps = {
   tower: { // grey ramp behind the tower → spiral → left wires → left inlane
-    entry: { x: 321, y: 466, w: 46, diry: -1 }, minSpeed: 620, exit: { vx: 0, vy: 380 },
+    entry: { x: 331, y: 466, w: 78, diry: -1 }, minSpeed: 520, exit: { vx: 0, vy: 380 },
     pts: [[321, 466, 0], [330, 390, 30], [336, 300, 66], [305, 238, 92], [235, 205, 106], [160, 235, 104], [118, 310, 96], [100, 410, 88], [94, 470, 82],
       [62, 535, 76], [72, 608, 70], [140, 628, 64], [186, 568, 58], [150, 505, 52], [96, 528, 48], [104, 590, 44], [150, 582, 40], [140, 548, 37],
       [72, 640, 32], [64, 750, 26], [82, 850, 18], [108, 900, 10], [126, 940, 3]],

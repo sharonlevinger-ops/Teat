@@ -48,6 +48,10 @@ const LuminosityHighPassShader = {
 		void main() {
 
 			vec4 texel = texture2D( tDiffuse, vUv );
+			// sanitize: half-float overflow (Inf) / NaN from tiny specular highlights would be spread
+			// by the blur into flickering black blocks on mobile GPUs
+			texel = min( max( texel, vec4( 0.0 ) ), vec4( 16.0 ) );
+			if ( texel.r != texel.r || texel.g != texel.g || texel.b != texel.b ) texel = vec4( 0.0 );
 
 			float v = luminance( texel.xyz );
 
