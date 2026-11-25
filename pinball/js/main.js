@@ -15,6 +15,7 @@ import * as L from './layout.js';
 const $ = (s) => document.querySelector(s);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 const CAM_KEY = 'fcp_cam2';
+export const APP_VERSION = '2.1.0';
 
 async function boot() {
   const canvas = $('#gl');
@@ -64,7 +65,7 @@ async function boot() {
 
   // ---------------------------------------------------------------- resize
   function resize() {
-    const w = innerWidth, h = innerHeight;
+    const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(w, h, false);
     composer.setPixelRatio(pixelRatio);
@@ -189,8 +190,10 @@ async function boot() {
   let last = performance.now();
   let fpsAcc = 0, fpsN = 0, lowT = 0;
   const ballW = new THREE.Vector3();
+  let lastW = 0, lastH = 0;
   function frame(now) {
     requestAnimationFrame(frame);
+    { const cw = canvas.clientWidth || innerWidth, ch = canvas.clientHeight || innerHeight; if (cw !== lastW || ch !== lastH) { lastW = cw; lastH = ch; resize(); } }
     let dt = (now - last) / 1000; last = now;
     if (dt > 0.1) dt = 0.016;
     if (!paused) {
@@ -207,6 +210,7 @@ async function boot() {
     let fb = null;
     for (const b of physics.balls) if (b.mode !== 'held' && (!fb || b.y > fb.y)) fb = b;
     if (fb) { ballW.copy(world.ballWorld(fb)).applyMatrix4(tilt); }
+    if (world.shake) { rig.shake = Math.max(rig.shake, world.shake); world.shake = 0; }
     rig.update(dt, fb ? ballW : null);
     composer.render();
     ui.update(game);
@@ -218,7 +222,8 @@ async function boot() {
     }
   }
   requestAnimationFrame(frame);
-  window.__pinball = { game, physics, world, rig, ui, sound, start };
+  window.__pinball = { game, physics, world, rig, ui, sound, start, version: APP_VERSION };
+  const verEl = document.getElementById('appVersion'); if (verEl) verEl.textContent = 'v' + APP_VERSION;
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js', { scope: './' }).catch(() => {});
 }
 

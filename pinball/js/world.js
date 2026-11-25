@@ -335,10 +335,11 @@ export class World {
     switch (type) {
       case 'bumper': {
         const bg = this.bumperGlows[L.bumpers.indexOf(data.bumper)];
+        this.shake = Math.max(this.shake || 0, 0.35);
         if (bg) { bg.flash = 1; this.particles.emit(V(bg.b.cap[0], bg.b.cap[1], 30), bg.b.color, 26, 1.4, 0.8, 0.08, 1, 0.5); }
         break;
       }
-      case 'sling': this.slingGlows[data.side === 'L' ? 0 : 1].kick = 1; if (p) this.particles.emit(p, 0xffffff, 10, 1.2, 0.4, 0.06); break;
+      case 'sling': this.shake = Math.max(this.shake || 0, 0.25); this.slingGlows[data.side === 'L' ? 0 : 1].kick = 1; if (p) this.particles.emit(p, 0xffffff, 10, 1.2, 0.4, 0.06); break;
       case 'spark': if (p) this.particles.emit(p, data.color ?? 0xffe6a0, data.n ?? 14, data.speed ?? 1.2, 0.6, data.size ?? 0.07); break;
       case 'splash': if (p) this.particles.emit(p, 0x7fe6ff, 26, 1.0, 0.9, 0.08, 1.4); this.ripple = 1; break;
       case 'drop': this.dropMeshes[data.i].target = 1; break;
@@ -351,6 +352,7 @@ export class World {
       case 'princess': this.princessGlow = data.on ? 1 : 0; break;
       case 'treasure': this.particles.emit(V(266, 900, 30), 0xffd24a, 80, 2.2, 1.4, 0.1, 1.6); break;
       case 'crystal': this.crystalFlash = 1; break;
+      case 'lightshow': this.showT = 1.6; break;
       case 'burst': if (p) this.particles.emit(p, data.color ?? 0xffffff, data.n ?? 40, data.speed ?? 2, 1.1, 0.1, 1.5); break;
     }
   }
@@ -405,7 +407,13 @@ export class World {
     if (this.princessGlow && rnd() < dt * 10) this.particles.emit(V(540 + (rnd() - 0.5) * 80, 300 + (rnd() - 0.5) * 80, 40), 0xff9ad0, 1, 0.4, 1.2, 0.06, 1, -0.1);
 
     if (phys) phys.flippers.forEach((f, i) => { this.flipperMeshes[i].rotation.y = -f.angle; });
-    for (const l of this.lamps.values()) l.update(t, dt);
+    // light show: every lamp chases around the table for a moment
+    this.showT = Math.max(0, (this.showT || 0) - dt);
+    let li = 0;
+    for (const l of this.lamps.values()) {
+      if (this.showT > 0) { const saved = l.state; l.state = Math.sin(t * 14 - li * 0.9) > 0 ? 1 : 0; l.update(t, dt); l.state = saved; } else l.update(t, dt);
+      li++;
+    }
     if (phys) {
       this.ballMeshes.forEach((m, i) => {
         const b = phys.balls[i], sh = this.ballShadows[i];

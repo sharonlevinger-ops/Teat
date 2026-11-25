@@ -90,8 +90,8 @@ export const holes = [
   { id: 'tower', x: 228, y: 488, r: 16, kick: { vx: -40, vy: 650 }, out: [230, 494] },
   { id: 'castle', x: 527, y: 446, r: 18, kick: { vx: -320, vy: 900 }, out: [527, 488] },
   { id: 'mystery', x: 538, y: 652, r: 18, kick: { vx: -620, vy: 520 } },
-  { id: 'mystery2', x: 466, y: 1010, r: 18, kick: { vx: -260, vy: 700 } },
-  { id: 'mine', x: 266, y: 898, r: 18, kick: { vx: 380, vy: 650 }, out: [270, 908] },
+  { id: 'mystery2', x: 466, y: 1010, r: 18, kick: { vx: 0, vy: 260 }, out: [590, 946], tunnel: true },
+  { id: 'mine', x: 266, y: 898, r: 18, kick: { vx: 0, vy: 260 }, out: [126, 942], tunnel: true },
 ];
 
 export const spinner = { x: 86, y: 397, a: [47, 397], b: [150, 397] };
@@ -106,17 +106,17 @@ export const pool = { x: 376, y: 726, rx: 102, ry: 72, r: 80 };
 // ---- rails: one-way wireforms/ramps following the drawn ramps. points [x, y, height]
 export const ramps = {
   tower: { // grey ramp behind the tower → spiral → left wires → left inlane
-    entry: { x: 321, y: 466, w: 46, diry: -1 }, minSpeed: 760, exit: { vx: 0, vy: 430 },
+    entry: { x: 321, y: 466, w: 46, diry: -1 }, minSpeed: 620, exit: { vx: 0, vy: 380 },
     pts: [[321, 466, 0], [330, 390, 30], [336, 300, 66], [305, 238, 92], [235, 205, 106], [160, 235, 104], [118, 310, 96], [100, 410, 88], [94, 470, 82],
       [62, 535, 76], [72, 608, 70], [140, 628, 64], [186, 568, 58], [150, 505, 52], [96, 528, 48], [104, 590, 44], [150, 582, 40], [140, 548, 37],
       [72, 640, 32], [64, 750, 26], [82, 850, 18], [108, 900, 10], [126, 940, 3]],
   },
   crystal: { // right leg up, over the castle, down the left leg into the mushrooms
-    entry: { x: 621, y: 722, w: 62, diry: -1 }, side: { x: 592, y0: 665, y1: 800 }, // also entered from the left (upper-left flipper shot) minSpeed: 800, exit: { vx: -70, vy: 380 },
+    entry: { x: 621, y: 722, w: 62, diry: -1 }, side: { x: 592, y0: 665, y1: 800 }, minSpeed: 640, exit: { vx: -70, vy: 340 },
     pts: [[621, 722, 0], [628, 640, 30], [640, 520, 60], [660, 385, 90], [668, 262, 110], [640, 190, 122], [580, 155, 126], [500, 160, 122], [455, 205, 108], [444, 265, 76], [440, 322, 38], [438, 360, 3]],
   },
   orbit: { // left orbit: up the lane, over the top wires, down the right wires → right inlane
-    entry: { x: 97, y: 330, w: 100, diry: -1 }, minSpeed: 620, exit: { vx: 0, vy: 420 },
+    entry: { x: 97, y: 330, w: 100, diry: -1 }, minSpeed: 520, exit: { vx: 0, vy: 380 },
     pts: [[86, 330, 0], [76, 250, 22], [100, 160, 36], [180, 112, 46], [300, 92, 50], [420, 90, 50], [540, 104, 50], [630, 150, 48], [690, 240, 44], [702, 350, 40], [692, 480, 36], [682, 620, 32], [662, 760, 26], [622, 850, 16], [596, 905, 8], [590, 948, 2]],
   },
   launch: { // plunger lane → top → drops into the mushroom glade

@@ -114,7 +114,7 @@ export class Game {
         this.addScore(1000 * this.mult, obj.x, obj.y);
         this.mushroomHits++;
         if (this.mushroomHits % 12 === 0 && this.mult < 5) { this.mult++; this.ui.message(`מכפיל פטריות x${this.mult}`, 'הנבגים זוהרים!', '#ff9ef0', 1.5); this.sound.play('magic'); this.world.setMood(this.moodName()); }
-        if (this.skillWindow > 0) { this.skillWindow = 0; const v = this.addScore(50000); this.ui.message('מכת פתיחה!', '+' + fmt(v), '#fff27a', 1.8); this.sound.play('jackpot'); this.achieve('skill'); }
+        if (this.skillWindow > 0) { this.skillWindow = 0; const v = this.addScore(50000); this.ui.message('מכת פתיחה!', '+' + fmt(v), '#fff27a', 1.8); this.sound.play('jackpot'); this.world.fx('lightshow'); this.achieve('skill'); }
         break;
       }
       case 'sling':
@@ -296,8 +296,14 @@ export class Game {
     const j = 1 + (Math.random() - 0.5) * 0.12;
     b.vx = h.kick.vx * j; b.vy = h.kick.vy * j;
     if (h.out) { b.x = h.out[0]; b.y = h.out[1]; } else { b.x = h.x + Math.sign(h.kick.vx) * 4; b.y = h.y + Math.sign(h.kick.vy) * 4; }
-    this.sound.play('kick');
-    this.world.fx('spark', { x: h.x, y: h.y, h: 10, color: 0xffd080, n: 12 });
+    if (h.tunnel) {
+      // underground passage: the ball reappears on the inlane wireform and rolls to a flipper
+      this.sound.play('wire');
+      this.world.fx('burst', { x: b.x, y: b.y, h: 10, color: 0xffd080, n: 24, speed: 1.2 });
+    } else {
+      this.sound.play('kick');
+      this.world.fx('spark', { x: h.x, y: h.y, h: 10, color: 0xffd080, n: 12 });
+    }
   }
 
   awardHole(h, b) {
@@ -306,7 +312,7 @@ export class Game {
         this.world.fx('flame');
         this.addScore((this.towerRampBoost ? 20000 : 10000) * this.mult, h.x, h.y);
         this.towerRampBoost = false;
-        if (this.multiball) { const v = this.addScore(100000); this.ui.message('ג׳קפוט המכשף!', '+' + fmt(v), '#7fc8ff', 1.6); this.sound.play('jackpot'); return 1.0; }
+        if (this.multiball) { const v = this.addScore(100000); this.ui.message('ג׳קפוט המכשף!', '+' + fmt(v), '#7fc8ff', 1.6); this.sound.play('jackpot'); this.world.fx('lightshow'); return 1.0; }
         this.towerLocks++;
         this.sound.play('lock');
         if (this.towerLocks >= 3) {
@@ -326,7 +332,7 @@ export class Game {
           this.startMultiball('castle', h);
           return 2.4;
         }
-        this.addScore(75000, h.x, h.y); this.sound.play('jackpot');
+        this.addScore(75000, h.x, h.y); this.sound.play('jackpot'); this.world.fx('lightshow');
         return 1.2;
       }
       case 'mystery2':
@@ -358,7 +364,7 @@ export class Game {
           this.world.fx('treasure'); this.world.setMood('treasure');
           this.later(3, () => this.world.setMood(this.moodName()));
           this.ui.message('מטמון הגמדים!', '+' + fmt(v), '#ffd24a', 2.6);
-          this.sound.play('treasure');
+          this.sound.play('treasure'); this.world.fx('lightshow');
           this.achieve('treasure');
           return 2.6;
         }
@@ -378,7 +384,7 @@ export class Game {
 
   startMultiball(kind, hole) {
     this.multiball = kind;
-    this.sound.play('multiball');
+    this.sound.play('multiball'); this.world.fx('lightshow');
     this.sound.intensity = 1;
     this.world.setMood(kind === 'castle' ? 'castle' : 'multiball');
     if (kind === 'wizard') { this.ui.message('מולטיבול המכשף!', 'ג׳קפוט במגדל ובכל רמפה', '#7fc8ff', 2.6); this.achieve('wizard'); this.world.fx('flame'); }
@@ -427,14 +433,14 @@ export class Game {
       const v = this.addScore(25000 * this.mult, 600, 900);
       this.ui.message('הקפת היער', '+' + fmt(v), '#b7ff8a', 1.2);
       this.sound.play('magic'); this.advanceDwarf(); this.shot('orbit', 600, 900);
-      if (this.multiball === 'wizard') { const j = this.addScore(50000); this.sound.play('jackpot'); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.2); }
+      if (this.multiball === 'wizard') { const j = this.addScore(50000); this.sound.play('jackpot'); this.world.fx('lightshow'); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.2); }
       return;
     }
     if (name === 'tower') {
       const v = this.addScore(30000 * this.mult, 150, 900);
       this.towerRampBoost = true;
       this.ui.message('רמפת המגדל', '+' + fmt(v), '#cfe6ff', 1.1);
-      if (this.multiball === 'wizard') { const j = this.addScore(75000); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.4); this.sound.play('jackpot'); }
+      if (this.multiball === 'wizard') { const j = this.addScore(75000); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.4); this.sound.play('jackpot'); this.world.fx('lightshow'); }
       this.advanceDwarf(); this.shot('towerRamp', 150, 900);
     } else {
       this.world.fx('crystal');
@@ -442,19 +448,19 @@ export class Game {
         this.jackpots++;
         const v = this.addScore(250000 + 50000 * (this.jackpots - 1), 430, 280);
         this.ui.message(`ג׳קפוט ${this.jackpots}`, '+' + fmt(v), '#ffe27a', 1.8);
-        this.sound.play('jackpot');
+        this.sound.play('jackpot'); this.world.fx('lightshow');
         this.world.fx('burst', { x: 430, y: 270, color: 0xffe27a, n: 60 });
         if (this.jackpots === 3 && !this.princessSaved) {
           this.princessSaved = true;
           const p = this.addScore(1_000_000);
           this.ui.message('הנסיכה ניצלה!', '+' + fmt(p), '#ff9ad0', 3);
-          this.sound.play('treasure'); this.achieve('princess');
+          this.sound.play('treasure'); this.world.fx('lightshow'); this.achieve('princess');
           this.world.fx('burst', { x: 540, y: 300, h: 160, color: 0xff9ad0, n: 120, speed: 3 });
         }
       } else {
         const v = this.addScore(40000 * this.mult, 440, 350);
         this.ui.message('רמפת הקריסטל', '+' + fmt(v), '#7fe6ff', 1.1);
-        if (this.multiball === 'wizard') { const j = this.addScore(75000); this.sound.play('jackpot'); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.4); }
+        if (this.multiball === 'wizard') { const j = this.addScore(75000); this.sound.play('jackpot'); this.world.fx('lightshow'); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.4); }
       }
       this.advanceDwarf(); this.shot('crystal', 430, 280);
     }

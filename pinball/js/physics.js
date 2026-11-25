@@ -3,8 +3,8 @@
 import * as L from './layout.js';
 
 const R = L.BALL_R;
-export const GRAVITY = 1950; // px/s² along the table (y+)
-const MAX_SPEED = 3700;
+export const GRAVITY = 1500; // px/s² along the table (y+)
+const MAX_SPEED = 3100;
 const SUBSTEPS = 12;
 
 function seg(ax, ay, bx, by, o = {}) {
@@ -128,7 +128,7 @@ export class Physics {
       const c = f.cfg;
       const dir = c.side === 'L' ? -1 : 1; // direction of "up" rotation
       const target = f.pressed ? c.up : c.rest;
-      const speed = f.pressed ? 30 : 17;
+      const speed = f.pressed ? 26 : 15;
       const prev = f.angle;
       let next = prev + Math.sign(target - prev) * speed * h;
       if ((target - prev) * (target - next) <= 0) next = target;
@@ -218,7 +218,7 @@ export class Physics {
     } else if (d > 1e-6) { nx = dx / d; ny = dy / d; } else { nx = -g.uy; ny = g.ux; }
     const imp = this.resolve(b, nx, ny, rr - d, g.e, g.f);
     if (g.kind === 'sling' && imp > 40) {
-      b.vx += g.knx * 1050; b.vy += g.kny * 1050;
+      b.vx += g.knx * 880; b.vy += g.kny * 880;
       this.handlers.onHit?.('sling', b, g.tag, imp);
     } else if (imp > 25 && g.kind !== 'wall' && g.kind !== 'plunger' && g.kind !== 'oneway') {
       this.handlers.onHit?.(g.kind, b, g.tag, imp);
@@ -239,7 +239,7 @@ export class Physics {
       if (ky < -0.55) { kx += (Math.abs(nx) > 0.05 ? Math.sign(nx) : Math.random() < 0.5 ? -1 : 1) * 0.9; const l = Math.hypot(kx, ky); kx /= l; ky /= l; }
       { const a = (Math.random() - 0.5) * 0.35, c = Math.cos(a), s2 = Math.sin(a); const rx = kx * c - ky * s2; ky = kx * s2 + ky * c; kx = rx; }
       const vn = b.vx * kx + b.vy * ky;
-      const want = 980;
+      const want = 860;
       if (vn < want) { b.vx += kx * (want - vn); b.vy += ky * (want - vn); }
       this.handlers.onHit?.('bumper', b, c.tag, Math.max(imp, 200));
     } else if (imp > (c.kind === 'shield' ? 25 : 80)) this.handlers.onHit?.(c.kind, b, c.tag || c, imp);
