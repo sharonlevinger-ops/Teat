@@ -70,7 +70,6 @@ export class Physics {
       }
     }
     for (const p of L.posts) this.circles.push({ x: p.x, y: p.y, r: p.r, e: 0.7, kind: 'post', enabled: true });
-    this.circles.push({ x: L.TOWER.x, y: L.TOWER.y, r: L.TOWER.r, e: 0.3, kind: 'tower', enabled: true });
     for (const b of L.bumpers) this.circles.push({ x: b.x, y: b.y, r: b.r, e: 0.5, kind: 'bumper', tag: b, enabled: true });
     for (const s of L.slings) {
       const g = seg(s.a[0], s.a[1], s.b[0], s.b[1], { kind: 'sling', tag: s, e: 0.6, t: 4 });
@@ -85,16 +84,13 @@ export class Physics {
       const g = seg(d.a[0], d.a[1], d.b[0], d.b[1], { kind: 'drop', tag: d, e: 0.35, t: 5 });
       d.seg = g; this.segs.push(g);
     }
-    for (const s of L.shieldTargets) {
-      const g = seg(s.a[0], s.a[1], s.b[0], s.b[1], { kind: 'shield', tag: s, e: 0.45, t: 4 });
-      s.seg = g; this.segs.push(g);
-    }
+    for (const t of L.shieldTargets) this.circles.push({ x: t.x, y: t.y, r: t.r, e: 0.5, kind: 'shield', tag: t, enabled: true });
     {
       const c = L.castleGate;
       const g = seg(c.a[0], c.a[1], c.b[0], c.b[1], { kind: 'gate', tag: c, e: 0.35, t: 6 });
       c.seg = g; this.segs.push(g);
     }
-    for (const gt of L.gates) {
+    for (const gt of L.gates || []) {
       const g = seg(gt.a[0], gt.a[1], gt.b[0], gt.b[1], { kind: 'oneway', e: 0.3, t: 2 });
       let nx = -g.uy, ny = g.ux;
       if (nx * gt.nx + ny * gt.ny < 0) { nx = -nx; ny = -ny; }
@@ -102,7 +98,7 @@ export class Physics {
       this.segs.push(g);
     }
     // plunger tip (moves)
-    this.plungerSeg = seg(L.FIELD.laneX, this.plunger.y, L.FIELD.right, this.plunger.y, { kind: 'plunger', e: 0.2, t: 2 });
+    this.plungerSeg = seg(L.FIELD.laneIn, this.plunger.y, L.FIELD.laneOut, this.plunger.y, { kind: 'plunger', e: 0.2, t: 2 });
     this.segs.push(this.plungerSeg);
 
     for (const f of L.flippers) {
@@ -141,7 +137,7 @@ export class Physics {
       f.dir = dir;
     }
     // plunger
-    const py = L.PLUNGER.y + R + this.plunger.pull * 46;
+    const py = L.PLUNGER.y + R + this.plunger.pull * 12;
     this.plungerSeg.ay = this.plungerSeg.by = py;
 
     for (const b of this.balls) {
@@ -157,7 +153,8 @@ export class Physics {
 
       for (const g of this.segs) if (g.enabled) this.collideSeg(b, g);
       for (const c of this.circles) if (c.enabled) this.collideCircle(b, c);
-      for (const f of this.flippers) this.collideFlipper(b, f);
+      if (!b.outlane && L.inOutlane(b)) b.outlane = true;
+      if (!b.outlane) for (const f of this.flippers) this.collideFlipper(b, f);
 
       // hard bounds (safety net against tunnelling)
       if (b.x < L.FIELD.left + R) { b.x = L.FIELD.left + R; if (b.vx < 0) b.vx = -b.vx * 0.4; }
@@ -237,11 +234,15 @@ export class Physics {
     const imp = this.resolve(b, nx, ny, rr - d, c.e, 0.02);
     if (c.kind === 'bumper') {
       // active pop bumper: guaranteed strong outward kick
-      const vn = b.vx * nx + b.vy * ny;
-      const want = 1250;
-      if (vn < want) { b.vx += nx * (want - vn); b.vy += ny * (want - vn); }
+      // kicks that would go straight up are steered sideways so the ball leaves the glade
+      let kx = nx, ky = ny;
+      if (ky < -0.55) { kx += (Math.abs(nx) > 0.05 ? Math.sign(nx) : Math.random() < 0.5 ? -1 : 1) * 0.9; const l = Math.hypot(kx, ky); kx /= l; ky /= l; }
+      { const a = (Math.random() - 0.5) * 0.35, c = Math.cos(a), s2 = Math.sin(a); const rx = kx * c - ky * s2; ky = kx * s2 + ky * c; kx = rx; }
+      const vn = b.vx * kx + b.vy * ky;
+      const want = 980;
+      if (vn < want) { b.vx += kx * (want - vn); b.vy += ky * (want - vn); }
       this.handlers.onHit?.('bumper', b, c.tag, Math.max(imp, 200));
-    } else if (imp > 80) this.handlers.onHit?.(c.kind, b, c, imp);
+    } else if (imp > (c.kind === 'shield' ? 25 : 80)) this.handlers.onHit?.(c.kind, b, c.tag || c, imp);
   }
 
   flipperGeom(f) {
@@ -273,7 +274,7 @@ export class Physics {
     b.rail = this.rails[name];
     b.railName = name;
     b.s = 0;
-    b.rv = L.ramps[name].ret ? Math.min(Math.max(speed * 0.5, 500), 1200) : Math.min(Math.max(speed, 900), 2600);
+    b.rv = Math.min(Math.max(speed, 700), 2600);
   }
 
   stepRail(b, dt) {

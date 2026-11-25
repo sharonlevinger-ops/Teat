@@ -23,10 +23,9 @@ test('soak: no escapes, features reachable', () => {
     p.handlers.onSubstep = (b, px, py) => {
       for (const [name, r] of Object.entries(L.ramps)) {
         const e = r.entry;
-        if (r.ret) { if (py <= e.y && b.y > e.y && Math.abs(b.x - e.x) < e.w / 2 && b.vy > 0) p.enterRail(b, name, 600); continue; }
         if (py >= e.y && b.y < e.y && Math.abs(b.x - e.x) < e.w / 2 && b.vy < 0) {
           const sp = Math.hypot(b.vx, b.vy);
-          if (sp >= r.minSpeed) p.enterRail(b, name, sp); else { b.y = e.y + 1; b.vy = Math.abs(b.vy) * 0.35; }
+          if (sp >= r.minSpeed) p.enterRail(b, name, sp); else if (name !== 'orbit') { b.y = e.y + 1; b.vy = Math.abs(b.vy) * 0.35; }
         }
       }
       for (const h of L.holes) {
@@ -47,23 +46,23 @@ test('soak: no escapes, features reachable', () => {
       // bot: flip when a ball is near a flipper
       for (const f of p.flippers) {
         const c = f.cfg;
-        const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 55 + rnd() * 20 && o.vy > -200);
-        p.setFlipper(f.side, near || (f.pressed && rnd() < 0.9));
+        const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 55 + rnd() * 20 && o.vy > 40);
+        p.setFlipper(f.side, near || (f.pressed && rnd() < 0.8));
       }
       p.step(dt); t += dt; stats.sec += dt;
       for (const o of p.balls) {
         if (o.mode !== 'field') continue;
-        if (o.x < L.FIELD.left - 2 || o.x > L.FIELD.right + 2 || o.y < L.FIELD.top - 2) stats.escapes++;
-        if (inPoly(o.x, o.y, L.CASTLE_POLY) || inPoly(o.x, o.y, L.MINE_POLY) || inPoly(o.x, o.y, L.BASTION_POLY) || Math.hypot(o.x - L.TOWER.x, o.y - L.TOWER.y) < L.TOWER.r) stats.inside++;
+        if (o.x < L.FIELD.left - 2 || o.x > L.FIELD.laneOut + 2 || o.y < L.FIELD.top - 2) stats.escapes++;
+        if (inPoly(o.x, o.y, L.MINE_POLY) || inPoly(o.x, o.y, L.TOWER_POLY)) stats.inside++;
       }
       const sp = Math.hypot(b.vx, b.vy);
-      if (b.mode === 'field' && sp < 12 && !(b.x > L.FIELD.laneX && b.y > 1150)) { still += dt; stats.maxStill = Math.max(stats.maxStill, still); if (still > 2.2) { b.vy = -600; still = 0; stats.hits.unstuck = (stats.hits.unstuck || 0) + 1; } } else still = 0;
-      if (b.mode === 'field' && b.y > L.DRAIN_Y && b.x < L.FIELD.laneX) {
+      if (b.mode === 'field' && sp < 12 && !(b.x > L.FIELD.laneIn && b.y > 1150)) { still += dt; stats.maxStill = Math.max(stats.maxStill, still); if (still > 2.2) { const k = "st_" + Math.round(b.x / 10) * 10 + "," + Math.round(b.y / 10) * 10; stats.hits[k] = (stats.hits[k] || 0) + 1; b.vy = -600; still = 0; stats.hits.unstuck = (stats.hits.unstuck || 0) + 1; } } else still = 0;
+      if (b.mode === 'field' && b.y > L.DRAIN_Y && b.x < L.FIELD.laneIn) {
         stats.drains++; const bin = b.x < 100 ? "outL" : b.x < 300 ? "midL" : b.x < 424 ? "center" : b.x < 624 ? "midR" : "outR"; stats.hits["dr_" + bin] = (stats.hits["dr_" + bin] || 0) + 1;
         p.removeBall(b);
         b = p.addBall(L.PLUNGER.x, L.PLUNGER.y); b.vy = -(950 + rnd() * 2550);
       }
-      if (b.mode === 'field' && b.x > L.FIELD.laneX && b.y > 1150 && Math.abs(b.vy) < 30) b.vy = -(950 + rnd() * 2550);
+      if (b.mode === 'field' && b.x > L.FIELD.laneIn && b.y > 1150 && Math.abs(b.vy) < 30) b.vy = -(950 + rnd() * 2550);
     }
   }
   console.log(JSON.stringify(stats, null, 1));

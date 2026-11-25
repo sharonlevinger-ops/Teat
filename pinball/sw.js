@@ -1,5 +1,5 @@
 // Forest & Castle Pinball – offline cache (stale-while-revalidate, scoped to /pinball/).
-const VERSION = 'fcp-v1';
+const VERSION = 'fcp-v2';
 const SHELL = [
   './', './index.html', './manifest.json', './css/style.css',
   './js/main.js', './js/world.js', './js/physics.js', './js/layout.js', './js/textures.js', './js/game.js', './js/audio.js', './js/ui.js', './js/camera.js',
@@ -8,7 +8,7 @@ const SHELL = [
   './vendor/three/addons/postprocessing/OutputPass.js', './vendor/three/addons/postprocessing/ShaderPass.js', './vendor/three/addons/postprocessing/MaskPass.js', './vendor/three/addons/postprocessing/Pass.js',
   './vendor/three/addons/shaders/CopyShader.js', './vendor/three/addons/shaders/LuminosityHighPassShader.js', './vendor/three/addons/shaders/OutputShader.js',
   './vendor/three/addons/utils/BufferGeometryUtils.js',
-  './assets/concept.jpg', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
+  './assets/concept.jpg', './assets/playfield.jpg', './assets/target0.png', './assets/target1.png', './assets/target2.png', './assets/icon-180.png', './assets/icon-192.png', './assets/icon-512.png',
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));

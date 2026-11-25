@@ -190,26 +190,24 @@ export class Game {
   onSubstep(b, px, py) {
     if (this.state !== 'playing' && this.state !== 'attract') return;
     const speed = Math.hypot(b.vx, b.vy);
-    // ramps
+    // ramps (all one-way, entered going up the table)
     for (const [name, r] of Object.entries(L.ramps)) {
       const e = r.entry;
-      if (r.ret) {
-        if (py <= e.y && b.y > e.y && Math.abs(b.x - e.x) < e.w / 2 && b.vy > 0) { this.phys.enterRail(b, name, speed); this.sound.play('wire'); return; }
-        continue;
-      }
-      if (py >= e.y && b.y < e.y && Math.abs(b.x - e.x) < e.w / 2 && b.vy < 0) {
-        if (-b.vy >= r.minSpeed * 0.8 && speed >= r.minSpeed) {
+      const sd = r.side;
+      const sideIn = sd && px < sd.x && b.x >= sd.x && b.y > sd.y0 && b.y < sd.y1 && b.vx > 0;
+      if (sideIn || (py >= e.y && b.y < e.y && Math.abs(b.x - e.x) < e.w / 2 && b.vy < 0)) {
+        if (speed >= r.minSpeed) {
           this.phys.enterRail(b, name, speed);
-          this.sound.play('ramp');
+          this.sound.play(r.noScore ? 'wire' : name === 'orbit' ? 'wire' : 'ramp');
           if (name === 'crystal') this.world.fx('crystal');
           return;
         }
-        b.y = e.y + 1; b.vy = Math.abs(b.vy) * 0.35; this.sound.play('rampFail');
+        if (sideIn) { b.vx = -Math.abs(b.vx) * 0.35; this.sound.play('rampFail'); } else if (name !== 'orbit') { b.y = e.y + 1; b.vy = Math.abs(b.vy) * 0.35; this.sound.play('rampFail'); }
       }
     }
     // saucers
     for (const h of L.holes) {
-      if (h.id === 'castle' && !this.gateOpen) continue;
+      if (h.id === "castle" && !this.gateOpen) continue;
       const d = Math.hypot(b.x - h.x, b.y - h.y);
       if (d < h.r * 0.95 && speed < 1700 && !(b.noCap > this.time)) { this.capture(b, h); return; }
     }
@@ -229,15 +227,6 @@ export class Game {
       this.world.fx('spin', { speed: Math.abs(b.vy) });
       for (let i = 0; i < Math.min(spins, 8); i++) setTimeout(() => this.sound.play('spinner'), i * 45);
       if (this.state === 'playing') this.addScore(150 * spins * this.mult);
-      if (b.vy < 0) b.orbitT = this.time;
-    }
-    if (b.orbitT && this.time - b.orbitT < 3 && b.x > 600 && b.y < 300) {
-      b.orbitT = 0;
-      if (this.state === 'playing') {
-        const v = this.addScore(25000 * this.mult, 600, 260);
-        this.ui.message('הקפת היער', '+' + fmt(v), '#b7ff8a', 1.2);
-        this.sound.play('magic'); this.advanceDwarf(); this.shot('orbit', 600, 260);
-      }
     }
     // launched?
     if (!b.launched && b.y < 1100) { b.launched = true; this.onLaunched(b); }
@@ -306,7 +295,7 @@ export class Game {
     b.noCap = this.time + 0.6;
     const j = 1 + (Math.random() - 0.5) * 0.12;
     b.vx = h.kick.vx * j; b.vy = h.kick.vy * j;
-    b.x = h.x + Math.sign(h.kick.vx) * 4; b.y = h.y + Math.sign(h.kick.vy) * 4;
+    if (h.out) { b.x = h.out[0]; b.y = h.out[1]; } else { b.x = h.x + Math.sign(h.kick.vx) * 4; b.y = h.y + Math.sign(h.kick.vy) * 4; }
     this.sound.play('kick');
     this.world.fx('spark', { x: h.x, y: h.y, h: 10, color: 0xffd080, n: 12 });
   }
@@ -340,6 +329,7 @@ export class Game {
         this.addScore(75000, h.x, h.y); this.sound.play('jackpot');
         return 1.2;
       }
+      case 'mystery2':
       case 'mystery': {
         if (!this.mysteryLit) { this.addScore(5000, h.x, h.y); return 0.8; }
         this.mysteryLit = false;
@@ -399,7 +389,9 @@ export class Game {
       this.later(0.9 + i * 0.8, () => {
         this.pendingBalls--;
         if (this.state !== 'playing') return;
-        const nb = this.phys.addBall(hole.x + (Math.random() - 0.5) * 4, hole.y + 6, hole.kick.vx * (0.8 + Math.random() * 0.4), hole.kick.vy);
+        const o = hole.out || [hole.x, hole.y + 6];
+        const nb = this.phys.addBall(o[0] + (Math.random() - 0.5) * 4, o[1], hole.kick.vx * (0.8 + Math.random() * 0.4), hole.kick.vy);
+        nb.noCap = this.time + 0.8;
         nb.launched = true;
         this.sound.play('kick');
         this.world.fx('burst', { x: hole.x, y: hole.y, color: kind === 'castle' ? 0xffcf6a : 0x7fc8ff });
@@ -429,8 +421,15 @@ export class Game {
   }
 
   onRailExit(b, name) {
-    if (this.state !== 'playing' || L.ramps[name].ret) return;
+    if (this.state !== 'playing' || L.ramps[name].noScore) return;
     this.ramps++;
+    if (name === 'orbit') {
+      const v = this.addScore(25000 * this.mult, 600, 900);
+      this.ui.message('הקפת היער', '+' + fmt(v), '#b7ff8a', 1.2);
+      this.sound.play('magic'); this.advanceDwarf(); this.shot('orbit', 600, 900);
+      if (this.multiball === 'wizard') { const j = this.addScore(50000); this.sound.play('jackpot'); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.2); }
+      return;
+    }
     if (name === 'tower') {
       const v = this.addScore(30000 * this.mult, 150, 900);
       this.towerRampBoost = true;
@@ -453,7 +452,7 @@ export class Game {
           this.world.fx('burst', { x: 540, y: 300, h: 160, color: 0xff9ad0, n: 120, speed: 3 });
         }
       } else {
-        const v = this.addScore(40000 * this.mult, 430, 280);
+        const v = this.addScore(40000 * this.mult, 440, 350);
         this.ui.message('רמפת הקריסטל', '+' + fmt(v), '#7fe6ff', 1.1);
         if (this.multiball === 'wizard') { const j = this.addScore(75000); this.sound.play('jackpot'); this.ui.message('ג׳קפוט!', '+' + fmt(j), '#7fc8ff', 1.4); }
       }
@@ -463,13 +462,13 @@ export class Game {
 
   // ------------------------------------------------------------------ plunger
   plungerLaunch(power) {
-    const b = this.phys.balls.find((x) => x.mode === 'field' && x.x > L.FIELD.laneX && x.y > 1150);
+    const b = this.phys.balls.find((x) => x.mode === 'field' && x.x > L.FIELD.laneIn && x.y > 1150);
     this.sound.play('plunger');
     if (!b) return;
     b.vy = -(950 + power * 2550) * (0.98 + Math.random() * 0.04);
     b.vx = 0;
   }
-  ballInLane() { return this.phys.balls.some((x) => x.mode === 'field' && x.x > L.FIELD.laneX && x.y > 1150 && Math.abs(x.vy) < 60); }
+  ballInLane() { return this.phys.balls.some((x) => x.mode === 'field' && x.x > L.FIELD.laneIn && x.y > 1150 && Math.abs(x.vy) < 60); }
 
   // ------------------------------------------------------------------ per frame
   update(dt) {
@@ -491,10 +490,10 @@ export class Game {
 
     // drains & stuck balls
     for (const b of [...this.phys.balls]) {
-      if (b.mode === 'field' && b.y > L.DRAIN_Y && b.x < L.FIELD.laneX) this.drain(b);
+      if (b.mode === 'field' && b.y > L.DRAIN_Y && b.x < L.FIELD.laneIn) this.drain(b);
       else if (b.mode === 'field') {
         const sp = Math.hypot(b.vx, b.vy);
-        const inLane = b.x > L.FIELD.laneX && b.y > 1150;
+        const inLane = b.x > L.FIELD.laneIn && b.y > 1150;
         if (sp < 12 && !inLane) { b.still += dt; if (b.still > 2.2) { b.vx = (Math.random() - 0.5) * 600; b.vy = -500 - Math.random() * 300; b.still = 0; } } else b.still = 0;
       }
     }
@@ -567,14 +566,13 @@ export class Game {
     set('castle_inside', this.gateOpen ? 2 : this.castleMode ? 1 : 0);
     set('hole_castle', this.gateOpen ? 3 : 0);
     set('arrow_castle', this.gateOpen ? 3 : 2);
-    set('arrow_crystal', this.castleMode ? 3 : this.multiball ? 2 : 1);
+    set('arrow_crystal', this.castleMode ? 3 : this.multiball ? 2 : 1); set('arrow_orbit', this.multiball === 'wizard' ? 3 : 2);
     set('crystal_glow', this.castleMode ? 2 : 0);
-    set('arrow_orbit', 2);
     set('arrow_bumpers', this.skillWindow > 0 ? 3 : this.mult > 1 ? 1 : 0);
     for (let i = 0; i < 7; i++) set('dwarf_' + i, this.dwarfs === 7 ? 3 : i < this.dwarfs ? 1 : 0);
     set('hole_mine', this.dwarfs === 7 ? 3 : 0); set('mine_inside', this.dwarfs === 7 ? 2 : 0);
     set('arrow_mine', this.dwarfs === 7 ? 3 : 0);
-    set('hole_mystery', this.mysteryLit ? 3 : 0); set('arrow_mystery', this.mysteryLit ? 2 : 0);
+    set('hole_mystery', this.mysteryLit ? 3 : 0); set('hole_mystery2', this.mysteryLit ? 3 : 0); set('arrow_mystery', this.mysteryLit ? 2 : 0);
     'MAGE'.split('').forEach((c, i) => set('mage_' + c, this.mage[i] ? 1 : 0));
     set('kick_L', this.kick.L ? 1 : 0); set('kick_R', this.kick.R ? 1 : 0);
     ['2', '3', '4', '5'].forEach((n) => set('bx_' + n, this.bonusX >= +n ? 1 : 0));

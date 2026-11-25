@@ -4,10 +4,10 @@ import { V, TILT } from './world.js';
 import * as L from './layout.js';
 
 export const MODES = [
-  { id: 'cabinet', name: 'מכונה אמיתית', elev: 40, fov: 52, target: [366, 600], margin: { top: 0.80, bottom: -0.96, side: 0.985 } },
-  { id: 'top', name: 'מבט עילי', elev: 88, fov: 38, target: [380, 670], margin: { top: 0.84, bottom: -0.97, side: 0.985 } },
-  { id: 'balanced', name: 'מאוזן', elev: 58, fov: 46, target: [370, 640], margin: { top: 0.82, bottom: -0.96, side: 0.985 } },
-  { id: 'follow', name: 'דינמי עוקב', elev: 46, fov: 50, target: [366, 700], margin: { top: 0.8, bottom: -0.96, side: 0.985 }, zoom: 0.66 },
+  { id: 'top', name: 'מבט עילי', elev: 86, fov: 34, target: [384, 688], margin: { top: 0.86, bottom: -0.99, side: 1.0 } },
+  { id: 'cabinet', name: 'מכונה אמיתית', elev: 48, fov: 50, target: [384, 640], margin: { top: 0.82, bottom: -0.97, side: 1.0 } },
+  { id: 'balanced', name: 'מאוזן', elev: 64, fov: 44, target: [384, 660], margin: { top: 0.84, bottom: -0.97, side: 1.0 } },
+  { id: 'follow', name: 'דינמי עוקב', elev: 54, fov: 48, target: [384, 700], margin: { top: 0.82, bottom: -0.97, side: 1.0 }, zoom: 0.62 },
 ];
 
 export class CameraRig {
@@ -21,9 +21,7 @@ export class CameraRig {
     this.shake = 0;
     this.tiltM = new THREE.Matrix4().makeRotationX(TILT);
     this.corners = [
-      [L.FIELD.left - 10, L.FIELD.top - 10, 0], [L.FIELD.right + 10, L.FIELD.top - 10, 0],
-      [L.FIELD.left - 30, 1345, 30], [L.FIELD.right + 30, 1345, 30], [L.FIELD.left, 60, 50], [L.FIELD.right, 60, 50],
-      [L.TOWER.x, L.TOWER.y, 430], [540, 200, 330],
+      [0, 0, 0], [L.IMG.w, 0, 0], [0, L.IMG.h, 0], [L.IMG.w, L.IMG.h, 0], [0, 0, 60], [L.IMG.w, 0, 60],
     ].map(([x, y, h]) => V(x, y, h).applyMatrix4(this.tiltM));
     this.setAspect(aspect);
     this.snap();

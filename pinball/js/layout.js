@@ -1,198 +1,147 @@
-// Table layout, in "table pixels" (x → right, y → down toward the player).
-// Matches the concept art: tower top-left, castle top-right, 3 mushroom bumpers top-center,
-// crystal ramp on the right, magic pool in the middle, dwarf mine bottom-left,
-// prince's shield bottom-right, M-A-G-E lanes and 4 flippers.
+// Table layout in the pixel coordinates of the concept art (768 × 1376, x → right, y → down).
+// The playfield texture IS the concept art, so every collider below sits on the drawn element.
 
-export const BALL_R = 13;
-export const FIELD = { left: 40, right: 734, top: 40, bottom: 1300, laneX: 692 };
-export const CX = 362; // flipper centre line
-const m = (x) => 2 * CX - x; // mirror helper
+export const IMG = { w: 768, h: 1376 };
+export const BALL_R = 14;
+export const CX = 360; // mirror line of the lower playfield
+const m = (x) => 2 * CX - x;
+export const FIELD = { left: 45, right: 731, top: 30, bottom: 1376, laneIn: 697, laneOut: 731 };
 
-export const ARC = { cx: 387, cy: 387, r: 347 };
-
-function arcPoints(a0, a1, n) {
-  const pts = [];
-  for (let i = 0; i <= n; i++) {
-    const a = a0 + (a1 - a0) * (i / n);
-    pts.push([ARC.cx + Math.cos(a) * ARC.r, ARC.cy + Math.sin(a) * ARC.r]);
-  }
-  return pts;
-}
-
-// --- static walls (polylines). kind: 'wall' (wood/metal rail), 'rubber' (bouncier)
 export const walls = [];
-function poly(points, opts = {}) { walls.push({ points, closed: !!opts.closed, kind: opts.kind || 'wall', vis: opts.vis !== false, h: opts.h || 26 }); }
+function poly(points, opts = {}) { walls.push({ points, closed: !!opts.closed, kind: opts.kind || 'wall' }); }
 
-// outer shell: left wall, top arc, right (plunger lane outer) wall
-poly([[FIELD.left, 1300], [FIELD.left, ARC.cy], ...arcPoints(Math.PI, Math.PI * 2, 64).slice(1, -1), [FIELD.right, ARC.cy], [FIELD.right, 1300]]);
-// plunger lane inner wall
-poly([[FIELD.laneX, 1300], [FIELD.laneX, 365]]);
+// ---- outer shell -----------------------------------------------------------------------
+poly([[45, 1080], [45, 290], [152, 290]]);               // left wall + cap above the left orbit lane
+poly([[FIELD.laneIn, 1240], [FIELD.laneIn, 255]]);      // plunger lane inner rail
+poly([[FIELD.laneOut, 1240], [FIELD.laneOut, 200]]);    // plunger lane outer rail
+poly([[FIELD.laneIn, 1240], [FIELD.laneOut, 1240]]);    // lane bottom (under the plunger tip)
+// right side: rocks / wireforms beside the crystal ramp, then the right outlane wall
+poly([[655, 605], [655, 850], [680, 892], [680, 1077]]);
+// drain funnel under the flippers (the wooden rails of the art)
+poly([[45, 1080], [362, 1252]]);
+poly([[680, 1077], [362, 1252]]);
 
-// --- castle footprint (solid)
-export const CASTLE_POLY = [[440, 215], [482, 150], [560, 132], [606, 166], [634, 212], [634, 425], [566, 466], [452, 466], [440, 440]];
-poly(CASTLE_POLY, { closed: true, vis: false });
+// ---- wizard tower (solid footprint) ----------------------------------------------------
+export const TOWER_POLY = [[150, 296], [285, 300], [292, 432], [262, 468], [205, 468], [150, 380]];
+poly(TOWER_POLY, { closed: true, kind: 'rock' });
+// tower ramp mouth side walls
+poly([[297, 474], [297, 400]]);
+poly([[346, 474], [346, 400]]);
+// top rail closing the mushroom glade
+poly([[290, 300], [286, 205], [322, 166], [382, 150], [442, 150], [474, 172]]);
 
-// --- dwarf mine (solid rock mound)
-export const MINE_POLY = [[150, 800], [205, 778], [262, 792], [282, 850], [274, 925], [226, 952], [172, 936], [148, 880]];
-poly(MINE_POLY, { closed: true, vis: false, kind: 'rock' });
+// ---- castle (open at the gate, gate pocket behind it) -----------------------------------
+export const CASTLE_POLY = [[505, 458], [476, 452], [458, 430], [460, 400], [466, 330], [482, 176], [560, 135], [645, 175], [655, 470], [655, 605], [638, 605], [584, 478], [548, 458]];
+poly(CASTLE_POLY, { kind: 'rock' });
+poly([[505, 458], [505, 428], [548, 428], [548, 458]]); // gate pocket
 
-// --- prince's shield bastion (solid)
-export const BASTION_POLY = [[458, 846], [520, 816], [562, 852], [560, 926], [506, 954], [460, 920]];
-poly(BASTION_POLY, { closed: true, vis: false, kind: 'rock' });
+// ---- dwarf mine (rock mound with the timber doorway notch) ------------------------------
+export const MINE_POLY = [[180, 810], [245, 775], [322, 792], [336, 850], [322, 905], [300, 905], [300, 880], [232, 880], [228, 905], [195, 900], [178, 860]];
+poly(MINE_POLY, { closed: true, kind: 'rock' });
 
-// drop-target backing (behind the three shields under the castle)
-poly([[566, 466], [624, 553], [634, 560], [634, 425]], { closed: true, vis: false });
-
-
-// tower-ramp mouth side walls
-poly([[294, 474], [294, 404]], { h: 20 });
-poly([[343, 474], [343, 404]], { h: 20 });
-
-// --- lower playfield: inlanes / outlanes / slings (left, then mirrored)
-export const SLING_L = [[130, 950], [130, 1030], [200, 1072]];
+// ---- prince's shield: the three drawn shields are round stand-up targets (sword art is flat) --
+// ---- slings, inlanes, outlanes ----------------------------------------------------------
+export const SLING_L = [[162, 896], [150, 1000], [222, 1040]];
 export const SLING_R = SLING_L.map(([x, y]) => [m(x), y]);
-const leftLower = {
-  guide: [[88, 930], [88, 1050]],
-  inlaneFloor: [[88, 1050], [218, 1121]],
-  slingBody: SLING_L,
-};
-poly(leftLower.guide, { h: 22 });
-poly(leftLower.inlaneFloor);
-poly(leftLower.slingBody);
-poly(leftLower.guide.map(([x, y]) => [m(x), y]), { h: 22 });
-poly(leftLower.inlaneFloor.map(([x, y]) => [m(x), y]));
-poly(leftLower.slingBody.map(([x, y]) => [m(x), y]));
+poly([SLING_L[0], SLING_L[1], SLING_L[2]]);
+poly([SLING_R[0], SLING_R[1], SLING_R[2]]);
+poly([[100, 875], [100, 1040], [228, 1111]]);               // left inlane guide + MA strip
+poly([[618, 945], [618, 1040], [492, 1111]]);               // right inlane guide + GE strip
 
-// --- round posts (rubber posts)
 export const posts = [
-  { x: 88, y: 930, r: 6 }, { x: m(88), y: 930, r: 6 },
-  { x: 130, y: 950, r: 7 }, { x: m(130), y: 950, r: 7 },
-  { x: 628, y: 572, r: 8 },
-  { x: 294, y: 474, r: 5 }, { x: 343, y: 474, r: 5 },
+  { x: 100, y: 875, r: 6 }, { x: 618, y: 945, r: 6 },
+  { x: 162, y: 896, r: 7 }, { x: 212, y: 1032, r: 6 }, { x: m(162), y: 896, r: 7 }, { x: m(212), y: 1032, r: 6 },
+  { x: 297, y: 474, r: 5 }, { x: 346, y: 474, r: 5 }, { x: 655, y: 605, r: 6 },
 ];
-
-// --- slingshots (kicking faces)
 export const slings = [
   { a: SLING_L[0], b: SLING_L[2], side: 'L' },
   { a: SLING_R[2], b: SLING_R[0], side: 'R' },
 ];
 
-// --- tower (solid round base)
-export const TOWER = { x: 205, y: 345, r: 80 };
-
-// --- mushroom pop bumpers
+// ---- mushroom pop bumpers (cap centres in the art) --------------------------------------
 export const bumpers = [
-  { x: 322, y: 232, r: 30, color: 0xb04cff, name: 'purple' },
-  { x: 398, y: 160, r: 30, color: 0xff7a1a, name: 'orange' },
-  { x: 384, y: 300, r: 30, color: 0x1affc6, name: 'teal' },
+  { x: 346, y: 272, r: 24, color: 0xb04cff, cap: [336, 250] },
+  { x: 406, y: 248, r: 24, color: 0xff7a1a, cap: [418, 224] },
+  { x: 388, y: 326, r: 24, color: 0x1affc6, cap: [386, 302] },
 ];
 
-// --- flippers. angles in radians, y-down coordinate system
+// ---- flippers: lower pair, upper-left, castle flipper (the right-middle one was removed) --
 const deg = Math.PI / 180;
 export const flippers = [
-  { id: 'LL', side: 'L', x: 228, y: 1145, len: 112, r0: 15, r1: 8, rest: 32 * deg, up: -28 * deg },
-  { id: 'LR', side: 'R', x: m(228), y: 1145, len: 112, r0: 15, r1: 8, rest: Math.PI - 32 * deg, up: Math.PI + 28 * deg },
-  { id: 'UL', side: 'L', x: 150, y: 604, len: 78, r0: 12, r1: 7, rest: 30 * deg, up: -24 * deg },
-  { id: 'UR', side: 'R', x: 676, y: 806, len: 74, r0: 12, r1: 7, rest: Math.PI - 30 * deg, up: Math.PI + 26 * deg },
+  { id: 'LL', side: 'L', x: 239, y: 1135, len: 86, r0: 14, r1: 9, rest: 31.6 * deg, up: -28 * deg },
+  { id: 'LR', side: 'R', x: m(239), y: 1135, len: 86, r0: 14, r1: 9, rest: Math.PI - 31.6 * deg, up: Math.PI + 28 * deg },
+  { id: 'UL', side: 'L', x: 185, y: 619, len: 70, r0: 12, r1: 8, rest: 27 * deg, up: -25 * deg },
+  { id: 'CL', side: 'R', x: 394, y: 464, len: 64, r0: 11, r1: 8, rest: 40 * deg, up: 4 * deg },
 ];
 
-// --- drop targets (3 shields under the castle)
-export const dropTargets = [0, 1, 2].map((i) => {
-  const t0 = [548, 478], t1 = [612, 568];
-  const f = (i + 0.5) / 3;
-  const cx = t0[0] + (t1[0] - t0[0]) * f, cy = t0[1] + (t1[1] - t0[1]) * f;
-  const dx = t1[0] - t0[0], dy = t1[1] - t0[1], L = Math.hypot(dx, dy);
-  const ux = dx / L, uy = dy / L, half = 15;
+// ---- drop targets: the 3 shields under the castle ---------------------------------------
+export const dropTargets = [[579, 501], [599, 538], [616, 576]].map(([cx, cy], i) => {
+  const ux = 0.434, uy = 0.901, half = 17;
   return { i, cx, cy, a: [cx - ux * half, cy - uy * half], b: [cx + ux * half, cy + uy * half], nx: -uy, ny: ux };
 });
+export const TARGET_SPRITE = { x0: 552, y0: 470, x1: 640, y1: 604 };
 
-// --- prince's shield stand-up targets (on bastion faces)
-function onSeg(a, b, f) { return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; }
-export const shieldTargets = [
-  { a: onSeg(BASTION_POLY[5], BASTION_POLY[0], 0.15), b: onSeg(BASTION_POLY[5], BASTION_POLY[0], 0.55) },
-  { a: onSeg(BASTION_POLY[0], BASTION_POLY[1], 0.1), b: onSeg(BASTION_POLY[0], BASTION_POLY[1], 0.5) },
-  { a: onSeg(BASTION_POLY[0], BASTION_POLY[1], 0.55), b: onSeg(BASTION_POLY[0], BASTION_POLY[1], 0.95) },
-].map((t, i) => {
-  const dx = t.b[0] - t.a[0], dy = t.b[1] - t.a[1], L = Math.hypot(dx, dy);
-  return { ...t, i, cx: (t.a[0] + t.b[0]) / 2, cy: (t.a[1] + t.b[1]) / 2, nx: dy / L, ny: -dx / L };
-});
+// ---- prince shields (stand-ups) on the drawn shields of the lower-right structure ----------
+export const shieldTargets = [[480, 947, 16], [538, 967, 16], [432, 878, 15]].map(([x, y, r], i) => ({ i, x, y, r, cx: x, cy: y, lamp: i === 2 ? [495, 902] : [x, y] }));
 
-// --- castle gate (stand-up until open, then a scoop)
-export const castleGate = { a: [478, 466], b: [532, 466], x: 505, y: 482 };
+export const castleGate = { a: [505, 461], b: [548, 461], x: 527, y: 450 };
 
-// --- saucers / holes
 export const holes = [
-  { id: 'tower', x: 246, y: 438, r: 17, kick: { vx: 420, vy: 900 } },
-  { id: 'castle', x: 505, y: 484, r: 18, kick: { vx: -250, vy: 950 } },
-  { id: 'mystery', x: 524, y: 632, r: 16, kick: { vx: -650, vy: 500 } },
-  { id: 'mine', x: 298, y: 882, r: 16, kick: { vx: 420, vy: -620 } },
+  { id: 'tower', x: 228, y: 488, r: 16, kick: { vx: -40, vy: 650 }, out: [230, 494] },
+  { id: 'castle', x: 527, y: 446, r: 18, kick: { vx: -320, vy: 900 }, out: [527, 488] },
+  { id: 'mystery', x: 538, y: 652, r: 18, kick: { vx: -620, vy: 520 } },
+  { id: 'mystery2', x: 466, y: 1010, r: 18, kick: { vx: -260, vy: 700 } },
+  { id: 'mine', x: 266, y: 898, r: 18, kick: { vx: 380, vy: 650 }, out: [270, 908] },
 ];
 
-// --- spinner (left orbit)
-export const spinner = { x: 84, y: 400, half: 40, a: [44, 400], b: [124, 400] };
+export const spinner = { x: 86, y: 397, a: [47, 397], b: [150, 397] };
 
-// --- sensors (rollovers)
 export const rollovers = [
-  { id: 'M', x: 64, y: 1000, r: 14 },
-  { id: 'A', x: 109, y: 1000, r: 14 },
-  { id: 'G', x: m(109), y: 1000, r: 14 },
-  { id: 'E', x: m(64), y: 1000, r: 14 },
+  { id: 'M', x: 72, y: 998, r: 15 }, { id: 'A', x: 127, y: 972, r: 15 },
+  { id: 'G', x: 590, y: 985, r: 15 }, { id: 'E', x: 650, y: 1012, r: 15 },
 ];
-export const kickbacks = [
-  { side: 'L', x: 64, y: 1080 },
-  { side: 'R', x: m(64), y: 1080 },
-];
-export const pool = { x: 382, y: 712, r: 96 };
+export const kickbacks = [{ side: 'L', x: 72, y: 1050 }, { side: 'R', x: 650, y: 1052 }];
+export const pool = { x: 376, y: 726, rx: 102, ry: 72, r: 80 };
 
-// --- one-way gates: a ball crossing from the "back" side passes, from the front it bounces.
-// normal (nx,ny) points to the blocking side.
-export const gates = [
-  // plunger lane exit: lets the launched ball out, deflects orbiting balls into the right channel
-  { a: [721, 289], b: [676, 366], nx: -0.86, ny: -0.5 },
-];
-
-// --- ramps (3D wire / crystal paths). points: [x, y, height]
+// ---- rails: one-way wireforms/ramps following the drawn ramps. points [x, y, height]
 export const ramps = {
-  tower: {
-    entry: { x: 318, y: 452, w: 44, dirx: 0, diry: -1 },
-    minSpeed: 760,
-    exit: { vx: 120, vy: 520 },
-    pts: [
-      [318, 452, 0], [318, 380, 30], [312, 290, 70], [292, 205, 100], [240, 160, 118], [170, 168, 122],
-      [118, 212, 118], [92, 300, 108], [118, 420, 96],
-      // spiral (corkscrew) near the left side
-      [150, 520, 88], [130, 590, 80], [80, 560, 74], [92, 500, 70], [146, 520, 64], [140, 600, 56],
-      [100, 700, 46], [94, 820, 34], [104, 900, 20], [109, 960, 4],
-    ],
+  tower: { // grey ramp behind the tower → spiral → left wires → left inlane
+    entry: { x: 321, y: 466, w: 46, diry: -1 }, minSpeed: 760, exit: { vx: 0, vy: 430 },
+    pts: [[321, 466, 0], [330, 390, 30], [336, 300, 66], [305, 238, 92], [235, 205, 106], [160, 235, 104], [118, 310, 96], [100, 410, 88], [94, 470, 82],
+      [62, 535, 76], [72, 608, 70], [140, 628, 64], [186, 568, 58], [150, 505, 52], [96, 528, 48], [104, 590, 44], [150, 582, 40], [140, 548, 37],
+      [72, 640, 32], [64, 750, 26], [82, 850, 18], [108, 900, 10], [126, 940, 3]],
   },
-  crystal: {
-    entry: { x: 660, y: 600, w: 64, dirx: 0, diry: -1 },
-    minSpeed: 820,
-    exit: { vx: -60, vy: 380 },
-    pts: [
-      [660, 600, 0], [662, 530, 26], [664, 420, 70], [662, 280, 104], [640, 175, 124], [580, 112, 134],
-      [510, 98, 136], [460, 120, 128], [440, 170, 108], [432, 220, 70], [428, 252, 30], [424, 262, 2],
-    ],
+  crystal: { // right leg up, over the castle, down the left leg into the mushrooms
+    entry: { x: 621, y: 722, w: 62, diry: -1 }, side: { x: 592, y0: 665, y1: 800 }, // also entered from the left (upper-left flipper shot) minSpeed: 800, exit: { vx: -70, vy: 380 },
+    pts: [[621, 722, 0], [628, 640, 30], [640, 520, 60], [660, 385, 90], [668, 262, 110], [640, 190, 122], [580, 155, 126], [500, 160, 122], [455, 205, 108], [444, 265, 76], [440, 322, 38], [438, 360, 3]],
+  },
+  orbit: { // left orbit: up the lane, over the top wires, down the right wires → right inlane
+    entry: { x: 97, y: 330, w: 100, diry: -1 }, minSpeed: 620, exit: { vx: 0, vy: 420 },
+    pts: [[86, 330, 0], [76, 250, 22], [100, 160, 36], [180, 112, 46], [300, 92, 50], [420, 90, 50], [540, 104, 50], [630, 150, 48], [690, 240, 44], [702, 350, 40], [692, 480, 36], [682, 620, 32], [662, 760, 26], [622, 850, 16], [596, 905, 8], [590, 948, 2]],
+  },
+  launch: { // plunger lane → top → drops into the mushroom glade
+    entry: { x: 714, y: 255, w: 34, diry: -1 }, minSpeed: 0, noScore: true, exit: { vx: -120, vy: 260 },
+    pts: [[714, 255, 0], [713, 150, 24], [684, 82, 38], [600, 58, 44], [490, 62, 44], [410, 96, 34], [372, 150, 14], [364, 192, 2]],
   },
 };
 
-// orbit return wireforms (one-way, downward): feed the inlanes like a real machine
-ramps.leftReturn = {
-  entry: { x: 84, y: 448, w: 84, dirx: 0, diry: 1 }, minSpeed: 0, ret: true,
-  exit: { vx: 30, vy: 420 },
-  pts: [[84, 448, 2], [70, 520, 24], [58, 640, 34], [56, 780, 34], [60, 880, 26], [86, 940, 12], [108, 968, 2]],
-};
-ramps.rightReturn = {
-  entry: { x: 678, y: 700, w: 28, dirx: 0, diry: 1 }, minSpeed: 0, ret: true,
-  exit: { vx: -30, vy: 420 },
-  pts: [[678, 700, 2], [680, 760, 22], [680, 870, 30], [664, 930, 16], [636, 962, 6], [616, 976, 2]],
-};
+export const PLUNGER = { x: 714, y: 1212 };
+export const DRAIN_Y = 1226;
 
-// visual-only habitrails (orbit guide wires)
-export const decoRails = [
-  // left orbit wire over the outside edge
-  { pts: [[58, 880, 18], [56, 600, 18], [58, 420, 18]], r: 2.4 },
-];
+// outlanes: once a ball is below the inlane guides on the outside it rolls under the flippers to the drain
+export function inOutlane(b) {
+  return (b.x < 100 && b.y > 1045) || (b.x > 618 && b.x < FIELD.laneIn && b.y > 1048);
+}
 
-export const PLUNGER = { x: 713, y: 1228 };
-export const DRAIN_Y = 1224;
+// ---- lamp overlays on the drawn lights (image px) ---------------------------------------
+export const LAMPS = {
+  dwarf: [[102, 676], [124, 676], [146, 676], [168, 676], [189, 676], [210, 676], [231, 676]],
+  lowerRow: [[253, 1008], [276, 1008], [300, 1008], [322, 1008], [346, 1008]],
+  arrows: { towerHole: [265, 530], towerRamp: [290, 592], orbit: [251, 645], castle: [493, 550], crystal: [469, 594] },
+  kick: { L: [80, 915], R: [635, 920] },
+  mage: { M: [155, 1078], A: [200, 1100], G: [518, 1107], E: [558, 1080] },
+  towerLocks: [[287, 432], [305, 395], [352, 418]],
+  towerRune: [210, 258],
+  flame: [182, 92],
+  castleGate: [[466, 492], [527, 422], [548, 492]],
+};

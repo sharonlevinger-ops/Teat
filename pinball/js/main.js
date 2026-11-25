@@ -14,7 +14,7 @@ import * as L from './layout.js';
 
 const $ = (s) => document.querySelector(s);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-const CAM_KEY = 'fcp_cam';
+const CAM_KEY = 'fcp_cam2';
 
 async function boot() {
   const canvas = $('#gl');
@@ -23,7 +23,7 @@ async function boot() {
   renderer.setPixelRatio(pixelRatio);
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMapping = THREE.NoToneMapping; // keep the concept art's exact colours
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -32,8 +32,6 @@ async function boot() {
   await nextFrame();
   const physics = new Physics();
   const world = new World(renderer);
-  world.buildRampMeshes(physics.rails);
-  world.finalize();
   $('#loadTxt').textContent = 'מדליקים את הלהבה הכחולה…';
   await nextFrame();
 
@@ -47,7 +45,7 @@ async function boot() {
   const composer = new EffectComposer(renderer, rt);
   composer.setPixelRatio(pixelRatio);
   composer.addPass(new RenderPass(world.scene, rig.cam));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.55, 0.5, 0.86);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.35, 0.45, 0.9);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
 

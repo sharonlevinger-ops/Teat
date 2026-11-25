@@ -23,14 +23,14 @@ function runGame(seedBot, forceModes) {
   while (g.state === 'playing' && t < 1200) {
     for (const f of p.flippers) {
       const c = f.cfg;
-      const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 60 && o.vy > -200);
+      const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 60 && o.vy > 40);
       p.setFlipper(f.side, near);
     }
     if (g.ballInLane()) g.plungerLaunch(0.5 + Math.random() * 0.5);
     if (forceModes && !forced && t > 5) {
       forced = true;
       g.openGate();
-      const b = p.balls[0]; if (b) { b.mode = 'field'; b.x = 505; b.y = 486; b.vx = 0; b.vy = -10; }
+      const b = p.balls[0]; if (b) { b.mode = 'field'; b.x = 527; b.y = 480; b.vx = 0; b.vy = -400; }
     }
     p.step(dt); g.update(dt); t += dt;
   }
@@ -56,7 +56,7 @@ test('tower locks start wizard multiball and it ends at one ball', () => {
   g.startGame();
   const hole = L.holes.find((h) => h.id === 'tower');
   for (let i = 0; i < 3; i++) {
-    const b = p.balls[0]; b.mode = 'field'; b.noCap = 0; b.x = hole.x; b.y = hole.y - 30; b.vx = 0; b.vy = 300;
+    const b = p.balls[0]; b.mode = 'field'; b.noCap = 0; b.x = hole.x; b.y = hole.y + 40; b.vx = 0; b.vy = -500;
     for (let k = 0; k < 300; k++) { p.step(1 / 60); g.update(1 / 60); }
   }
   assert.equal(g.multiball, 'wizard');
