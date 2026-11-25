@@ -239,7 +239,7 @@ export class World {
       new THREE.ConeGeometry(0.26, 0.9, 10).translate(0, 3.4, 0),
     ].map((g) => g.toNonIndexed()));
     const cols = []; const pc = pineGeo.attributes.position.count;
-    for (let i = 0; i < pc; i++) { const y = pineGeo.attributes.position.getY(i); const trunk = y < 0.85; cols.push(...(trunk ? [0.29, 0.2, 0.13] : [0.1 + y * 0.02, 0.24 + y * 0.03, 0.12])); }
+    for (let i = 0; i < pc; i++) { const y = pineGeo.attributes.position.getY(i); const trunk = y < 0.85; { const v = 0.75 + Math.random() * 0.5; cols.push(...(trunk ? [0.22, 0.15, 0.1] : [0.05 * v + y * 0.01, (0.15 + y * 0.025) * v, 0.08 * v])); } }
     pineGeo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
     const pineMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
     const N = 150; const pines = new THREE.InstancedMesh(pineGeo, pineMat, N);
@@ -255,23 +255,19 @@ export class World {
     }
     pines.castShadow = true;
     scene.add(pines);
-    // broadleaf trees
-    const canopy = new THREE.IcosahedronGeometry(1, 1);
-    const pa = canopy.attributes.position;
-    for (let i = 0; i < pa.count; i++) { p.fromBufferAttribute(pa, i); p.multiplyScalar(0.85 + T.fbm(p.x * 2 + 5, p.y * 2 + p.z, 3) * 0.5); pa.setXYZ(i, p.x, p.y, p.z); }
-    canopy.computeVertexNormals();
-    const bl = new THREE.InstancedMesh(mergeGeometries([canopy.translate(0, 2.4, 0).toNonIndexed(), new THREE.CylinderGeometry(0.1, 0.16, 1.8, 6).translate(0, 0.9, 0).toNonIndexed()]), new THREE.MeshStandardMaterial({ color: 0x2d5a22, roughness: 0.9, flatShading: true }), 60);
-    k = 0;
-    while (k < 60) {
-      const a = rnd() * Math.PI * 2, r = 10 + rnd() * 28;
-      const x = Math.cos(a) * r, z = Math.sin(a) * r - 9;
-      if (z > -3 && Math.abs(x) < 12) continue;
-      const s = 1 + rnd() * 1.6;
-      p.set(x, -1.1, z); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6); sc.set(s, s, s);
-      bl.setMatrixAt(k++, m4.compose(p, q, sc));
+    // painted mountain / forest backdrop standing behind the table (visible from the cabinet view)
+    const bd = back.clone(); bd.needsUpdate = true;
+    bd.wrapS = THREE.ClampToEdgeWrapping; bd.repeat.set(0.5, 0.62); bd.offset.set(0.2, 0.2);
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(56, 20), new THREE.MeshBasicMaterial({ map: bd, fog: false }));
+    wall.position.set(0, 7.5, -30); scene.add(wall);
+    // second ring of dense dark pines in the mid-distance for depth
+    const far = new THREE.InstancedMesh(pineGeo, pineMat, 120);
+    for (let i = 0; i < 120; i++) {
+      const x = -28 + (i / 119) * 56 + (rnd() - 0.5) * 2, z = -17 - rnd() * 10, s2 = 2.2 + rnd() * 1.8;
+      p.set(x, -1.1, z); q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rnd() * 6); sc.set(s2, s2 * (1 + rnd() * 0.4), s2);
+      far.setMatrixAt(i, m4.compose(p, q, sc));
     }
-    bl.castShadow = true;
-    scene.add(bl);
+    scene.add(far);
   }
 
   buildLights() {

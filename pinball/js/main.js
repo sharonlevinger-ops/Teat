@@ -93,11 +93,13 @@ async function boot() {
     }
   }
   let pulling = false, pullStartT = 0;
-  function plungerDown() { if (!game.ballInLane() || paused) return; pulling = true; pullStartT = performance.now(); sound.play('pull'); }
+  let dragY0 = null, dragPull = null; // drag-down on the plunger = manual power
+  function plungerDown(y) { if (!game.ballInLane() || paused) return; pulling = true; pullStartT = performance.now(); dragY0 = y ?? null; dragPull = null; sound.play('pull'); }
   function plungerUp() {
     if (!pulling) return; pulling = false;
-    const quick = performance.now() - pullStartT < 180;
+    const quick = dragPull === null && performance.now() - pullStartT < 180;
     game.plungerLaunch(quick ? 0.62 : physics.plunger.pull);
+    dragY0 = dragPull = null;
     releaseT = 0.12;
   }
   let releaseT = 0;
@@ -144,7 +146,13 @@ async function boot() {
   });
 
   const pl = $('#plunger');
-  pl.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.unlock(); plungerDown(); }, { passive: false });
+  pl.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.unlock(); plungerDown(e.changedTouches[0].clientY); }, { passive: false });
+  pl.addEventListener('touchmove', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    if (!pulling || dragY0 === null) return;
+    const d = e.changedTouches[0].clientY - dragY0;
+    if (dragPull !== null || Math.abs(d) > 8) dragPull = Math.max(0, Math.min(1, d / 110));
+  }, { passive: false });
   pl.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); plungerUp(); }, { passive: false });
   pl.addEventListener('mousedown', (e) => { e.stopPropagation(); plungerDown(); });
   pl.addEventListener('mouseup', (e) => { e.stopPropagation(); plungerUp(); });
@@ -188,7 +196,7 @@ async function boot() {
     let dt = (now - last) / 1000; last = now;
     if (dt > 0.1) dt = 0.016;
     if (!paused) {
-      if (pulling) physics.plunger.pull = Math.min(1, (performance.now() - pullStartT) / 1000);
+      if (pulling) physics.plunger.pull = dragPull !== null ? dragPull : Math.min(1, (performance.now() - pullStartT) / 1000);
       else if (releaseT > 0) { releaseT -= dt; physics.plunger.pull = Math.max(0, physics.plunger.pull - dt * 14); }
       else physics.plunger.pull = Math.max(0, physics.plunger.pull - dt * 6);
       physics.step(dt);
