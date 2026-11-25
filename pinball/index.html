@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="פינבול">
+  <meta name="theme-color" content="#0b130e">
+  <title>פינבול היער והטירה</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Suez+One&family=Cinzel:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+
+  <div id="ui">
+    <header id="hud">
+      <div class="side right">
+        <div id="balls" class="balls"></div>
+        <div id="mult" class="mult">x1</div>
+      </div>
+      <div class="center">
+        <div id="score" class="score">0</div>
+        <div id="combo" class="combo"></div>
+      </div>
+      <div class="side left btns">
+        <button id="btnCam" class="ib" aria-label="החלפת מצלמה">🎥</button>
+        <button id="btnMute" class="ib" aria-label="השתקה">🔊</button>
+        <button id="btnPause" class="ib" aria-label="השהיה">⏸</button>
+      </div>
+    </header>
+    <div id="msg"></div>
+    <div id="toast"></div>
+    <div id="camName"></div>
+    <div id="pops"></div>
+    <button id="plunger" aria-label="קפיץ שיגור"><span class="meter"><span id="plungerFill"></span></span><span class="lbl">החזיקו<br>ושחררו</span></button>
+    <div id="hint"><div><b>◀</b><span>הקשה בצד שמאל<br>שני הפליפרים השמאליים</span></div><div><b>▶</b><span>הקשה בצד ימין<br>שני הפליפרים הימניים</span></div></div>
+  </div>
+
+  <section id="title" class="screen">
+    <div class="bg"></div>
+    <div class="card">
+      <h1><span>פינבול</span>היער והטירה</h1>
+      <p class="tag">מגדל המכשף · הטירה והנסיכה · מכרה הגמדים</p>
+      <div class="best">
+        <div class="lbl">🏆 השיא של שרון</div>
+        <div id="bestScore" class="num">0</div>
+        <div class="row"><span>קומבו שיא <b id="bestCombo">—</b></span><span>משחקים <b id="bestGames">0</b></span></div>
+      </div>
+      <ul id="achList" class="ach"></ul>
+      <button id="btnStart" class="big">התחלת משחק</button>
+      <p class="help">צד שמאל של המסך = פליפרים שמאליים · צד ימין = ימניים · החזיקו את הקפיץ למטה מימין לשיגור · 🎥 מחליף זווית מצלמה<br>למסך מלא באייפון: שיתוף ← הוספה למסך הבית</p>
+    </div>
+  </section>
+
+  <section id="over" class="screen">
+    <div class="card">
+      <h2>המשחק נגמר</h2>
+      <div id="overScore" class="num big">0</div>
+      <div id="overRecord" class="rec"></div>
+      <div id="overStats" class="stats"></div>
+      <ul id="overAch" class="ach"></ul>
+      <button id="btnAgain" class="big">משחק נוסף</button>
+      <button id="btnMenu" class="ghost">לתפריט</button>
+    </div>
+    <div id="confetti"></div>
+  </section>
+
+  <section id="pause" class="screen">
+    <div class="card small">
+      <h2>הפסקה</h2>
+      <button id="btnResume" class="big">המשך</button>
+      <button id="btnQuit" class="ghost">סיום המשחק</button>
+    </div>
+  </section>
+
+  <div id="loading"><div class="spin"></div><div id="loadTxt">בונים את היער…</div></div>
+  <noscript>המשחק דורש JavaScript.</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

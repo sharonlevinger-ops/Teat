@@ -5,8 +5,8 @@
   "type": "module",
   "description": "יומן 2.0 – PWA אישי לאייפון (ללא שלב בנייה)",
   "scripts": {
-    "test": "node --test tests/*.mjs",
-    "check": "for f in js/*.js sw.js; do node --check $f || exit 1; done",
+    "test": "node --test tests/*.mjs pinball/tests/*.test.mjs",
+    "check": "for f in js/*.js sw.js pinball/js/*.js pinball/sw.js; do node --check $f || exit 1; done",
     "serve": "npx --yes serve -l 5173 ."
   }
 }
