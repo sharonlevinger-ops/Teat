@@ -204,6 +204,14 @@ export class World {
     const body = new THREE.Mesh(new THREE.BoxGeometry(L.IMG.w * S, 0.9, L.IMG.h * S), this.mats.darkWood);
     body.position.copy(V(L.IMG.w / 2, L.IMG.h / 2, -46)); body.castShadow = true;
     this.add(body);
+    // the moved mushrooms (cut from the art, drawn at their new places)
+    for (const ms of L.MUSH_SPRITES) {
+      const tx = loader.load(ms.file); tx.colorSpace = THREE.SRGBColorSpace;
+      const [x0, y0, x1, y1] = ms.box;
+      const m = new THREE.Mesh(flat(x1 - x0, y1 - y0), new THREE.MeshBasicMaterial({ map: tx, transparent: true, toneMapped: false, depthWrite: false }));
+      m.position.copy(V((x0 + x1) / 2 + ms.offset[0], (y0 + y1) / 2 + ms.offset[1], LIFT * 0.8)); m.renderOrder = 2;
+      this.add(m);
+    }
     // drop-target sprites (original pixels) over the inpainted art
     this.dropMeshes = L.dropTargets.map((d, i) => {
       const tx = loader.load(`assets/target${i}.png`); tx.colorSpace = THREE.SRGBColorSpace;
@@ -214,8 +222,8 @@ export class World {
     });
   }
 
-  glow(x, y, size, color, renderOrder = 3) {
-    const m = new THREE.Mesh(flat(size, size), additive({ map: this.dot, color, opacity: 0 }));
+  glow(x, y, size, color, renderOrder = 3, map = this.dot) {
+    const m = new THREE.Mesh(flat(size, size), additive({ map, color, opacity: 0 }));
     m.position.copy(V(x, y, LIFT * 2)); m.renderOrder = renderOrder;
     return this.add(m);
   }
@@ -224,8 +232,8 @@ export class World {
     m.position.copy(V(x, y, LIFT)); m.renderOrder = 2;
     return this.add(m);
   }
-  lamp(name, x, y, color, size = 34, { dim = true, onI = 1, offDim = 0.55, dimSize } = {}) {
-    const l = new Lamp(this.glow(x, y, size, color), dim ? this.dimDisc(x, y, dimSize || size * 0.7) : null, { onI, offDim });
+  lamp(name, x, y, color, size = 34, { dim = true, onI = 1, offDim = 0.55, dimSize, map } = {}) {
+    const l = new Lamp(this.glow(x, y, size, color, 3, map || this.dot), dim ? this.dimDisc(x, y, dimSize || size * 0.7) : null, { onI, offDim });
     this.lamps.set(name, l);
     return l;
   }
@@ -244,12 +252,13 @@ export class World {
     A.towerLocks.forEach(([x, y], i) => this.lamp('tower_lock_' + i, x, y, 0x9a7bff, 46, { dim: false }));
     this.lamp('tower_rune', A.towerRune[0], A.towerRune[1], 0x5ab8ff, 70, { dim: false });
     A.castleGate.forEach(([x, y], i) => this.lamp('castle_gate_' + i, x, y, 0xffc34a, 40, { dim: false }));
-    for (const h of L.holes) this.lamp('hole_' + h.id, h.x, h.y, { tower: 0x55b8ff, castle: 0xffcf6a, mystery: 0xc36bff, mystery2: 0xc36bff, mine: 0xffa030 }[h.id], h.r * 4.2, { dim: false });
-    L.shieldTargets.forEach((s, i) => this.lamp('shield_' + i, s.lamp[0], s.lamp[1], 0xff6a40, 64, { dim: false, onI: 0.8 }));
+    const ring = T.ringTexture();
+    for (const h of L.holes) this.lamp('hole_' + h.id, h.x, h.y, { tower: 0x55b8ff, castle: 0xffcf6a, mystery: 0xc36bff, mystery2: 0xc36bff, mine: 0xffa030 }[h.id], h.r * 3.3, { dim: false, map: ring, onI: 0.9 });
+    L.shieldTargets.forEach((s, i) => this.lamp('shield_' + i, s.lamp[0], s.lamp[1], 0xff6a40, 34, { dim: false, onI: 0.55 }));
     this.lamp('crystal_glow', 640, 420, 0x40b0ff, 180, { dim: false, onI: 0.5 });
 
     // bumper flashes, sling flashes, flame and water effects
-    this.bumperGlows = L.bumpers.map((b) => ({ m: this.glow(b.cap[0], b.cap[1], 120, b.color), b, flash: 0 }));
+    this.bumperGlows = L.bumpers.map((b) => ({ m: this.glow(b.cap[0], b.cap[1], 100, b.color), b, flash: 0 }));
     this.slingGlows = L.slings.map((s) => ({ m: this.glow((s.a[0] + s.b[0]) / 2, (s.a[1] + s.b[1]) / 2, 120, s.side === 'L' ? 0x7fd0ff : 0xffb080), kick: 0 }));
     this.flameGlow = this.glow(A.flame[0], A.flame[1], 150, 0x3d8bff);
     this.flameMat = new THREE.ShaderMaterial({

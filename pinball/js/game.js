@@ -67,7 +67,7 @@ export class Game {
     this.ballSaveArmed = true;
     this.skillWindow = 0;
     this.mult = 1; this.mushroomHits = 0;
-    this.kick.L = true;
+    this.kick.L = this.kick.R = true; // one outlane save per ball (left or right)
     return b;
   }
 
@@ -78,7 +78,7 @@ export class Game {
   addScore(n, x, y) {
     const v = Math.round(n * (this.multiball ? 2 : 1));
     this.score += v;
-    if (x !== undefined) this.ui.popup('+' + fmt(v), x, y);
+    if (x !== undefined) this.ui.popup(v, x, y);
     if (this.score >= 1_000_000) this.achieve('million');
     return v;
   }
@@ -219,7 +219,10 @@ export class Game {
     };
     for (const r of L.rollovers) sens('ro' + r.id, r.x, r.y, r.r, () => this.rollover(r, b));
     sens('pool', L.pool.x, L.pool.y, L.pool.r, () => this.poolHit(b));
-    for (const k of L.kickbacks) sens('kb' + k.side, k.x, k.y, 18, () => this.kickback(k, b));
+    for (const k of L.kickbacks) {
+      const inLane = k.side === 'L' ? b.x < 100 : b.x > 618 && b.x < L.FIELD.laneIn;
+      if (inLane && py < k.y && b.y >= k.y && b.vy > 0) this.kickback(k, b);
+    }
     // spinner + orbit
     const sp = L.spinner;
     if ((py - sp.y) * (b.y - sp.y) < 0 && b.x > sp.a[0] && b.x < sp.b[0]) {
@@ -272,11 +275,13 @@ export class Game {
   kickback(k, b) {
     if (this.state !== 'playing' || b.vy <= 0) return;
     if (this.kick[k.side]) {
-      this.kick[k.side] = false;
-      b.vy = -2350 - Math.random() * 150; b.vx = (k.side === 'L' ? 1 : -1) * 40;
+      this.kick.L = this.kick.R = false; // the save is used up until the next ball (or M-A-G-E)
+      b.outlane = false;                 // flippers must see this ball again
+      b.y = k.y - 2;
+      b.vy = (k.side === 'L' ? -1900 : -1700) - Math.random() * 100; b.vx = (k.side === 'L' ? 1 : -1) * 30;
       this.sound.play('kickback');
       this.world.fx('burst', { x: k.x, y: k.y, color: 0x6dff8a, n: 30 });
-      this.ui.message('קיקבק!', 'הכדור ניצל', '#6dff8a', 1);
+      this.ui.message('הכדור ניצל!', 'בפעם הבאה בצד – הכדור אבד', '#6dff8a', 1.6);
     }
   }
 

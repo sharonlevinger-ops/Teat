@@ -42,6 +42,15 @@ export function softDot() {
   return tex(c);
 }
 
+// thin glowing ring (for hole lights: lights the rim without covering the art)
+export function ringTexture() {
+  const s = 128; const [c, g] = canvas(s, s);
+  const gr = g.createRadialGradient(64, 64, 30, 64, 64, 62);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.62, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, s, s);
+  return tex(c);
+}
+
 // chevron arrow (points to the top of the texture) with a soft glow
 export function chevronTexture() {
   const s = 128; const [c, g] = canvas(s, s);

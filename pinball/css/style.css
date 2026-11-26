@@ -43,7 +43,9 @@ button { font-family: inherit; touch-action: manipulation; }
 #camName.show { animation: fadeio 1.6s ease forwards; }
 @keyframes fadeio { 0%, 100% { opacity: 0; } 15%, 75% { opacity: 1; } }
 #pops { position: absolute; inset: 0; overflow: hidden; }
-.pop { position: absolute; left: 0; top: 0; font-family: var(--num); font-weight: 900; font-size: 15px; color: #fff3c4; text-shadow: 0 0 8px #ffb02a, 0 1px 2px #000; direction: ltr; will-change: transform; }
+.pop.bump { animation: popbump 0.18s ease-out; }
+@keyframes popbump { 50% { font-size: 17px; } }
+.pop { position: absolute; left: 0; top: 0; font-family: var(--num); font-weight: 900; font-size: 14px; color: #fff3c4; text-shadow: 0 0 8px #ffb02a, 0 1px 2px #000; direction: ltr; will-change: transform; }
 
 #plunger { position: absolute; right: 10px; bottom: calc(var(--sb) + 18px); width: 74px; height: 120px; border-radius: 20px; border: 1px solid rgba(243, 197, 94, 0.6);
   background: linear-gradient(180deg, rgba(60, 20, 18, 0.75), rgba(20, 8, 6, 0.85)); color: #fff; pointer-events: none; opacity: 0; transform: translateY(20px); transition: opacity 0.25s, transform 0.25s;

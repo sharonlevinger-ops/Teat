@@ -34,12 +34,21 @@ export class UI {
     this.toastEl.classList.remove('show'); void this.toastEl.offsetWidth; this.toastEl.classList.add('show');
   }
 
-  popup(text, x, y) {
+  popup(value, x, y) {
     if (!this.project) return;
-    const el = document.createElement('div'); el.className = 'pop'; el.textContent = text;
+    const now = performance.now();
+    const sp = this.project(x, y, 40);
+    // merge with a recent popup close by, so rapid hits show one growing number
+    const near = this.popups.find((p) => now - p.t0 < 700 && Math.hypot(p.sx - sp.x, p.sy - sp.y) < 80);
+    if (near) {
+      near.value += value; near.el.textContent = '+' + fmt(near.value); near.t0 = now;
+      near.el.classList.remove('bump'); void near.el.offsetWidth; near.el.classList.add('bump');
+      return;
+    }
+    const el = document.createElement('div'); el.className = 'pop'; el.textContent = '+' + fmt(value);
     this.popLayer.appendChild(el);
-    this.popups.push({ el, x, y, t0: performance.now() });
-    if (this.popups.length > 10) { const p = this.popups.shift(); p.el.remove(); }
+    this.popups.push({ el, x, y, sx: sp.x, sy: sp.y, value, t0: now });
+    while (this.popups.length > 4) { const p = this.popups.shift(); p.el.remove(); }
   }
 
   bonus(v, x) { this.message('בונוס סוף כדור', `${fmt(v)}${x > 1 ? ` (x${x})` : ''}`, '#ffd27a', 2.4); }
@@ -71,11 +80,16 @@ export class UI {
     const ct = game.combo >= 2 && game.time - game.lastShotT < 5 ? `קומבו x${game.combo}` : '';
     if (this.comboEl.textContent !== ct) this.comboEl.textContent = ct;
     // popups follow their world position
+    const msgBox = this.msgEl.classList.contains('show') ? this.msgEl.getBoundingClientRect() : null;
     this.popups = this.popups.filter((p) => {
       const age = (now - p.t0) / 1000;
       if (age > 1.1) { p.el.remove(); return false; }
       const s = this.project(p.x, p.y, 40);
-      p.el.style.transform = `translate(${s.x}px, ${s.y - age * 60}px) translate(-50%,-50%) scale(${1 + Math.min(age * 4, 0.3)})`;
+      p.sx = s.x; p.sy = s.y;
+      let py = s.y - age * 60;
+      // never draw a score number on top of the message banner
+      if (msgBox && py > msgBox.top - 12 && py < msgBox.bottom + 12 && s.x > msgBox.left - 40 && s.x < msgBox.right + 40) py = msgBox.bottom + 22;
+      p.el.style.transform = `translate(${s.x}px, ${py}px) translate(-50%,-50%) scale(${1 + Math.min(age * 4, 0.3)})`;
       p.el.style.opacity = String(1 - Math.max(0, age - 0.6) * 2);
       return true;
     });

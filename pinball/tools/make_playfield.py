@@ -79,6 +79,17 @@ cv2.circle(shapes, (712, 1210), 17, 255, -1)    # drawn ball in the plunger lane
 SHIELDS = [(579, 501), (599, 538), (616, 576)]     # drop targets: drawn separately as sprites
 for (sx, sy) in SHIELDS:
     cv2.ellipse(shapes, (sx, sy), (21, 23), 0, 0, 360, 255, -1)
+# mushrooms that get moved apart in the game: cut out as sprites, their old spot is filled
+# (name, cap centre, cap radii, stem bottom y, stem half width)
+MUSHROOMS = [('purple', (336, 247), (39, 28), 300, 15), ('teal', (395, 300), (38, 25), 348, 21)]
+def mushroom_mask(cx, cy, rx, ry, stem_y, sw, grow=0):
+    mm = np.zeros((H, W), np.uint8)
+    cv2.ellipse(mm, (cx, cy), (rx + grow, ry + grow), 0, 0, 360, 255, -1)
+    cv2.rectangle(mm, (cx - sw - grow, cy), (cx + sw + grow, stem_y + grow), 255, -1)
+    cv2.ellipse(mm, (cx, stem_y), (sw + 8 + grow, 7 + grow), 0, 0, 360, 255, -1)
+    return mm
+for (_, (cx, cy), (rx, ry), sy, sw) in MUSHROOMS:
+    shapes = np.maximum(shapes, mushroom_mask(cx, cy, rx, ry, sy, sw, grow=4))
 mask = np.maximum(mask, shapes)
 
 # patches cloned from matching neighbouring texture (better than inpainting for big areas)
@@ -125,6 +136,7 @@ region_fill((243, 1276, 478, 1334), (200, 1262, 520, 1360), FSR)  # bottom capti
 region_fill((312, 170, 450, 202), (300, 168, 470, 240), FSR)      # mushrooms caption
 region_fill((556, 718, 612, 834), (520, 700, 640, 860), FSR)      # removed right-middle flipper
 region_fill((128, 346, 262, 400), (124, 312, 290, 402), cv2.xphoto.INPAINT_SHIFTMAP)  # tower caption: only tower wood around it
+region_fill((290, 214, 440, 360), (270, 196, 452, 400), FSR)      # old purple/teal mushroom spots (dark glade ground)
 
 # feather the patch edges a little
 soft = cv2.GaussianBlur((mask > 0).astype(np.float32), (0, 0), 1.2)[..., None]
@@ -146,4 +158,11 @@ for i, (sx, sy) in enumerate(SHIELDS):
     a = cv2.GaussianBlur(a, (0, 0), 3)
     cv2.imwrite(os.path.join(ASSETS, f'target{i}.png'), np.dstack([crop, a]))
 cv2.imwrite(os.path.join(HERE, '..', '..', '.mask_preview.png'), mask) if os.environ.get('MASK') else None
+# mushroom sprites (original pixels, soft alpha); the game draws them at their new places
+for (name, (cx, cy), (rx, ry), sy, sw) in MUSHROOMS:
+    a = cv2.GaussianBlur(mushroom_mask(cx, cy, rx, ry, sy, sw, grow=2), (0, 0), 1.5)
+    x0, y0, x1, y1 = cx - 46, cy - 36, cx + 46, sy + 14
+    crop = big[y0 * 2:y1 * 2, x0 * 2:x1 * 2]
+    alpha = cv2.resize(a[y0:y1, x0:x1], (crop.shape[1], crop.shape[0]), interpolation=cv2.INTER_LINEAR)
+    cv2.imwrite(os.path.join(ASSETS, f'mush_{name}.png'), np.dstack([crop, alpha]))
 print('ok', W, H)

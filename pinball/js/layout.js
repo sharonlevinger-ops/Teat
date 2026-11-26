@@ -60,9 +60,15 @@ export const slings = [
 
 // ---- mushroom pop bumpers (cap centres in the art) --------------------------------------
 export const bumpers = [
-  { x: 346, y: 272, r: 24, color: 0xb04cff, cap: [336, 250] },
-  { x: 406, y: 248, r: 24, color: 0xff7a1a, cap: [418, 224] },
-  { x: 388, y: 326, r: 24, color: 0x1affc6, cap: [386, 302] },
+  { x: 320, y: 258, r: 24, color: 0xb04cff, cap: [318, 232] },
+  { x: 420, y: 250, r: 24, color: 0xff7a1a, cap: [418, 224] },
+  { x: 382, y: 360, r: 24, color: 0x1affc6, cap: [380, 334] },
+];
+
+// moved mushrooms: sprite cut from the art (box in source px) drawn shifted by `offset`
+export const MUSH_SPRITES = [
+  { file: 'assets/mush_purple.png', box: [290, 211, 382, 314], offset: [-18, -15] },
+  { file: 'assets/mush_teal.png', box: [349, 264, 441, 362], offset: [-15, 34] },
 ];
 
 // ---- flippers: lower pair + upper-left (right-middle and castle flippers removed) ---------
