@@ -1,6 +1,6 @@
 """Builds the playfield texture from the concept art (pinball/assets/concept.jpg):
 removes all printed text, the drawn flippers (real 3D flippers are placed over them),
-the drawn ball, and the right-middle flipper. Upscales 2x for iPhone retina screens.
+the drawn ball, the right-middle and castle flippers. Upscales 2x for iPhone retina screens.
 Run:  python3 pinball/tools/make_playfield.py
 """
 import cv2
@@ -42,9 +42,25 @@ def text_mask(img):
         fill = ((roi_v > 150) & (warm > 18)) | (roi_v > 225)
         sub = np.zeros((y1 - y0, x1 - x0), np.uint8)
         sub[fill] = 255
-        sub = cv2.dilate(sub, np.ones((3, 3), np.uint8), iterations=3)  # include the dark outline
+        sub = cv2.dilate(sub, np.ones((3, 3), np.uint8), iterations=4)  # include the dark outline
         m[y0:y1, x0:x1] = np.maximum(m[y0:y1, x0:x1], sub)
+    # captions over plain ground/stone/wood: drop the whole box so the fill is one coherent texture
+    for (x0, y0, x1, y1) in RECTS:
+        m[y0:y1, x0:x1] = 255
     return m
+
+RECTS = [
+    (138, 352, 256, 397),    # wizard tower caption (on the tower wood)
+    (284, 522, 504, 550),    # centre note
+    (106, 690, 236, 733),    # dwarf mine caption
+    (336, 817, 436, 841),    # magic pool caption
+    (472, 822, 563, 847),    # prince shield (lower)
+    (427, 969, 503, 991),    # mystery hole captions
+    (412, 1030, 503, 1053),
+    (237, 1018, 363, 1041),  # mine lights caption
+    (247, 1280, 474, 1330),  # bottom caption
+    (318, 174, 446, 198),    # 3 mushrooms caption
+]
 
 def capsule(m, p, q, r):
     cv2.line(m, p, q, 255, thickness=int(r * 2))
@@ -56,8 +72,8 @@ shapes = np.zeros((H, W), np.uint8)
 capsule(shapes, (238, 1134), (314, 1180), 21)   # lower left flipper
 capsule(shapes, (482, 1134), (406, 1180), 21)   # lower right flipper
 capsule(shapes, (184, 618), (249, 652), 19)     # upper left flipper
-capsule(shapes, (394, 464), (444, 506), 17)     # castle flipper
-capsule(shapes, (575, 741), (590, 808), 13)     # right-middle flipper (removed from the game)
+capsule(shapes, (394, 464), (444, 506), 20)     # castle flipper (removed from the game)
+capsule(shapes, (574, 737), (590, 808), 15)     # right-middle flipper (removed from the game)
 cv2.circle(shapes, (589, 810), 15, 255, -1)
 cv2.circle(shapes, (712, 1210), 17, 255, -1)    # drawn ball in the plunger lane
 SHIELDS = [(579, 501), (599, 538), (616, 576)]     # drop targets: drawn separately as sprites
@@ -68,7 +84,6 @@ mask = np.maximum(mask, shapes)
 # patches cloned from matching neighbouring texture (better than inpainting for big areas)
 CLONES = [  # (dst x0, y0, x1, y1, src dx, src dy)
     (662, 392, 742, 446, 0, 54),     # 'crystal ramp' caption over the wires → wires below
-    (600, 596, 664, 656, 0, 62),     # 'prince shield' caption over the crystal ramp → ramp below
 ]
 base = src.copy()
 for (x0, y0, x1, y1, dx, dy) in CLONES:
@@ -78,12 +93,42 @@ for (x0, y0, x1, y1, dx, dy) in CLONES:
     a = cv2.GaussianBlur(a, (0, 0), 4)[..., None]
     base[y0:y1, x0:x1] = (patch * a + base[y0:y1, x0:x1] * (1 - a)).astype(np.uint8)
     mask[y0 + 4:y1 - 4, x0 + 4:x1 - 4] = 0
-clean = cv2.inpaint(base, mask, 6, cv2.INPAINT_TELEA)
-# second pass with a soft blend so large patches don't look smeared
-blur = cv2.GaussianBlur(clean, (0, 0), 2.2)
-soft = cv2.GaussianBlur(mask.astype(np.float32) / 255, (0, 0), 3)[..., None]
-noise = np.random.default_rng(3).normal(0, 6, clean.shape)
-clean = np.clip(clean * (1 - soft * 0.5) + blur * soft * 0.5 + noise * soft, 0, 255).astype(np.uint8)
+# texture-synthesising inpainting. Default: patch-based SHIFTMAP over the whole image (real
+# stone/grass/wood). Overrides where that copied unrelated objects (picked by visual comparison).
+valid_all = (mask == 0).astype(np.uint8) * 255
+clean = base.copy()
+cv2.xphoto.inpaint(base, valid_all, clean, cv2.xphoto.INPAINT_SHIFTMAP)
+
+def region_fill(box, crop, method):
+    """Re-fill the masked pixels inside box using only the pixels inside crop."""
+    x0, y0, x1, y1 = crop
+    sub = base[y0:y1, x0:x1].copy()
+    hole = np.zeros(mask.shape, bool)
+    bx0, by0, bx1, by1 = box
+    hole[by0:by1, bx0:bx1] = mask[by0:by1, bx0:bx1] > 0
+    h = hole[y0:y1, x0:x1]
+    out = sub.copy()
+    cv2.xphoto.inpaint(sub, (~h).astype(np.uint8) * 255, out, method)
+    reg = clean[y0:y1, x0:x1]
+    reg[h] = out[h]
+
+def region_clone(box, dx, dy):
+    """Copy texture from an offset area of the already-cleaned image into the masked pixels."""
+    x0, y0, x1, y1 = box
+    hole = mask[y0:y1, x0:x1] > 0
+    src_patch = clean[y0 + dy:y1 + dy, x0 + dx:x1 + dx]
+    clean[y0:y1, x0:x1][hole] = src_patch[hole]
+
+FSR = cv2.xphoto.INPAINT_FSR_BEST
+region_fill((100, 686, 240, 736), (60, 690, 290, 800), FSR)      # dwarf mine caption (crop excludes the lights)
+region_fill((243, 1276, 478, 1334), (200, 1262, 520, 1360), FSR)  # bottom caption
+region_fill((312, 170, 450, 202), (300, 168, 470, 240), FSR)      # mushrooms caption
+region_fill((556, 718, 612, 834), (520, 700, 640, 860), FSR)      # removed right-middle flipper
+region_fill((128, 346, 262, 400), (124, 312, 290, 402), cv2.xphoto.INPAINT_SHIFTMAP)  # tower caption: only tower wood around it
+
+# feather the patch edges a little
+soft = cv2.GaussianBlur((mask > 0).astype(np.float32), (0, 0), 1.2)[..., None]
+clean = np.clip(clean * soft + base * (1 - soft), 0, 255).astype(np.uint8)
 
 def up(img):
     big = cv2.resize(img, (W * 2, H * 2), interpolation=cv2.INTER_LANCZOS4)

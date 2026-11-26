@@ -42,6 +42,17 @@ export function softDot() {
   return tex(c);
 }
 
+// chevron arrow (points to the top of the texture) with a soft glow
+export function chevronTexture() {
+  const s = 128; const [c, g] = canvas(s, s);
+  const path = () => { g.beginPath(); g.moveTo(20, 92); g.lineTo(64, 36); g.lineTo(108, 92); };
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = 'rgba(255,255,255,0.35)'; g.lineWidth = 34; path(); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,0.6)'; g.lineWidth = 22; path(); g.stroke();
+  g.strokeStyle = '#ffffff'; g.lineWidth = 11; path(); g.stroke();
+  return tex(c);
+}
+
 // ---------- forest / mountain backdrop panorama ----------
 export function backdropTexture() {
   const W = 2048, H = 1024; const [c, g] = canvas(W, H);

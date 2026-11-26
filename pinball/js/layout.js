@@ -25,8 +25,8 @@ poly([[680, 1077], [362, 1252]]);
 export const TOWER_POLY = [[150, 296], [285, 300], [292, 432], [262, 468], [205, 468], [150, 380]];
 poly(TOWER_POLY, { closed: true, kind: 'rock' });
 // tower ramp mouth side walls
-poly([[290, 474], [290, 400]]);
-poly([[372, 474], [372, 404]]);
+poly([[284, 532], [290, 474], [290, 400]]);   // tower ramp mouth: left funnel arm
+poly([[398, 538], [372, 474], [372, 404]]);   // right funnel arm (guides right-flipper shots in)
 // top rail closing the mushroom glade
 poly([[290, 300], [286, 205], [322, 166], [382, 150], [442, 150], [474, 172]]);
 
@@ -51,7 +51,7 @@ poly([[618, 945], [618, 1040], [492, 1111]]);               // right inlane guid
 export const posts = [
   { x: 100, y: 875, r: 6 }, { x: 618, y: 945, r: 6 },
   { x: 162, y: 896, r: 7 }, { x: 212, y: 1032, r: 6 }, { x: m(162), y: 896, r: 7 }, { x: m(212), y: 1032, r: 6 },
-  { x: 290, y: 474, r: 5 }, { x: 372, y: 474, r: 5 }, { x: 655, y: 605, r: 6 },
+  { x: 284, y: 532, r: 5 }, { x: 398, y: 538, r: 5 }, { x: 655, y: 605, r: 6 },
 ];
 export const slings = [
   { a: SLING_L[0], b: SLING_L[2], side: 'L' },
@@ -81,7 +81,7 @@ export const dropTargets = [[579, 501], [599, 538], [616, 576]].map(([cx, cy], i
 export const TARGET_SPRITE = { x0: 552, y0: 470, x1: 640, y1: 604 };
 
 // ---- prince shields (stand-ups) on the drawn shields of the lower-right structure ----------
-export const shieldTargets = [[480, 947, 16], [538, 967, 16], [432, 878, 15]].map(([x, y, r], i) => ({ i, x, y, r, cx: x, cy: y, lamp: i === 2 ? [495, 902] : [x, y] }));
+export const shieldTargets = [[480, 947, 16], [538, 967, 16], [556, 926, 14]].map(([x, y, r], i) => ({ i, x, y, r, cx: x, cy: y, lamp: i === 2 ? [495, 902] : [x, y] }));
 
 export const castleGate = { a: [505, 461], b: [548, 461], x: 527, y: 450 };
 
@@ -105,7 +105,7 @@ export const pool = { x: 376, y: 726, rx: 102, ry: 72, r: 80 };
 // ---- rails: one-way wireforms/ramps following the drawn ramps. points [x, y, height]
 export const ramps = {
   tower: { // grey ramp behind the tower → spiral → left wires → left inlane
-    entry: { x: 331, y: 466, w: 78, diry: -1 }, minSpeed: 520, exit: { vx: 0, vy: 380 },
+    entry: { x: 331, y: 466, w: 78, diry: -1 }, minSpeed: 420, exit: { vx: 0, vy: 380 },
     pts: [[321, 466, 0], [330, 390, 30], [336, 300, 66], [305, 238, 92], [235, 205, 106], [160, 235, 104], [118, 310, 96], [100, 410, 88], [94, 470, 82],
       [62, 535, 76], [72, 608, 70], [140, 628, 64], [186, 568, 58], [150, 505, 52], [96, 528, 48], [104, 590, 44], [150, 582, 40], [140, 548, 37],
       [72, 640, 32], [64, 750, 26], [82, 850, 18], [108, 900, 10], [126, 940, 3]],

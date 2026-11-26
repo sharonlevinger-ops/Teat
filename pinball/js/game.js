@@ -281,6 +281,7 @@ export class Game {
   }
 
   capture(b, h) {
+    b.sinkFrom = [b.x, b.y]; b.sinkStart = this.time; // drives the sinking animation in World
     b.mode = 'held'; b.vx = b.vy = 0; b.x = h.x; b.y = h.y; b.h = 0;
     this.sound.play('hole');
     this.world.fx('spark', { x: h.x, y: h.y, h: 10, color: 0xffffff, n: 18 });
@@ -293,6 +294,8 @@ export class Game {
     const { b, h } = hd;
     b.mode = 'field';
     b.noCap = this.time + 0.6;
+    b.riseStart = this.time; // rising-out-of-the-hole animation in World
+    this.world.fx('ring', { x: h.out ? h.out[0] : h.x, y: h.out ? h.out[1] : h.y });
     const j = 1 + (Math.random() - 0.5) * 0.12;
     b.vx = h.kick.vx * j; b.vy = h.kick.vy * j;
     if (h.out) { b.x = h.out[0]; b.y = h.out[1]; } else { b.x = h.x + Math.sign(h.kick.vx) * 4; b.y = h.y + Math.sign(h.kick.vy) * 4; }
@@ -397,7 +400,7 @@ export class Game {
         if (this.state !== 'playing') return;
         const o = hole.out || [hole.x, hole.y + 6];
         const nb = this.phys.addBall(o[0] + (Math.random() - 0.5) * 4, o[1], hole.kick.vx * (0.8 + Math.random() * 0.4), hole.kick.vy);
-        nb.noCap = this.time + 0.8;
+        nb.noCap = this.time + 0.8; nb.riseStart = this.time;
         nb.launched = true;
         this.sound.play('kick');
         this.world.fx('burst', { x: hole.x, y: hole.y, color: kind === 'castle' ? 0xffcf6a : 0x7fc8ff });

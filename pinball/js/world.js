@@ -116,6 +116,8 @@ export class World {
     this.buildLights();
     this.buildPlayfield();
     this.buildOverlays();
+    this.buildTowerArrow();
+    this.ringFx = [];
     this.buildFlippers();
     this.buildSpinner();
     this.particles = new Particles(this.table);
@@ -316,6 +318,18 @@ export class World {
     this.add(g);
   }
 
+  // flashing chevrons that point at the tower ramp mouth
+  buildTowerArrow() {
+    const tex = T.chevronTexture();
+    const mouth = L.ramps.tower.entry;
+    this.towerChevrons = [0, 1, 2].map((i) => {
+      const m = new THREE.Mesh(flat(48, 48), additive({ map: tex, color: 0xffc860, opacity: 0 }));
+      m.position.copy(V(mouth.x + 2, mouth.y + 50 + (2 - i) * 34, LIFT * 3)); // i = 0 farthest from the mouth
+      m.renderOrder = 4;
+      return this.add(m);
+    });
+  }
+
   buildBalls() {
     this.ballMeshes = [];
     this.ballShadows = [];
@@ -353,6 +367,7 @@ export class World {
       case 'treasure': this.particles.emit(V(266, 900, 30), 0xffd24a, 80, 2.2, 1.4, 0.1, 1.6); break;
       case 'crystal': this.crystalFlash = 1; break;
       case 'lightshow': this.showT = 1.6; break;
+      case 'ring': this.ringFx.push({ m: this.glow(data.x, data.y, 30, 0xffe2a0, 5), t: 0 }); break;
       case 'burst': if (p) this.particles.emit(p, data.color ?? 0xffffff, data.n ?? 40, data.speed ?? 2, 1.1, 0.1, 1.5); break;
     }
   }
@@ -406,6 +421,25 @@ export class World {
     if (rnd() < dt * (2 + this.crystalFlash * 30)) { const s = phys?.rails?.crystal; if (s) { const q = s.at(rnd() * s.length); this.particles.emit(V(q.x, q.y, 6), 0xbff0ff, 1, 0.15, 0.9, 0.06, 0.5, 0); } }
     if (this.princessGlow && rnd() < dt * 10) this.particles.emit(V(540 + (rnd() - 0.5) * 80, 300 + (rnd() - 0.5) * 80, 40), 0xff9ad0, 1, 0.4, 1.2, 0.06, 1, -0.1);
 
+    // expanding light ring where a ball comes out of a hole / tunnel
+    this.ringFx = this.ringFx.filter((r) => {
+      r.t += dt; const k = r.t / 0.45;
+      if (k >= 1) { this.table.remove(r.m); r.m.material.dispose(); return false; }
+      r.m.scale.setScalar(1 + k * 3); r.m.material.opacity = (1 - k) * 0.9;
+      return true;
+    });
+    // tower ramp arrow: chase toward the mouth; faster and brighter when the shot is worth more
+    {
+      const hot = game && (game.multiball === 'wizard' || game.towerRampBoost);
+      const on = !game || game.state !== 'over';
+      const speed = hot ? 10 : 5;
+      this.towerChevrons.forEach((m, i) => {
+        const phase = (t * speed / (Math.PI * 2) * 3 - i) % 3;
+        const k = phase >= 0 && phase < 1 ? Math.sin(phase * Math.PI) : 0;
+        m.material.opacity = on ? (0.3 + k * (hot ? 1.3 : 1.0)) * c.glow : 0;
+        m.material.color.setHex(hot ? 0x7fd0ff : 0xffc860);
+      });
+    }
     if (phys) phys.flippers.forEach((f, i) => { this.flipperMeshes[i].rotation.y = -f.angle; });
     // light show: every lamp chases around the table for a moment
     this.showT = Math.max(0, (this.showT || 0) - dt);
@@ -417,10 +451,28 @@ export class World {
     if (phys) {
       this.ballMeshes.forEach((m, i) => {
         const b = phys.balls[i], sh = this.ballShadows[i];
-        if (!b || b.mode === 'held' || b.hidden) { m.visible = false; sh.visible = false; return; }
+        if (!b || b.hidden) { m.visible = false; sh.visible = false; return; }
+        const gt = game ? game.time : this.t;
+        let sinkH = 0;
+        if (b.mode === 'held') {
+          // sink: slide to the hole centre, then drop below the surface (the playfield hides it)
+          const e = b.sinkStart === undefined ? 9 : gt - b.sinkStart;
+          if (e > 0.5) { m.visible = false; sh.visible = false; return; }
+          const slide = Math.min(1, e / 0.12);
+          const fx = b.sinkFrom ? b.sinkFrom[0] + (b.x - b.sinkFrom[0]) * slide : b.x;
+          const fy = b.sinkFrom ? b.sinkFrom[1] + (b.y - b.sinkFrom[1]) * slide : b.y;
+          sinkH = -Math.max(0, (e - 0.1) / 0.4) * R * 2.3;
+          m.visible = true; m.position.copy(V(fx, fy, R + sinkH));
+          sh.visible = sinkH > -R; sh.position.copy(V(fx + 4, fy + 5, LIFT * 2.5)); sh.scale.setScalar(1);
+          return;
+        }
+        if (b.riseStart !== undefined) {
+          const e = gt - b.riseStart;
+          if (e < 0.3) sinkH = -(1 - e / 0.3) * R * 2.1; else b.riseStart = undefined;
+        }
         m.visible = true;
-        m.position.copy(this.ballWorld(b));
-        sh.visible = true;
+        m.position.copy(this.ballWorld(b)); m.position.y += sinkH * S;
+        sh.visible = sinkH > -R;
         const hh = b.h || 0;
         sh.position.copy(V(b.x + 4 + hh * 0.25, b.y + 5 + hh * 0.2, LIFT * 2.5));
         sh.scale.setScalar(1 + hh / 120);
