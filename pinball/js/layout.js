@@ -5,6 +5,14 @@ export const IMG = { w: 768, h: 1376 };
 export const BALL_R = 14;
 export const CX = 360; // mirror line of the lower playfield
 const m = (x) => 2 * CX - x;
+
+// The dwarf mine and the prince-shield structure (with the right sling) were moved apart in the
+// art (tools/make_playfield.py MOVES): scale about the cut-out's centre, then shift.
+export const STRUCTURE_MOVES = {
+  mine: { c: [286.5, 890.5], sc: 0.86, d: [-40, -6] },
+  shield: { c: [486.5, 942.5], sc: 0.84, d: [18, -8] },
+};
+const mv = (k, [x, y]) => { const t = STRUCTURE_MOVES[k]; return [t.c[0] + (x - t.c[0]) * t.sc + t.d[0], t.c[1] + (y - t.c[1]) * t.sc + t.d[1]]; };
 export const FIELD = { left: 45, right: 731, top: 30, bottom: 1376, laneIn: 697, laneOut: 731 };
 
 export const walls = [];
@@ -36,13 +44,13 @@ poly(CASTLE_POLY, { kind: 'rock' });
 poly([[505, 458], [505, 428], [548, 428], [548, 458]]); // gate pocket
 
 // ---- dwarf mine (rock mound with the timber doorway notch) ------------------------------
-export const MINE_POLY = [[180, 810], [245, 775], [322, 792], [336, 850], [322, 905], [300, 905], [300, 880], [232, 880], [228, 905], [195, 900], [178, 860]];
+export const MINE_POLY = [[180, 810], [245, 775], [322, 792], [336, 850], [322, 905], [300, 905], [300, 880], [232, 880], [228, 905], [195, 900], [178, 860]].map((p) => mv('mine', p));
 poly(MINE_POLY, { closed: true, kind: 'rock' });
 
 // ---- prince's shield: the three drawn shields are round stand-up targets (sword art is flat) --
 // ---- slings, inlanes, outlanes ----------------------------------------------------------
 export const SLING_L = [[162, 896], [150, 1000], [222, 1040]];
-export const SLING_R = SLING_L.map(([x, y]) => [m(x), y]);
+export const SLING_R = SLING_L.map(([x, y]) => mv('shield', [m(x), y]));
 poly([SLING_L[0], SLING_L[1], SLING_L[2]]);
 poly([SLING_R[0], SLING_R[1], SLING_R[2]]);
 poly([[100, 875], [100, 1040], [228, 1111]]);               // left inlane guide + MA strip
@@ -50,7 +58,7 @@ poly([[618, 945], [618, 1040], [492, 1111]]);               // right inlane guid
 
 export const posts = [
   { x: 100, y: 875, r: 6 }, { x: 618, y: 945, r: 6 },
-  { x: 162, y: 896, r: 7 }, { x: 212, y: 1032, r: 6 }, { x: m(162), y: 896, r: 7 }, { x: m(212), y: 1032, r: 6 },
+  { x: 162, y: 896, r: 7 }, { x: 212, y: 1032, r: 6 }, { x: SLING_R[0][0], y: SLING_R[0][1], r: 7 }, { x: mv('shield', [m(212), 1032])[0], y: mv('shield', [m(212), 1032])[1], r: 6 },
   { x: 284, y: 532, r: 5 }, { x: 398, y: 538, r: 5 }, { x: 655, y: 605, r: 6 },
 ];
 export const slings = [
@@ -87,16 +95,20 @@ export const dropTargets = [[579, 501], [599, 538], [616, 576]].map(([cx, cy], i
 export const TARGET_SPRITE = { x0: 552, y0: 470, x1: 640, y1: 604 };
 
 // ---- prince shields (stand-ups) on the drawn shields of the lower-right structure ----------
-export const shieldTargets = [[480, 947, 16], [538, 967, 16], [556, 926, 14]].map(([x, y, r], i) => ({ i, x, y, r, cx: x, cy: y, lamp: i === 2 ? [495, 902] : [x, y] }));
+export const shieldTargets = [[480, 947, 15], [538, 967, 15], [556, 926, 13]].map(([x0, y0, r], i) => {
+  const [x, y] = mv('shield', [x0, y0]);
+  return { i, x, y, r, cx: x, cy: y, lamp: i === 2 ? mv('shield', [495, 902]) : [x, y] };
+});
 
 export const castleGate = { a: [505, 461], b: [548, 461], x: 527, y: 450 };
 
+const xy = ([x, y]) => ({ x, y });
 export const holes = [
   { id: 'tower', x: 228, y: 488, r: 16, kick: { vx: -40, vy: 650 }, out: [230, 494] },
   { id: 'castle', x: 527, y: 446, r: 18, kick: { vx: -320, vy: 900 }, out: [527, 488] },
   { id: 'mystery', x: 538, y: 652, r: 18, kick: { vx: -620, vy: 520 } },
-  { id: 'mystery2', x: 466, y: 1010, r: 18, kick: { vx: 0, vy: 260 }, out: [590, 946], tunnel: true },
-  { id: 'mine', x: 266, y: 898, r: 18, kick: { vx: 0, vy: 260 }, out: [126, 942], tunnel: true },
+  { id: 'mystery2', ...xy(mv('shield', [466, 1010])), r: 16, kick: { vx: 0, vy: 260 }, out: [597, 946], tunnel: true },
+  { id: 'mine', ...xy(mv('mine', [266, 898])), r: 17, kick: { vx: 0, vy: 260 }, out: [126, 942], tunnel: true },
 ];
 
 export const spinner = { x: 86, y: 397, a: [47, 397], b: [150, 397] };
@@ -122,7 +134,7 @@ export const ramps = {
   },
   orbit: { // left orbit: up the lane, over the top wires, down the right wires → right inlane
     entry: { x: 97, y: 330, w: 100, diry: -1 }, minSpeed: 520, exit: { vx: 0, vy: 380 },
-    pts: [[86, 330, 0], [76, 250, 22], [100, 160, 36], [180, 112, 46], [300, 92, 50], [420, 90, 50], [540, 104, 50], [630, 150, 48], [690, 240, 44], [702, 350, 40], [692, 480, 36], [682, 620, 32], [662, 760, 26], [622, 850, 16], [596, 905, 8], [590, 948, 2]],
+    pts: [[86, 330, 0], [76, 250, 22], [100, 160, 36], [180, 112, 46], [300, 92, 50], [420, 90, 50], [540, 104, 50], [630, 150, 48], [690, 240, 44], [702, 350, 40], [692, 480, 36], [682, 620, 32], [662, 760, 26], [622, 850, 16], [600, 905, 8], [597, 948, 2]],
   },
   launch: { // plunger lane → top → drops into the mushroom glade
     entry: { x: 714, y: 255, w: 34, diry: -1 }, minSpeed: 0, noScore: true, exit: { vx: -120, vy: 260 },
@@ -141,7 +153,7 @@ export function inOutlane(b) {
 // ---- lamp overlays on the drawn lights (image px) ---------------------------------------
 export const LAMPS = {
   dwarf: [[102, 676], [124, 676], [146, 676], [168, 676], [189, 676], [210, 676], [231, 676]],
-  lowerRow: [[253, 1008], [276, 1008], [300, 1008], [322, 1008], [346, 1008]],
+  lowerRow: [[253, 1008], [276, 1008], [300, 1008], [322, 1008], [346, 1008]].map((p) => mv('mine', p)),
   arrows: { towerHole: [265, 530], towerRamp: [290, 592], orbit: [251, 645], castle: [493, 550], crystal: [469, 594] },
   kick: { L: [80, 915], R: [635, 920] },
   mage: { M: [155, 1078], A: [200, 1100], G: [518, 1107], E: [558, 1080] },

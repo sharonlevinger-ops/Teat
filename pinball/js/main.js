@@ -15,7 +15,7 @@ import * as L from './layout.js';
 const $ = (s) => document.querySelector(s);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 const CAM_KEY = 'fcp_cam2';
-export const APP_VERSION = '2.4.0';
+export const APP_VERSION = '2.5.0';
 
 async function boot() {
   const canvas = $('#gl');

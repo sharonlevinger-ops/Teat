@@ -130,17 +130,90 @@ def region_clone(box, dx, dy):
     src_patch = clean[y0 + dy:y1 + dy, x0 + dx:x1 + dx]
     clean[y0:y1, x0:x1][hole] = src_patch[hole]
 
-FSR = cv2.xphoto.INPAINT_FSR_BEST
+FSR = cv2.xphoto.INPAINT_FSR_FAST if os.environ.get("FAST") else cv2.xphoto.INPAINT_FSR_BEST
 region_fill((100, 686, 240, 736), (60, 690, 290, 800), FSR)      # dwarf mine caption (crop excludes the lights)
 region_fill((243, 1276, 478, 1334), (200, 1262, 520, 1360), FSR)  # bottom caption
 region_fill((312, 170, 450, 202), (300, 168, 470, 240), FSR)      # mushrooms caption
 region_fill((556, 718, 612, 834), (520, 700, 640, 860), FSR)      # removed right-middle flipper
+region_fill((214, 1110, 338, 1204), (190, 1090, 360, 1222), FSR)  # lower left flipper spot
+region_fill((382, 1110, 506, 1204), (360, 1090, 530, 1222), FSR)  # lower right flipper spot
+region_fill((162, 596, 272, 674), (140, 580, 290, 690), FSR)      # upper left flipper spot
 region_fill((128, 346, 262, 400), (124, 312, 290, 402), cv2.xphoto.INPAINT_SHIFTMAP)  # tower caption: only tower wood around it
 region_fill((290, 214, 440, 360), (270, 196, 452, 400), FSR)      # old purple/teal mushroom spots (dark glade ground)
 
 # feather the patch edges a little
 soft = cv2.GaussianBlur((mask > 0).astype(np.float32), (0, 0), 1.2)[..., None]
 clean = np.clip(clean * soft + base * (1 - soft), 0, 255).astype(np.uint8)
+
+# ---- spread the lower structures apart (same transform as STRUCTURE_MOVES in js/layout.js) ----
+# (polygon in source px, scale, (dx, dy)); scale is about the polygon's bounding-box centre
+MOVES = [
+    ([(178, 772), (250, 756), (344, 770), (392, 836), (394, 962), (366, 1000), (360, 1024), (240, 1024), (238, 1000), (212, 960), (196, 880)], 0.86, (-40, -6)),   # dwarf mine + its 5 lights
+    ([(398, 846), (472, 838), (536, 854), (574, 896), (574, 1002), (510, 1046), (400, 1042)], 0.84, (18, -8)),                                                   # prince shield + right sling
+]
+def poly_mask1(pts):
+    mm = np.zeros((H, W), np.uint8); cv2.fillPoly(mm, [np.array(pts, np.int32)], 255); return mm
+moved_src = clean.copy()
+vac = np.zeros((H, W), np.uint8)
+for pts, _, _ in MOVES: vac |= cv2.dilate(poly_mask1(pts), np.ones((7, 7), np.uint8))
+# where the moved structures will land (those pixels get covered anyway)
+cover = np.zeros((H, W), np.uint8)
+for pts, sc, (dx, dy) in MOVES:
+    P = np.array(pts, np.float32); c0 = (P.min(0) + P.max(0)) / 2
+    Q = (P - c0) * sc + c0 + np.array([dx, dy], np.float32)
+    cv2.fillPoly(cover, [Q.astype(np.int32)], 255)
+cover = cv2.erode(cover, np.ones((5, 5), np.uint8))
+vis = (vac > 0) & (cover == 0)
+if os.environ.get("FAST"): print("vis px", int(vis.sum()), "vac", int((vac>0).sum()), "cover", int((cover>0).sum()))
+# the part that stays visible gets real floor texture: the drawing's own stone/grass floor
+# (swatch above the flippers) tiled with mirroring, then gradient-blended into its surroundings
+sw = src[1050:1104, 250:470]
+tile = np.vstack([np.hstack([sw, sw[:, ::-1]]), np.hstack([sw[::-1], sw[::-1, ::-1]])])
+cx0, cy0, cx1, cy1 = 120, 740, 640, 1112
+# random soft-edged patches from the swatch (no repeating / mirrored pattern)
+rng = np.random.default_rng(11)
+P = 46; win = np.outer(np.hanning(P), np.hanning(P)).astype(np.float32)[..., None] + 1e-3
+acc = np.zeros((cy1 - cy0 + P, cx1 - cx0 + P, 3), np.float32); wsum = np.zeros(acc.shape[:2] + (1,), np.float32)
+swf = sw.astype(np.float32)
+for yy in range(0, cy1 - cy0 + 1, P // 3):
+    for xx in range(0, cx1 - cx0 + 1, P // 3):
+        oy = rng.integers(0, swf.shape[0] - P + 1); ox = rng.integers(0, swf.shape[1] - P + 1)
+        patch = swf[oy:oy + P, ox:ox + P]
+        if rng.random() < 0.5: patch = patch[:, ::-1]
+        acc[yy:yy + P, xx:xx + P] += patch * win; wsum[yy:yy + P, xx:xx + P] += win
+tex_big = (acc / np.maximum(wsum, 1e-3))[P // 2:P // 2 + cy1 - cy0, P // 2:P // 2 + cx1 - cx0]
+vis_c = vis[cy0:cy1, cx0:cx1]
+dst = clean[cy0:cy1, cx0:cx1].astype(np.float32)
+# local colour of the surrounding floor (normalised blur that ignores the vacated pixels)
+pool_x = np.zeros((H, W), np.uint8); cv2.ellipse(pool_x, (376, 726), (112, 80), 0, 0, 360, 255, -1)
+wgt = ((vac[cy0:cy1, cx0:cx1] == 0) & (pool_x[cy0:cy1, cx0:cx1] == 0)).astype(np.float32)
+sig = 16
+wb = cv2.GaussianBlur(wgt, (0, 0), sig)[..., None]
+mean = cv2.GaussianBlur(dst * wgt[..., None], (0, 0), sig) / np.maximum(wb, 1e-3)
+wb2 = cv2.GaussianBlur(wgt, (0, 0), 60)[..., None]                     # wide fallback where no floor is near
+mean2 = cv2.GaussianBlur(dst * wgt[..., None], (0, 0), 60) / np.maximum(wb2, 1e-3)
+t = np.clip(wb / 0.25, 0, 1)
+mean = mean * t + mean2 * (1 - t)
+# fine detail of the swatch on top of that colour
+texf = tex_big.astype(np.float32)
+detail = texf - cv2.GaussianBlur(texf, (0, 0), sig)
+fill = np.clip(mean + detail * 1.3, 0, 255)  # patch averaging softens detail a little; restore it
+k = cv2.GaussianBlur(cv2.dilate(vis_c.astype(np.uint8) * 255, np.ones((5, 5), np.uint8)).astype(np.float32) / 255, (0, 0), 2)[..., None]
+clean[cy0:cy1, cx0:cx1] = np.clip(fill * k + dst * (1 - k), 0, 255).astype(np.uint8)
+# paste each structure, scaled and moved, with a soft edge
+for pts, sc, (dx, dy) in MOVES:
+    mm = poly_mask1(pts)
+    x, y, w, h = cv2.boundingRect(mm)
+    spr = moved_src[y:y + h, x:x + w]
+    a = cv2.GaussianBlur(mm[y:y + h, x:x + w], (0, 0), 1.4).astype(np.float32) / 255
+    nw, nh = round(w * sc), round(h * sc)
+    spr = cv2.resize(spr, (nw, nh), interpolation=cv2.INTER_AREA)
+    a = cv2.resize(a, (nw, nh), interpolation=cv2.INTER_LINEAR)[..., None]
+    ccx, ccy = x + w / 2, y + h / 2
+    X, Y = round(ccx - nw / 2 + dx), round(ccy - nh / 2 + dy)
+    roi = clean[Y:Y + nh, X:X + nw].astype(np.float32)
+    clean[Y:Y + nh, X:X + nw] = (spr * a + roi * (1 - a)).astype(np.uint8)
+    print('moved', (x, y, w, h), 'centre', (ccx, ccy))
 
 def up(img):
     big = cv2.resize(img, (W * 2, H * 2), interpolation=cv2.INTER_LANCZOS4)
