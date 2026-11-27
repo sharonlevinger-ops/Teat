@@ -365,6 +365,7 @@ export class Game {
         return 1.8;
       }
       case 'mine': {
+        this.world.fx('mineHit');
         if (this.dwarfs >= 7) {
           this.treasures++;
           const v = this.addScore(300000 + 150000 * (this.treasures - 1), h.x, h.y);

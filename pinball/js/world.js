@@ -117,6 +117,8 @@ export class World {
     this.buildPlayfield();
     this.buildOverlays();
     this.buildTowerArrow();
+    this.buildCorridorGuide();
+    this.shieldFlash = [0, 0, 0];
     this.ringFx = [];
     this.buildFlippers();
     this.buildSpinner();
@@ -328,6 +330,20 @@ export class World {
   }
 
   // flashing chevrons that point at the tower ramp mouth
+  // soft light dots running down the open centre and splitting toward both flippers
+  buildCorridorGuide() {
+    const pts = [];
+    const add = (a, b, n) => { for (let i = 0; i < n; i++) { const t = i / n; pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); } };
+    const top = [372, 830], split = [362, 1000];
+    add(top, split, 5);
+    const left = [], right = [];
+    for (let i = 0; i < 4; i++) { const t = (i + 1) / 4; left.push([split[0] + (292 - split[0]) * t, split[1] + (1112 - split[1]) * t]); right.push([split[0] + (432 - split[0]) * t, split[1] + (1112 - split[1]) * t]); }
+    this.guide = [];
+    pts.forEach((p, i) => this.guide.push({ m: this.glow(p[0], p[1], 26, 0xbfe8ff), k: i }));
+    left.forEach((p, i) => this.guide.push({ m: this.glow(p[0], p[1], 24, 0xffe2a0), k: 5 + i }));
+    right.forEach((p, i) => this.guide.push({ m: this.glow(p[0], p[1], 24, 0xffe2a0), k: 5 + i }));
+  }
+
   buildTowerArrow() {
     const tex = T.chevronTexture();
     const mouth = L.ramps.tower.entry;
@@ -367,13 +383,26 @@ export class World {
       case 'splash': if (p) this.particles.emit(p, 0x7fe6ff, 26, 1.0, 0.9, 0.08, 1.4); this.ripple = 1; break;
       case 'drop': this.dropMeshes[data.i].target = 1; break;
       case 'dropReset': this.dropMeshes.forEach((d) => (d.target = 0)); break;
-      case 'shield': { const s = L.shieldTargets[data.i]; this.particles.emit(V(s.lamp[0], s.lamp[1], 20), 0xffa060, 14, 1, 0.5, 0.06); break; }
+      case 'shield': {
+        const s = L.shieldTargets[data.i];
+        this.shieldFlash[data.i] = 1;
+        this.particles.emit(V(s.lamp[0], s.lamp[1], 20), 0xffd9a0, 22, 1.3, 0.55, 0.07);
+        break;
+      }
+      case 'mineHit': {
+        const h = L.holes.find((o) => o.id === 'mine');
+        this.shake = Math.max(this.shake || 0, 0.8);
+        this.particles.emit(V(h.x, h.y - 6, 8), 0x9a7a52, 34, 1.1, 0.9, 0.09, 0.7, 0.6);   // dust
+        this.particles.emit(V(h.x, h.y - 6, 12), 0xffc860, 10, 0.9, 0.6, 0.06, 1, 0.4);
+        this.ringFx.push({ m: this.glow(h.x, h.y, 30, 0xffb050, 5), t: 0 });
+        break;
+      }
       case 'gate': this.particles.emit(V(527, 455, 20), 0xffd27a, 10, 0.8, 0.5, 0.06); break;
       case 'gateOpen': this.gateOpen = !!data.open; break;
       case 'spin': this.spinnerVel = Math.min(60, this.spinnerVel + data.speed / 40); break;
       case 'flame': this.flameBoost = 2.4; this.particles.emit(V(L.LAMPS.flame[0], L.LAMPS.flame[1], 60), 0x7fc4ff, 40, 1.6, 1.2, 0.1, 1.4, 0.3); break;
       case 'princess': this.princessGlow = data.on ? 1 : 0; break;
-      case 'treasure': this.particles.emit(V(266, 900, 30), 0xffd24a, 80, 2.2, 1.4, 0.1, 1.6); break;
+      case 'treasure': { const h = L.holes.find((o) => o.id === 'mine'); this.particles.emit(V(h.x, h.y, 30), 0xffd24a, 90, 2.2, 1.4, 0.1, 1.6); this.shake = Math.max(this.shake || 0, 1); break; }
       case 'crystal': this.crystalFlash = 1; break;
       case 'lightshow': this.showT = 1.6; break;
       case 'ring': this.ringFx.push({ m: this.glow(data.x, data.y, 30, 0xffe2a0, 5), t: 0 }); break;
@@ -437,6 +466,22 @@ export class World {
       r.m.scale.setScalar(1 + k * 3); r.m.material.opacity = (1 - k) * 0.9;
       return true;
     });
+    // centre corridor guide: a slow, soft chase toward the flippers (brighter while a ball is down there)
+    {
+      const ballLow = phys && phys.balls.some((b) => b.mode === 'field' && b.y > 780 && b.y < 1120 && b.x > 300 && b.x < 440);
+      const playing = !game || game.state !== 'over';
+      for (const g of this.guide) {
+        const ph = ((t * 1.6 - g.k * 0.45) % 4.5 + 4.5) % 4.5;
+        const k = ph < 1 ? Math.sin(ph * Math.PI) : 0;
+        g.m.material.opacity = playing ? (0.06 + k * (ballLow ? 0.55 : 0.28)) * c.glow : 0;
+        g.m.visible = g.m.material.opacity > 0.01;
+      }
+    }
+    // treasure ready: gold sparks keep rising out of the mine
+    if (game && game.dwarfs >= 7 && game.state === 'playing' && rnd() < dt * 14) {
+      const h = L.holes.find((o) => o.id === 'mine');
+      this.particles.emit(V(h.x + (rnd() - 0.5) * 30, h.y + (rnd() - 0.5) * 16, 6), rnd() < 0.7 ? 0xffd24a : 0xfff2b0, 1, 0.35, 1.3, 0.07, 1.6, -0.25);
+    }
     // tower ramp arrow: chase toward the mouth; faster and brighter when the shot is worth more
     {
       const hot = game && (game.multiball === 'wizard' || game.towerRampBoost);
@@ -457,6 +502,14 @@ export class World {
       if (this.showT > 0) { const saved = l.state; l.state = Math.sin(t * 14 - li * 0.9) > 0 ? 1 : 0; l.update(t, dt); l.state = saved; } else l.update(t, dt);
       li++;
     }
+    // shield hit flash (on top of the shield's own lamp)
+    L.shieldTargets.forEach((st, i) => {
+      if (this.shieldFlash[i] > 0) {
+        this.shieldFlash[i] = Math.max(0, this.shieldFlash[i] - dt * 4);
+        const l = this.lamps.get('shield_' + i);
+        if (l) { l.glow.visible = true; l.glow.material.opacity = Math.max(l.glow.material.opacity, this.shieldFlash[i] * 1.2); }
+      }
+    });
     if (phys) {
       this.ballMeshes.forEach((m, i) => {
         const b = phys.balls[i], sh = this.ballShadows[i];
