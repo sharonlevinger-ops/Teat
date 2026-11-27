@@ -1,14 +1,10 @@
-// Game rules: scoring, modes (wizard multiball, save the princess), dwarf treasure, M-A-G-E, combos…
+// Game rules: scoring, modes (wizard multiball, save the princess, final battle), dwarf treasure,
+// M-A-G-E, combos, multiplayer turns, practice mode, daily challenge, per-game stats, save/restore.
 import * as L from './layout.js';
+import * as Store from './store.js';
 
-const BEST_KEY = 'fcp_best_v1';
-export const BALL_SAVE_SECONDS = 15; // a ball lost this soon after launch comes back
+export const BALL_SAVE_SECONDS = 15; // default; Settings can change it (0 / 8 / 15 / 20)
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
-
-export function loadBest() {
-  try { return { score: 0, combo: 0, games: 0, achievements: [], ...JSON.parse(localStorage.getItem(BEST_KEY) || '{}') }; } catch { return { score: 0, combo: 0, games: 0, achievements: [] }; }
-}
-function saveBest(b) { try { localStorage.setItem(BEST_KEY, JSON.stringify(b)); } catch { /* storage unavailable */ } }
 
 export const ACHIEVEMENTS = {
   wizard: 'מולטיבול המכשף',
@@ -19,47 +15,96 @@ export const ACHIEVEMENTS = {
   skill: 'מכת פתיחה',
   million: 'מיליון נקודות',
   mystery: 'סוד המסתורין',
+  final: 'הקרב האחרון',
+  daily: 'אתגר יומי',
 };
 
+export const SHOT_NAMES = { towerRamp: 'רמפת המגדל', crystal: 'רמפת הקריסטל', orbit: 'הקפת היער', tower: 'חור המגדל', castle: 'שער הטירה', mine: 'המכרה', mystery: 'חור המסתורין' };
+export const PRACTICE = {
+  crystal: { name: 'רמפת הקריסטל', flipper: 'הפליפר השמאלי', feed: { x: 126, y: 942, vx: 0, vy: 260 } },
+  towerRamp: { name: 'רמפת המגדל', flipper: 'הפליפר הימני', feed: { x: 597, y: 946, vx: 0, vy: 260 } },
+  orbit: { name: 'הקפת היער', flipper: 'הפליפר השמאלי-עליון', feed: { x: 230, y: 494, vx: -40, vy: 650 } },
+};
+
+// fields that belong to one player (swapped on every turn change in multiplayer)
+const PLAYER_FIELDS = ['score', 'ballNum', 'bonusX', 'mageDone', 'mage', 'towerLocks', 'castleHits', 'gateOpen', 'dwarfs', 'treasures',
+  'princessSaved', 'mysteryLit', 'shields', 'bestCombo', 'gameAch', 'stats', 'flags', 'finalReady'];
+const newStats = () => ({ drains: { center: 0, L: 0, R: 0 }, shots: { towerRamp: 0, crystal: 0, orbit: 0, tower: 0, castle: 0, mine: 0, mystery: 0 }, ballTimes: [], ballStart: null });
+const newFlags = () => ({ wizard: false, castle: false, treasure: false, gate: false, princess: false });
+const clone = (v) => (v instanceof Set ? new Set(v) : JSON.parse(JSON.stringify(v)));
+
 export class Game {
-  constructor(phys, world, sound, ui) {
+  constructor(phys, world, sound, ui, settings = Store.loadSettings()) {
     this.phys = phys; this.world = world; this.sound = sound; this.ui = ui;
+    this.settings = settings;
     this.state = 'attract';
-    this.best = loadBest();
+    this.profiles = Store.loadProfiles();
+    this.best = Store.loadBest(this.profiles.selected[0]);
     phys.handlers.onHit = (...a) => this.onHit(...a);
     phys.handlers.onSubstep = (...a) => this.onSubstep(...a);
     phys.handlers.onRailExit = (...a) => this.onRailExit(...a);
     this.time = 0;
     this.holds = [];
     this.timers = [];
+    this.players = [{ id: this.profiles.selected[0], name: Store.profileName(this.profiles, this.profiles.selected[0]) }];
+    this.cur = 0;
+    this.practice = null;
     this.resetGameVars();
   }
+
+  get maxBalls() { return this.settings.balls || 3; }
+  get player() { return this.players[this.cur]; }
 
   resetGameVars() {
     Object.assign(this, {
       score: 0, ballNum: 1, bonusX: 1, mult: 1, mushroomHits: 0, combo: 0, lastShotT: -99, bestCombo: 0,
-      mage: [false, false, false, false], mageDone: 0, kick: { L: true, R: false },
+      mage: [false, false, false, false], mageDone: 0, kick: { L: true, R: true },
       towerLocks: 0, castleHits: 0, gateOpen: false, castleMode: false, jackpots: 0, princessSaved: false,
       drops: [false, false, false], shields: [false, false, false], mysteryLit: false, dwarfs: 0, treasures: 0,
       ballSave: 0, ballSaveArmed: true, multiball: false, ramps: 0, gameAch: new Set(), skillWindow: 0, towerRampBoost: false,
-      pendingBalls: 0, ballLostTimer: 0, tilt: false,
+      pendingBalls: 0, ballLostTimer: 0, tilt: false, stats: newStats(), flags: newFlags(), finalReady: false, finalT: 0, finalJackpot: 0,
+      dailyDone: false,
     });
   }
 
+  // apply settings that touch the physics / table
+  applySettings(settings = this.settings) {
+    this.settings = settings;
+    this.phys.gravityScale = settings.speed || 1;
+    const post = this.phys.circles.find((c) => c.x === L.CENTER_POST.x && c.y === L.CENTER_POST.y);
+    if (post) {
+      post.enabled = settings.difficulty !== 'hard';
+      post.r = settings.difficulty === 'normal' ? 4 : L.CENTER_POST.r; // normal: a centred ball can slip past
+    }
+    this.world.fx?.('postVisible', { on: settings.difficulty !== 'hard', small: settings.difficulty === 'normal' });
+  }
+
   // ------------------------------------------------------------------ flow
-  startGame() {
+  // players: [{id, name}] (1-4), practice: key of PRACTICE or null
+  startGame({ players, practice = null } = {}) {
     this.phys.balls.length = 0;
     this.holds = []; this.timers = [];
     this.resetGameVars();
+    this.practice = practice;
+    this.players = (players && players.length ? players : this.players).slice(0, 4).map((p) => ({ id: p.id, name: p.name, state: null }));
+    this.cur = 0;
+    this.bests = Object.fromEntries(this.players.map((p) => [p.id, Store.loadBest(p.id)]));
+    this.best = this.bests[this.players[0].id];
+    this.challenge = Store.todayChallenge();
+    this.dailyAlready = Object.fromEntries(this.players.map((p) => [p.id, Store.dailyStatus(p.id).doneToday]));
     this.state = 'playing';
+    if (L.castleGate.seg) L.castleGate.seg.enabled = true;
+    for (const d of L.dropTargets) if (d.seg) d.seg.enabled = true;
     this.world.fx('dropReset');
     this.world.fx('gateOpen', { open: false });
     this.world.fx('princess', { on: false });
     this.world.setMood('normal');
     this.sound.play('start');
     this.sound.intensity = 0;
+    if (practice) { this.practiceStats = { tries: 0, hits: 0 }; this.feedPractice(); this.ui.message('אימון: ' + PRACTICE[practice].name, 'כוונו עם ' + PRACTICE[practice].flipper, '#9fe0ff', 2.4); return; }
     this.newBall();
-    this.ui.message('שרון, בהצלחה!', 'משכו את הקפיץ לשיגור', '#ffe08a', 2.2);
+    const who = this.players.length > 1 ? `תור של ${this.player.name}` : `${this.player.name}, בהצלחה!`;
+    this.ui.message(who, 'משכו את הקפיץ לשיגור', '#ffe08a', 2.2);
   }
 
   newBall() {
@@ -69,7 +114,34 @@ export class Game {
     this.skillWindow = 0;
     this.mult = 1; this.mushroomHits = 0;
     this.kick.L = this.kick.R = true; // one outlane save per ball (left or right)
+    this.stats.ballStart = this.time;
     return b;
+  }
+
+  // ---------- practice: feed the ball to the flipper for the chosen shot, again and again
+  feedPractice() {
+    const f = PRACTICE[this.practice].feed;
+    for (const b of [...this.phys.balls]) this.phys.removeBall(b);
+    const b = this.phys.addBall(f.x, f.y, f.vx, f.vy);
+    b.launched = true; b.riseStart = this.time; b.noCap = this.time + 1;
+    this.practiceStats.tries++;
+    this.practiceFeedT = this.time;
+    this.world.fx('ring', { x: f.x, y: f.y });
+  }
+
+  // ---------- multiplayer: save / load one player's progress
+  savePlayerState() { const st = {}; for (const k of PLAYER_FIELDS) st[k] = clone(this[k]); this.player.state = st; }
+  loadPlayerState() {
+    const st = this.player.state;
+    if (!st) { // first turn of this player
+      Object.assign(this, { score: 0, ballNum: 1, bonusX: 1, mageDone: 0, mage: [false, false, false, false], towerLocks: 0, castleHits: 0, gateOpen: false,
+        dwarfs: 0, treasures: 0, princessSaved: false, mysteryLit: false, shields: [false, false, false], bestCombo: 0, gameAch: new Set(), stats: newStats(), flags: newFlags(), finalReady: false });
+    } else for (const k of PLAYER_FIELDS) this[k] = clone(st[k]);
+    // the table must show this player's gate
+    if (L.castleGate.seg) L.castleGate.seg.enabled = !this.gateOpen;
+    this.world.fx('gateOpen', { open: this.gateOpen });
+    this.best = this.bests[this.player.id];
+    this.dailyDone = false;
   }
 
   activeBalls() { return this.phys.balls.length + this.pendingBalls; }
@@ -77,6 +149,7 @@ export class Game {
   later(sec, fn) { this.timers.push({ t: this.time + sec, fn }); }
 
   addScore(n, x, y) {
+    if (this.practice) return 0;
     const v = Math.round(n * (this.multiball ? 2 : 1));
     this.score += v;
     if (x !== undefined) this.ui.popup(v, x, y);
@@ -85,13 +158,14 @@ export class Game {
   }
 
   achieve(id) {
-    if (this.gameAch.has(id)) return;
+    if (this.practice || this.gameAch.has(id)) return;
     this.gameAch.add(id);
     const isNew = !this.best.achievements.includes(id);
-    if (isNew) { this.best.achievements.push(id); saveBest(this.best); this.ui.toast('🏆 הישג חדש: ' + ACHIEVEMENTS[id]); }
+    if (isNew) { this.best.achievements.push(id); Store.saveBest(this.player.id, this.best); this.ui.toast('🏆 הישג חדש: ' + ACHIEVEMENTS[id]); }
   }
 
   shot(name, x, y) {
+    if (this.stats.shots[name] !== undefined) this.stats.shots[name]++;
     // combo tracking for major shots
     if (this.time - this.lastShotT < 5) this.combo++; else this.combo = 1;
     this.lastShotT = this.time;
@@ -176,7 +250,7 @@ export class Game {
   }
 
   openGate() {
-    this.gateOpen = true;
+    this.gateOpen = true; this.flags.gate = true;
     L.castleGate.seg.enabled = false;
     this.world.fx('gateOpen', { open: true });
     this.ui.message('שער הטירה נפתח!', 'הכניסו כדור להצלת הנסיכה', '#ffcf6a', 2.2);
@@ -237,7 +311,7 @@ export class Game {
   }
 
   onLaunched() {
-    if (this.ballSaveArmed) { this.ballSave = BALL_SAVE_SECONDS; this.ballSaveArmed = false; }
+    if (this.ballSaveArmed) { this.ballSave = this.settings.ballSave ?? BALL_SAVE_SECONDS; this.ballSaveArmed = false; }
     this.skillWindow = 4;
   }
 
@@ -292,7 +366,7 @@ export class Game {
     this.sound.play('hole');
     this.world.fx('spark', { x: h.x, y: h.y, h: 10, color: 0xffffff, n: 18 });
     let delay = 1.0;
-    if (this.state === 'playing') delay = this.awardHole(h, b) || 1.0;
+    if (this.state === 'playing' && !this.practice) delay = this.awardHole(h, b) || 1.0;
     this.holds.push({ b, h, t: this.time + delay });
   }
 
@@ -319,8 +393,10 @@ export class Game {
     switch (h.id) {
       case 'tower': {
         this.world.fx('flame');
+        if (this.finalReady && !this.multiball) { this.stats.shots.tower++; this.startFinal(h); return 2.6; }
         this.addScore((this.towerRampBoost ? 20000 : 10000) * this.mult, h.x, h.y);
         this.towerRampBoost = false;
+        if (this.multiball === 'final') { this.finalHit(h.x, h.y); return 1.0; }
         if (this.multiball) { const v = this.addScore(100000); this.ui.message('ג׳קפוט המכשף!', '+' + fmt(v), '#7fc8ff', 1.6); this.sound.play('jackpot'); this.world.fx('lightshow'); return 1.0; }
         this.towerLocks++;
         this.sound.play('lock');
@@ -334,7 +410,9 @@ export class Game {
         return 1.4;
       }
       case 'castle': {
+        this.stats.shots.castle++;
         this.closeGate();
+        if (this.multiball === 'final') { this.finalHit(h.x, h.y); return 1.0; }
         if (!this.castleMode && !this.multiball) {
           this.castleMode = true; this.jackpots = 0;
           this.world.fx('princess', { on: true });
@@ -367,6 +445,7 @@ export class Game {
       }
       case 'mine': {
         this.world.fx('mineHit');
+        if (this.multiball === 'final') { this.stats.shots.mine++; this.finalHit(h.x, h.y); return 1.0; }
         if (this.dwarfs >= 7) {
           this.treasures++;
           const v = this.addScore(300000 + 150000 * (this.treasures - 1), h.x, h.y);
@@ -375,7 +454,8 @@ export class Game {
           this.later(3, () => this.world.setMood(this.moodName()));
           this.ui.message('מטמון הגמדים!', '+' + fmt(v), '#ffd24a', 2.6);
           this.sound.play('treasure'); this.world.fx('lightshow');
-          this.achieve('treasure');
+          this.achieve('treasure'); this.flags.treasure = true; this.stats.shots.mine++;
+          this.checkFinalReady();
           return 2.6;
         }
         this.addScore(5000, h.x, h.y); this.advanceDwarf();
@@ -397,8 +477,9 @@ export class Game {
     this.sound.play('multiball'); this.world.fx('lightshow');
     this.sound.intensity = 1;
     this.world.setMood(kind === 'castle' ? 'castle' : 'multiball');
-    if (kind === 'wizard') { this.ui.message('מולטיבול המכשף!', 'ג׳קפוט במגדל ובכל רמפה', '#7fc8ff', 2.6); this.achieve('wizard'); this.world.fx('flame'); }
-    else this.ui.message('הצילו את הנסיכה!', 'רמפת הקריסטל = ג׳קפוט', '#ffcf6a', 2.6);
+    if (kind === 'wizard') { this.ui.message('מולטיבול המכשף!', 'ג׳קפוט במגדל ובכל רמפה', '#7fc8ff', 2.6); this.achieve('wizard'); this.world.fx('flame'); this.flags.wizard = true; }
+    else if (kind === 'castle') { this.ui.message('הצילו את הנסיכה!', 'רמפת הקריסטל = ג׳קפוט', '#ffcf6a', 2.6); this.flags.castle = true; }
+    this.checkFinalReady();
     const extra = Math.max(0, 3 - this.phys.balls.length);
     this.pendingBalls += extra;
     for (let i = 0; i < extra; i++) {
@@ -416,11 +497,42 @@ export class Game {
     this.ballSave = Math.max(this.ballSave, 10);
   }
 
+  // ---------- final battle (wizard mode): unlocked by wizard multiball + princess multiball + treasure in one game
+  checkFinalReady() {
+    if (this.finalReady || this.multiball === 'final') return;
+    if (this.flags.wizard && this.flags.castle && this.flags.treasure) {
+      this.finalReady = true;
+      this.later(2.8, () => { this.ui.message('הקרב האחרון מוכן!', 'הכניסו כדור לחור המגדל', '#ff7ad9', 2.6); this.sound.play('lock'); this.world.fx('lightshow'); });
+    }
+  }
+  startFinal(hole) {
+    this.finalReady = false;
+    this.finalT = 45; this.finalJackpot = 0;
+    this.flags = newFlags(); // the next final needs all three again
+    this.startMultiball('final', hole);
+    this.ui.message('הקרב האחרון!', '45 שניות · כל מכה = ג׳קפוט', '#ff7ad9', 2.8);
+    this.world.setMood('treasure'); this.world.fx('flame');
+    this.achieve('final');
+  }
+  finalHit(x, y) {
+    this.finalJackpot++;
+    const v = this.addScore(150000 * this.finalJackpot, x, y);
+    this.ui.message(`ג׳קפוט ${this.finalJackpot}`, '+' + fmt(v), '#ff7ad9', 1.2);
+    this.sound.play('jackpot'); this.world.fx('lightshow');
+    this.world.fx('burst', { x, y, color: 0xff7ad9, n: 50, speed: 2.4 });
+  }
+
   endMultiball() {
     if (!this.multiball) return;
     const kind = this.multiball;
     this.multiball = false;
     this.sound.intensity = 0;
+    if (kind === 'final') {
+      this.finalT = 0;
+      this.ui.message('הקרב האחרון הסתיים', `${this.finalJackpot} ג׳קפוטים`, '#ff7ad9', 2.2);
+      this.world.setMood(this.moodName());
+      return;
+    }
     if (kind === 'castle') {
       this.castleMode = false;
       this.world.fx('princess', { on: false });
@@ -430,6 +542,7 @@ export class Game {
   }
 
   moodName() {
+    if (this.multiball === 'final') return 'treasure';
     if (this.multiball === 'castle') return 'castle';
     if (this.multiball) return 'multiball';
     if (this.mult >= 3) return 'hot';
@@ -438,7 +551,13 @@ export class Game {
 
   onRailExit(b, name) {
     if (this.state !== 'playing' || L.ramps[name].noScore) return;
+    if (this.practice) {
+      if ((name === 'tower' ? 'towerRamp' : name) === this.practice) { this.practiceStats.hits++; this.sound.play('jackpot'); this.world.fx('lightshow'); this.ui.message('פגיעה!', `${this.practiceStats.hits}/${this.practiceStats.tries}`, '#7fffa0', 1); }
+      this.later(0.8, () => { if (this.state === 'playing' && this.practice) this.feedPractice(); });
+      return;
+    }
     this.ramps++;
+    if (this.multiball === 'final') { this.stats.shots[name === 'tower' ? 'towerRamp' : name]++; this.finalHit(b.x, b.y); return; }
     if (name === 'orbit') {
       const v = this.addScore(25000 * this.mult, 600, 900);
       this.ui.message('הקפת היער', '+' + fmt(v), '#b7ff8a', 1.2);
@@ -464,7 +583,7 @@ export class Game {
           this.princessSaved = true;
           const p = this.addScore(1_000_000);
           this.ui.message('הנסיכה ניצלה!', '+' + fmt(p), '#ff9ad0', 3);
-          this.sound.play('treasure'); this.world.fx('lightshow'); this.achieve('princess');
+          this.sound.play('treasure'); this.world.fx('lightshow'); this.achieve('princess'); this.flags.princess = true;
           this.world.fx('burst', { x: 540, y: 300, h: 160, color: 0xff9ad0, n: 120, speed: 3 });
         }
       } else {
@@ -502,6 +621,14 @@ export class Game {
       due.forEach((h) => this.kickOut(h));
     }
     if (this.ballSave > 0) this.ballSave = Math.max(0, this.ballSave - dt);
+    if (this.multiball === 'final' && this.state === 'playing') { this.finalT -= dt; if (this.finalT <= 0) this.endMultiball(); }
+    if (this.practice && this.state === 'playing' && this.time - this.practiceFeedT > 9) this.feedPractice(); // ball wandered off
+    if (this.state === 'playing' && !this.practice && !this.dailyDone && !this.dailyAlready[this.player.id] && this.challenge.done(this.dailySnapshot())) {
+      this.dailyDone = true; this.dailyAlready[this.player.id] = true;
+      const st = Store.completeDaily(this.player.id);
+      this.ui.message('🎯 האתגר היומי הושלם!', `${this.challenge.text} · רצף ${st.streak} ימים`, '#9fffb0', 2.6);
+      this.sound.play('treasure'); this.world.fx('lightshow'); this.achieve('daily');
+    }
     if (this.skillWindow > 0) this.skillWindow = Math.max(0, this.skillWindow - dt);
 
     // drains & stuck balls
@@ -522,9 +649,12 @@ export class Game {
     if (this.state === 'playing') this.updateLamps();
   }
 
+  dailySnapshot() { return { shots: this.stats.shots, flags: this.flags, score: this.score, mageDone: this.mageDone, bestCombo: this.bestCombo }; }
+
   drain(b) {
     this.phys.removeBall(b);
     if (this.state !== 'playing') return;
+    if (this.practice) { this.later(0.5, () => { if (this.state === 'playing' && this.practice) this.feedPractice(); }); return; }
     const left = this.activeBalls();
     if (this.ballSave > 0 && (left === 0 || this.multiball)) {
       this.ui.message('הכדור ניצל!', 'שוב לשיגור', '#ff8a8a', 1.4);
@@ -536,38 +666,133 @@ export class Game {
     }
     if (this.multiball && left <= 1) this.endMultiball();
     if (left > 0) return;
-    // end of ball
+    // end of ball: remember how it was lost
+    this.stats.drains[b.outlane ? (b.outSide || (b.x < L.CX ? 'L' : 'R')) : 'center']++;
+    if (this.stats.ballStart !== null) this.stats.ballTimes.push(this.time - this.stats.ballStart);
     this.sound.play('drain');
     this.world.setMood('drain');
     if (this.castleMode) { this.castleMode = false; this.world.fx('princess', { on: false }); }
-    this.multiball = false;
+    this.multiball = false; this.finalT = 0;
     const base = this.dwarfs * 5000 + this.mageDone * 15000 + this.mushroomHits * 300 + this.ramps * 4000 + this.towerLocks * 10000;
     const bonus = base * this.bonusX;
     this.score += bonus;
     this.ui.bonus(bonus, this.bonusX);
     this.ramps = 0;
     this.combo = 0;
-    this.later(2.6, () => {
-      this.bonusX = 1;
-      if (this.ballNum >= 3) { this.gameOver(); return; }
-      this.ballNum++;
-      this.world.setMood('normal');
-      this.newBall();
-      this.ui.message(`כדור ${this.ballNum}`, this.ballNum === 3 ? 'כדור אחרון!' : '', '#ffe08a', 1.6);
-    });
+    this.later(2.6, () => this.nextTurn());
+  }
+
+  nextTurn() {
+    this.bonusX = 1;
+    this.ballNum++;
+    this.savePlayerState();
+    const n = this.players.length;
+    const next = (this.cur + 1) % n;
+    const nextBall = this.players[next].state ? this.players[next].state.ballNum : 1;
+    if (nextBall > this.maxBalls) { this.gameOver(); return; }
+    if (next !== this.cur) { this.cur = next; this.loadPlayerState(); }
+    this.world.setMood('normal');
+    this.newBall();
+    const last = this.ballNum === this.maxBalls ? 'כדור אחרון!' : '';
+    if (n > 1) this.ui.message(`תור של ${this.player.name}`, `כדור ${this.ballNum}${last ? ' · ' + last : ''}`, '#ffe08a', 2);
+    else this.ui.message(`כדור ${this.ballNum}`, last, '#ffe08a', 1.6);
+  }
+
+  // insights for one player's finished game
+  insights(st, score) {
+    const out = [];
+    const d = st.stats.drains, lost = d.center + d.L + d.R;
+    if (lost) {
+      const worst = Object.entries(d).sort((a, b) => b[1] - a[1])[0];
+      const where = { center: 'במרכז, בין הפליפרים', L: 'בתעלת הצד השמאלית', R: 'בתעלת הצד הימנית' }[worst[0]];
+      if (worst[1] > 0) out.push(`רוב הכדורים אבדו ${where} (${worst[1]}/${lost})`);
+    }
+    const best = Object.entries(st.stats.shots).sort((a, b) => b[1] - a[1])[0];
+    if (best && best[1] > 0) out.push(`המכה הכי מוצלחת: ${SHOT_NAMES[best[0]]} ×${best[1]}`);
+    else out.push('נסו לכוון לרמפות: הן שוות הכי הרבה');
+    if (st.stats.ballTimes.length) out.push(`זמן ממוצע לכדור: ${Math.round(st.stats.ballTimes.reduce((a, b) => a + b, 0) / st.stats.ballTimes.length)} שניות`);
+    if (!st.stats.shots.towerRamp) out.push('טיפ: רמפת המגדל נפתחת בקלות מהפליפר הימני, כשהכדור באמצע הפליפר');
+    else if (!st.stats.shots.crystal) out.push('טיפ: לרמפת הקריסטל מכוונים מקצה הפליפר השמאלי');
+    return out.slice(0, 4);
   }
 
   gameOver() {
+    if (this.state !== 'playing') return;
+    if (this.practice) { this.state = 'over'; this.ui.practiceOver?.(this.practice, this.practiceStats); return; }
+    this.savePlayerState();
     this.state = 'over';
     this.sound.play('gameover');
     this.sound.intensity = 0;
-    const prev = { ...this.best };
-    const newRecord = this.score > this.best.score;
-    this.best.games = (this.best.games || 0) + 1;
-    if (newRecord) this.best.score = this.score;
-    if (this.bestCombo > (this.best.combo || 0)) this.best.combo = this.bestCombo;
-    saveBest(this.best);
-    this.ui.gameOver({ score: this.score, newRecord, prevBest: prev.score, best: this.best, combo: this.bestCombo, ach: [...this.gameAch] });
+    const results = this.players.filter((p) => p.state).map((p) => {
+      const st = p.state;
+      const best = this.bests[p.id];
+      const prev = best.score;
+      const newRecord = st.score > best.score;
+      best.games = (best.games || 0) + 1;
+      if (newRecord) best.score = st.score;
+      if (st.bestCombo > (best.combo || 0)) best.combo = st.bestCombo;
+      Store.saveBest(p.id, best);
+      Store.pushHistory(p.id, { t: Date.now(), score: st.score, combo: st.bestCombo, ach: [...st.gameAch], drains: st.stats.drains, shots: st.stats.shots, players: this.players.length });
+      return { id: p.id, name: p.name, score: st.score, newRecord, prevBest: prev, best, combo: st.bestCombo, ach: [...st.gameAch], insights: this.insights(st, st.score) };
+    });
+    Store.clearSave();
+    const r = results[0];
+    this.ui.gameOver({ ...r, players: results.length > 1 ? [...results].sort((a, b) => b.score - a.score) : null });
+  }
+
+  // ------------------------------------------------------------------ what to do next
+  nextGoal() {
+    if (this.practice) { const p = this.practiceStats; return `🎯 אימון ${PRACTICE[this.practice].name}: ${p.hits}/${p.tries}${p.tries ? ` (${Math.round((p.hits / p.tries) * 100)}%)` : ''}`; }
+    if (this.multiball === 'final') return `⚔️ הקרב האחרון: ${Math.ceil(this.finalT)} שניות · כל מכה = ג׳קפוט`;
+    if (this.finalReady) return '⚔️ הקרב האחרון מוכן: חור המגדל';
+    if (this.multiball === 'castle') return `👑 רמפת הקריסטל = ג׳קפוט (${this.jackpots}/3)`;
+    if (this.multiball === 'wizard') return '🔥 ג׳קפוט: חור המגדל, הרמפות וההקפה';
+    if (this.gateOpen) return '🏰 השער פתוח: הכניסו כדור לטירה';
+    if (this.dwarfs >= 7) return '⛏️ המטמון מוכן: היכנסו למכרה';
+    if (this.towerLocks === 2) return '🔥 עוד נעילה אחת במגדל: מולטיבול';
+    if (this.mysteryLit) return '❓ חור המסתורין דולק';
+    const opts = [
+      [3 - this.castleHits, `🏰 עוד ${3 - this.castleHits} פגיעות בשער הטירה`],
+      [3 - this.towerLocks, `🔥 נעילות מגדל ${this.towerLocks}/3`],
+      [(7 - this.dwarfs) / 2, `⛏️ גמדים ${this.dwarfs}/7: רמפות, הקפות ומכרה`],
+      [this.mage.filter((m) => !m).length, `✨ חסר ב-M-A-G-E: ${'MAGE'.split('').filter((c, i) => !this.mage[i]).join(' ')}`],
+    ];
+    return opts.sort((a, b) => a[0] - b[0])[0][1];
+  }
+
+  // ------------------------------------------------------------------ save / restore (auto-save)
+  serialize() {
+    if (this.state !== 'playing' || this.practice) return null;
+    this.savePlayerState();
+    const balls = this.phys.balls.map((b) => {
+      if (b.mode === 'rail') { const ex = L.ramps[b.railName].exit; const end = b.rail.samples[b.rail.samples.length - 1]; return { x: end.x, y: end.y, vx: ex.vx, vy: ex.vy }; }
+      if (b.mode === 'held') { const h = this.holds.find((hd) => hd.b === b)?.h; const o = h?.out || [b.x, b.y + 20]; return { x: o[0], y: o[1], vx: h ? h.kick.vx : 0, vy: h ? h.kick.vy : 200 }; }
+      return { x: b.x, y: b.y, vx: b.vx, vy: b.vy, launched: !!b.launched };
+    });
+    return {
+      v: 1, t: Date.now(), cur: this.cur, players: this.players.map((p) => ({ id: p.id, name: p.name, state: p.state ? { ...p.state, gameAch: [...p.state.gameAch] } : null })),
+      table: { drops: this.drops, kick: this.kick, ballSave: this.ballSave, mult: this.mult, mushroomHits: this.mushroomHits, castleMode: this.castleMode, multiball: this.multiball, jackpots: this.jackpots, finalT: this.finalT, finalJackpot: this.finalJackpot, towerRampBoost: this.towerRampBoost, ballSaveArmed: this.ballSaveArmed },
+      balls: balls.length ? balls : [{ x: L.PLUNGER.x, y: L.PLUNGER.y, vx: 0, vy: 0, launched: false }],
+    };
+  }
+  restore(sv) {
+    this.startGame({ players: sv.players.map((p) => ({ id: p.id, name: p.name })) });
+    this.phys.balls.length = 0;
+    this.players.forEach((p, i) => { const st = sv.players[i].state; p.state = st ? { ...st, gameAch: new Set(st.gameAch) } : null; });
+    this.cur = sv.cur;
+    this.loadPlayerState();
+    const tb = sv.table;
+    Object.assign(this, { drops: [false, false, false], kick: tb.kick, ballSave: tb.ballSave, mult: tb.mult, mushroomHits: tb.mushroomHits, jackpots: tb.jackpots,
+      finalT: tb.finalT, finalJackpot: tb.finalJackpot, towerRampBoost: tb.towerRampBoost, ballSaveArmed: tb.ballSaveArmed });
+    // multiball keeps going only if its balls came back too
+    const many = sv.balls.length > 1;
+    this.multiball = many ? tb.multiball : false;
+    this.castleMode = many && tb.castleMode;
+    if (this.castleMode) this.world.fx('princess', { on: true });
+    for (const bb of sv.balls) { const b = this.phys.addBall(bb.x, bb.y, bb.vx, bb.vy); b.launched = bb.launched !== false; b.noCap = this.time + 0.5; }
+    this.sound.intensity = this.multiball ? 1 : 0;
+    this.world.setMood(this.moodName());
+    this.ui.message('ממשיכים מאיפה שעצרת', this.players.length > 1 ? `תור של ${this.player.name}` : `כדור ${this.ballNum}`, '#9fe0ff', 2.2);
   }
 
   // ------------------------------------------------------------------ lamps
@@ -576,8 +801,8 @@ export class Game {
     for (let i = 0; i < 3; i++) { set('tower_lock_' + i, i < this.towerLocks ? 1 : i === this.towerLocks ? 2 : 0); set('lockf_' + i, i < this.towerLocks ? 1 : 0); }
     set('tower_door', this.multiball === 'wizard' ? 3 : this.towerLocks === 2 ? 2 : 0);
     set('tower_rune', this.multiball === 'wizard' ? 3 : 1);
-    set('hole_tower', this.towerLocks === 2 || this.multiball === 'wizard' ? 3 : 2);
-    set('arrow_towerHole', this.towerLocks === 2 ? 3 : 2);
+    set('hole_tower', this.finalReady || this.multiball === 'final' || this.towerLocks === 2 || this.multiball === 'wizard' ? 3 : 2);
+    set('arrow_towerHole', this.finalReady || this.towerLocks === 2 ? 3 : 2);
     set('arrow_towerRamp', this.multiball === 'wizard' ? 3 : this.towerRampBoost ? 1 : 2);
     for (let i = 0; i < 3; i++) { set('castle_gate_' + i, this.gateOpen || i < this.castleHits ? 1 : 0); set('gatef_' + i, this.gateOpen || i < this.castleHits ? 1 : 0); }
     set('castle_inside', this.gateOpen ? 2 : this.castleMode ? 1 : 0);

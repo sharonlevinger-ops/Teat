@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="פינבול">
   <meta name="theme-color" content="#0b130e">
-  <meta name="app-version" content="2.7.1">
+  <meta name="app-version" content="3.0.0">
   <title>פינבול היער והטירה</title>
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/icon-180.png">
@@ -39,11 +39,13 @@
         <button id="btnPause" class="ib" aria-label="השהיה">⏸</button>
       </div>
     </header>
+    <div id="goal" class="goal"></div>
     <div id="msg"></div>
     <div id="toast"></div>
     <div id="camName"></div>
     <div id="pops"></div>
     <button id="plunger" aria-label="קפיץ שיגור"><span class="meter"><span id="plungerFill"></span></span><span class="lbl">החזיקו או<br>גררו למטה</span></button>
+    <div id="flipBtns"><button id="fbL" class="fb" aria-label="פליפרים שמאליים">◀</button><button id="fbR" class="fb" aria-label="פליפר ימני">▶</button></div>
     <div id="hint"><div><b>◀</b><span>הקשה בצד שמאל<br>שני הפליפרים השמאליים</span></div><div><b>▶</b><span>הקשה בצד ימין<br>הפליפר הימני</span></div></div>
   </div>
 
@@ -52,14 +54,24 @@
     <div class="card">
       <h1><span>פינבול</span>היער והטירה</h1>
       <p class="tag">מגדל המכשף · הטירה והנסיכה · מכרה הגמדים</p>
+      <div class="who">
+        <div class="lbl">מי משחק? <small>(עד 4 שחקנים, לפי סדר הבחירה)</small></div>
+        <div id="players" class="chips"></div>
+        <div class="addp"><input id="newName" maxlength="14" placeholder="שם שחקן חדש" autocomplete="off"><button id="btnAddP" class="mini">הוספה</button></div>
+      </div>
       <div class="best">
-        <div class="lbl">🏆 השיא של שרון</div>
+        <div class="lbl" id="bestLbl">🏆 השיא של שרון</div>
         <div id="bestScore" class="num">0</div>
         <div class="row"><span>קומבו שיא <b id="bestCombo">—</b></span><span>משחקים <b id="bestGames">0</b></span></div>
+        <div id="hist" class="hist"></div>
       </div>
+      <div id="daily" class="daily"></div>
       <ul id="achList" class="ach"></ul>
+      <button id="btnContinue" class="big alt" hidden>המשך המשחק השמור</button>
       <button id="btnStart" class="big">התחלת משחק</button>
-      <p class="help">צד שמאל של המסך = שני הפליפרים השמאליים · צד ימין = הפליפר הימני · החזיקו את הקפיץ למטה מימין לשיגור · 🎥 מחליף זווית מצלמה<br>למסך מלא באייפון: שיתוף ← הוספה למסך הבית<br><span id="appVersion" dir="ltr"></span></p>
+      <div class="row3"><button id="btnPractice" class="ghost">🎯 אימון</button><button id="btnSettings" class="ghost">⚙️ הגדרות</button><button id="btnRulesT" class="ghost">📜 חוקים</button></div>
+      <p class="help" id="installHint">להתקנה באייפון: שיתוף ← הוספה למסך הבית</p>
+      <p class="help"><span id="appVersion" dir="ltr"></span></p>
     </div>
   </section>
 
@@ -69,6 +81,8 @@
       <div id="overScore" class="num big">0</div>
       <div id="overRecord" class="rec"></div>
       <div id="overStats" class="stats"></div>
+      <ol id="overPlayers" class="rank" hidden></ol>
+      <ul id="overInsights" class="insights"></ul>
       <ul id="overAch" class="ach"></ul>
       <button id="btnAgain" class="big">משחק נוסף</button>
       <button id="btnMenu" class="ghost">לתפריט</button>
@@ -80,7 +94,52 @@
     <div class="card small">
       <h2>הפסקה</h2>
       <button id="btnResume" class="big">המשך</button>
+      <div class="row3"><button id="btnRulesP" class="ghost">📜 חוקים</button><button id="btnSettingsP" class="ghost">⚙️ הגדרות</button></div>
       <button id="btnQuit" class="ghost">סיום המשחק</button>
+    </div>
+  </section>
+
+  <section id="practiceScr" class="screen">
+    <div class="card small">
+      <h2>🎯 אימון מכות</h2>
+      <p class="tag">הכדור מגיע שוב ושוב לאותו פליפר. בלי ניקוד ובלי פסילות.</p>
+      <button class="big pr" data-practice="crystal">רמפת הקריסטל<small>הפליפר השמאלי</small></button>
+      <button class="big pr" data-practice="towerRamp">רמפת המגדל<small>הפליפר הימני</small></button>
+      <button class="big pr" data-practice="orbit">הקפת היער<small>הפליפר השמאלי-עליון</small></button>
+      <button class="ghost" data-close="practiceScr">חזרה</button>
+    </div>
+  </section>
+
+  <section id="settingsScr" class="screen">
+    <div class="card small settings">
+      <h2>⚙️ הגדרות</h2>
+      <div class="set"><div class="sl">קושי</div><div class="seg" data-key="difficulty"><button data-val="easy">קל</button><button data-val="normal">רגיל</button><button data-val="hard">קשה</button></div><div class="sd">קל: עמוד בין הפליפרים · רגיל: עמוד קטן · קשה: בלי עמוד</div></div>
+      <div class="set"><div class="sl">הצלת כדור בהתחלה</div><div class="seg" data-key="ballSave"><button data-val="0">בלי</button><button data-val="8">8 ש׳</button><button data-val="15">15 ש׳</button><button data-val="20">20 ש׳</button></div></div>
+      <div class="set"><div class="sl">כדורים למשחק</div><div class="seg" data-key="balls"><button data-val="3">3</button><button data-val="5">5</button></div></div>
+      <div class="set"><div class="sl">מהירות</div><div class="seg" data-key="speed"><button data-val="0.85">איטי</button><button data-val="1">רגיל</button><button data-val="1.15">מהיר</button></div></div>
+      <div class="set"><div class="sl">שליטה</div><div class="seg" data-key="controls"><button data-val="halves">חצאי מסך</button><button data-val="buttons">כפתורים</button></div></div>
+      <div class="set"><div class="sl">זוהר ואפקטים</div><div class="seg" data-key="glow"><button data-val="true">פועל</button><button data-val="false">כבוי</button></div></div>
+      <div class="set"><div class="sl">חיסכון בסוללה</div><div class="seg" data-key="battery"><button data-val="false">כבוי</button><button data-val="true">פועל</button></div><div class="sd">רזולוציה נמוכה יותר ובלי צללים</div></div>
+      <button class="big" data-close="settingsScr">סיום</button>
+    </div>
+  </section>
+
+  <section id="rulesScr" class="screen">
+    <div class="card small rules">
+      <h2>📜 חוקי המשחק</h2>
+      <div id="rulesLive" class="live"></div>
+      <ul class="rl">
+        <li><b>🔥 מגדל המכשף</b> 3 כניסות לחור המגדל ← מולטיבול המכשף (3 כדורים, ג׳קפוט בכל רמפה).</li>
+        <li><b>🏰 הטירה</b> 3 פגיעות בשער ← השער נפתח. כדור בשער ← הצלת הנסיכה: רמפת הקריסטל = ג׳קפוט, 3 ג׳קפוטים = הנסיכה ניצלה.</li>
+        <li><b>⛏️ המכרה</b> כל רמפה, הקפה או כניסה למכרה מדליקה גמד. 7 גמדים ← היכנסו למכרה למטמון.</li>
+        <li><b>⚔️ הקרב האחרון</b> מולטיבול המכשף + הצלת הנסיכה + מטמון באותו משחק ← חור המגדל פותח 45 שניות שבהן כל מכה היא ג׳קפוט.</li>
+        <li><b>🛡 מגיני הנסיך</b> 3 המטרות הנופלות ← חור המסתורין דולק והצלת הצד חוזרת. 3 המגינים התחתונים ← הצלת כדור 15 שניות.</li>
+        <li><b>✨ M-A-G-E</b> עברו בכל ארבע התעלות (הפליפרים מזיזים את האותיות) ← בונוס x+1 והצלת צד.</li>
+        <li><b>🍄 הפטריות</b> כל 12 פגיעות ← מכפיל x+1 (עד x5) עד סוף הכדור.</li>
+        <li><b>💫 קומבו</b> מכות חשובות ברצף, תוך 5 שניות זו מזו, שוות בונוס הולך וגדל.</li>
+        <li><b>🛟 הצלות</b> 15 שניות ראשונות של כל כדור · הצלה אחת בתעלות הצד לכל כדור.</li>
+      </ul>
+      <button class="big" data-close="rulesScr">סגירה</button>
     </div>
   </section>
 

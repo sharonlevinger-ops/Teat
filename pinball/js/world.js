@@ -322,7 +322,7 @@ export class World {
   // chrome post with a white rubber ring between the lower flippers
   buildCenterPost() {
     const p = L.CENTER_POST;
-    const g = new THREE.Group(); g.position.copy(V(p.x, p.y));
+    const g = new THREE.Group(); g.position.copy(V(p.x, p.y)); this.centerPost = g;
     const post = new THREE.Mesh(new THREE.CylinderGeometry(p.r * 0.55 * S, p.r * 0.65 * S, 22 * S, 16), this.mats.chrome); post.position.y = 11 * S; post.castShadow = true; g.add(post);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(p.r * 0.85 * S, 2.6 * S, 10, 24).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xf1ede2, roughness: 0.55 }));
     ring.position.y = 9 * S; ring.castShadow = true; g.add(ring);
@@ -417,6 +417,7 @@ export class World {
       case 'treasure': { const h = L.holes.find((o) => o.id === 'mine'); this.particles.emit(V(h.x, h.y, 30), 0xffd24a, 90, 2.2, 1.4, 0.1, 1.6); this.shake = Math.max(this.shake || 0, 1); break; }
       case 'crystal': this.crystalFlash = 1; break;
       case 'lightshow': this.showT = 1.6; break;
+      case 'postVisible': if (this.centerPost) { this.centerPost.visible = data.on; this.centerPost.scale.setScalar(data.small ? 0.6 : 1); } break;
       case 'ring': this.ringFx.push({ m: this.glow(data.x, data.y, 30, 0xffe2a0, 5), t: 0 }); break;
       case 'burst': if (p) this.particles.emit(p, data.color ?? 0xffffff, data.n ?? 40, data.speed ?? 2, 1.1, 0.1, 1.5); break;
     }

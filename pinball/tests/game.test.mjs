@@ -45,7 +45,7 @@ test('full games run to completion with a bot', () => {
     assert.ok(g.score > 0);
   }
   assert.ok(ui.result.best.score > 0, 'high score saved');
-  assert.ok(JSON.parse(mem.fcp_best_v1).score > 0);
+  assert.ok(JSON.parse(mem['fcp_best_v1:sharon']).score > 0, 'record saved under the player profile');
   const seen = new Set(msgs);
   console.log('messages seen:', [...seen].slice(0, 40).join(' | '));
   assert.ok([...seen].some((m) => m.includes('הצילו את הנסיכה')), 'castle multiball started');

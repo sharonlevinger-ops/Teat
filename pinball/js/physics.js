@@ -50,6 +50,7 @@ export class Rail {
 export class Physics {
   constructor() {
     this.balls = [];
+    this.gravityScale = 1; // game speed setting
     this.segs = [];
     this.circles = [];
     this.flippers = [];
@@ -143,7 +144,7 @@ export class Physics {
     for (const b of this.balls) {
       if (b.mode !== 'field') continue;
       const px = b.x, py0 = b.y;
-      b.vy += GRAVITY * h;
+      b.vy += GRAVITY * this.gravityScale * h;
       // light rolling resistance
       const damp = 1 - 0.06 * h;
       b.vx *= damp; b.vy *= damp;
@@ -153,7 +154,7 @@ export class Physics {
 
       for (const g of this.segs) if (g.enabled) this.collideSeg(b, g);
       for (const c of this.circles) if (c.enabled) this.collideCircle(b, c);
-      if (!b.outlane && L.inOutlane(b)) b.outlane = true;
+      if (!b.outlane && L.inOutlane(b)) { b.outlane = true; b.outSide = b.x < L.CX ? 'L' : 'R'; }
       if (!b.outlane) for (const f of this.flippers) this.collideFlipper(b, f);
 
       // hard bounds (safety net against tunnelling)
@@ -281,7 +282,7 @@ export class Physics {
     const rail = b.rail;
     const p = rail.at(b.s);
     // gravity along the rail (heights in px, the ramp is steep), plus rolling drag
-    b.rv -= GRAVITY * 0.55 * p.slope * dt;
+    b.rv -= GRAVITY * this.gravityScale * 0.55 * p.slope * dt;
     b.rv -= b.rv * 0.12 * dt;
     b.rv = Math.max(b.rv, 520);
     const prevX = b.x, prevY = b.y;

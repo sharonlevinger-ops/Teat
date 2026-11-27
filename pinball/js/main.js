@@ -7,6 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { Physics } from './physics.js';
 import { World, V } from './world.js';
 import { Game } from './game.js';
+import * as Store from './store.js';
 import { Sound } from './audio.js';
 import { UI } from './ui.js';
 import { CameraRig, MODES } from './camera.js';
@@ -15,7 +16,7 @@ import * as L from './layout.js';
 const $ = (s) => document.querySelector(s);
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 const CAM_KEY = 'fcp_cam2';
-export const APP_VERSION = '2.7.1';
+export const APP_VERSION = '3.0.0';
 
 async function boot() {
   const canvas = $('#gl');
@@ -52,7 +53,18 @@ async function boot() {
 
   const sound = new Sound();
   const ui = new UI();
-  const game = new Game(physics, world, sound, ui);
+  let settings = Store.loadSettings();
+  const game = new Game(physics, world, sound, ui, settings);
+  const baseRatio = pixelRatio;
+  function applySettings() {
+    game.applySettings(settings);
+    bloom.enabled = settings.glow !== false;
+    renderer.shadowMap.enabled = !settings.battery;
+    world.key.castShadow = !settings.battery;
+    pixelRatio = settings.battery ? Math.min(baseRatio, 1.25) : baseRatio;
+    document.body.classList.toggle('btnmode', settings.controls === 'buttons');
+    resize();
+  }
   world.update(0.016, physics, game);
   renderer.compile(world.scene, rig.cam);
 
@@ -74,6 +86,7 @@ async function boot() {
     rig.setAspect(w / h);
   }
   addEventListener('resize', resize);
+  applySettings();
   addEventListener('orientationchange', () => setTimeout(resize, 200));
 
   // ---------------------------------------------------------------- input
@@ -108,6 +121,7 @@ async function boot() {
     sound.unlock();
     if (isUI(e.target)) return;
     e.preventDefault();
+    if (settings.controls === 'buttons') return; // flippers only from the on-screen buttons
     for (const t of e.changedTouches) {
       const side = t.clientX < innerWidth / 2 ? 'L' : 'R';
       touchSide.set(t.identifier, side); flip(side, true);
@@ -144,6 +158,15 @@ async function boot() {
     if (['Space', 'Enter', 'ArrowDown'].includes(e.code)) plungerUp();
   });
 
+  // on-screen flipper buttons (Settings -> controls: buttons)
+  for (const [id, side] of [['#fbL', 'L'], ['#fbR', 'R']]) {
+    const el = $(id);
+    const down = (e) => { e.preventDefault(); e.stopPropagation(); sound.unlock(); if (!el.classList.contains('down')) { el.classList.add('down'); flip(side, true); } };
+    const up = (e) => { e.preventDefault(); e.stopPropagation(); if (el.classList.contains('down')) { el.classList.remove('down'); flip(side, false); } };
+    el.addEventListener('touchstart', down, { passive: false }); el.addEventListener('touchend', up, { passive: false }); el.addEventListener('touchcancel', up, { passive: false });
+    el.addEventListener('mousedown', down); el.addEventListener('mouseup', up); el.addEventListener('mouseleave', up);
+  }
+
   const pl = $('#plunger');
   pl.addEventListener('touchstart', (e) => { e.preventDefault(); e.stopPropagation(); sound.unlock(); plungerDown(e.changedTouches[0].clientY); }, { passive: false });
   pl.addEventListener('touchmove', (e) => {
@@ -173,19 +196,76 @@ async function boot() {
   tap('#btnPause', togglePause);
   tap('#btnResume', togglePause);
   tap('#btnQuit', () => { paused = false; $('#pause').classList.remove('show'); game.gameOver(); });
-  function start() {
-    ui.hideTitle(); ui.hideOver();
+
+  // ---------------- title screen: players, daily challenge, history, saved game
+  const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+  function refreshTitle() {
+    game.profiles = Store.loadProfiles();
+    const first = game.profiles.selected[0];
+    ui.renderTitle({
+      profiles: game.profiles, best: Store.loadBest(first), bestName: Store.profileName(game.profiles, first),
+      daily: { challenge: Store.todayChallenge(), ...Store.dailyStatus(first) },
+      hist: Store.historySummary(Store.loadHistory(first)), hasSave: !!Store.loadSave(), standalone,
+    });
+  }
+  ui.on.togglePlayer = (id) => {
+    const p = game.profiles; const i = p.selected.indexOf(id);
+    if (i >= 0) { if (p.selected.length > 1) p.selected.splice(i, 1); } else if (p.selected.length < 4) p.selected.push(id);
+    Store.saveProfiles(p); refreshTitle();
+  };
+  ui.on.removePlayer = (id) => { Store.removeProfile(game.profiles, id); refreshTitle(); };
+  ui.on.refresh = refreshTitle;
+  tap('#btnAddP', () => {
+    const inp = $('#newName');
+    const id = Store.addProfile(game.profiles, inp.value);
+    if (id) { if (game.profiles.selected.length < 4) game.profiles.selected.push(id); Store.saveProfiles(game.profiles); inp.value = ''; refreshTitle(); } else inp.focus();
+  });
+  $('#newName').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#btnAddP').click(); });
+
+  function begin(fn) {
+    ui.hideTitle(); ui.hideOver(); ui.showScreen('practiceScr', false);
     sound.unlock(); sound.startMusic();
-    game.startGame();
+    fn();
     const h = $('#hint'); h.classList.add('show'); setTimeout(() => h.classList.remove('show'), 4500);
   }
+  function start() {
+    Store.clearSave();
+    const p = game.profiles;
+    begin(() => game.startGame({ players: p.selected.map((id) => ({ id, name: Store.profileName(p, id) })) }));
+  }
   tap('#btnStart', start);
-  tap('#btnAgain', start);
-  tap('#btnMenu', () => { ui.hideOver(); ui.renderTitle(game.best); game.state = 'attract'; });
-  document.addEventListener('visibilitychange', () => { if (document.hidden && game.state === 'playing' && !paused) togglePause(); });
+  tap('#btnAgain', () => (game.practice ? begin(() => game.startGame({ players: game.players, practice: game.practice })) : start()));
+  tap('#btnContinue', () => { const sv = Store.loadSave(); if (sv) begin(() => game.restore(sv)); else refreshTitle(); });
+  tap('#btnMenu', () => { ui.hideOver(); game.state = 'attract'; game.practice = null; physics.balls.length = 0; refreshTitle(); });
+
+  // practice
+  tap('#btnPractice', () => ui.showScreen('practiceScr'));
+  for (const b of document.querySelectorAll('[data-practice]')) b.addEventListener('click', (e) => { e.stopPropagation(); sound.play('click'); const k = b.dataset.practice; const p = game.profiles; begin(() => game.startGame({ players: [{ id: p.selected[0], name: Store.profileName(p, p.selected[0]) }], practice: k })); });
+
+  // settings
+  function openSettings() { ui.renderSettings(settings); ui.showScreen('settingsScr'); }
+  tap('#btnSettings', openSettings); tap('#btnSettingsP', openSettings);
+  for (const seg of document.querySelectorAll('#settingsScr .seg')) {
+    for (const b of seg.querySelectorAll('button')) b.addEventListener('click', (e) => {
+      e.stopPropagation(); sound.play('click');
+      const v = b.dataset.val;
+      settings = { ...settings, [seg.dataset.key]: v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v };
+      Store.saveSettings(settings); applySettings(); ui.renderSettings(settings);
+    });
+  }
+  // rules
+  function openRules() { ui.renderRulesLive(game); ui.showScreen('rulesScr'); }
+  tap('#btnRulesT', openRules); tap('#btnRulesP', openRules);
+  for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', (e) => { e.stopPropagation(); sound.play('click'); ui.showScreen(b.dataset.close, false); });
+
+  // ---------------- auto-save: an interrupted game can be continued later
+  function autosave() { const sv = game.serialize(); if (sv) Store.writeSave(sv); }
+  setInterval(() => { if (game.state === 'playing' && !game.practice && !paused) autosave(); }, 3000);
+  addEventListener('pagehide', autosave);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { autosave(); if (game.state === 'playing' && !paused) togglePause(); } });
 
   // ---------------------------------------------------------------- loop
-  ui.renderTitle(game.best);
+  refreshTitle();
   $('#loading').classList.add('hide');
   let last = performance.now();
   let fpsAcc = 0, fpsN = 0, lowT = 0;

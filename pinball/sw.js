@@ -1,8 +1,8 @@
 // Forest & Castle Pinball – offline cache (stale-while-revalidate, scoped to /pinball/).
-const VERSION = 'fcp-v10';
+const VERSION = 'fcp-v11';
 const SHELL = [
   './', './index.html', './manifest.json', './css/style.css',
-  './js/main.js', './js/world.js', './js/physics.js', './js/layout.js', './js/textures.js', './js/game.js', './js/audio.js', './js/ui.js', './js/camera.js',
+  './js/main.js', './js/world.js', './js/physics.js', './js/layout.js', './js/textures.js', './js/game.js', './js/audio.js', './js/ui.js', './js/camera.js', './js/store.js',
   './vendor/three/three.module.min.js',
   './vendor/three/addons/postprocessing/EffectComposer.js', './vendor/three/addons/postprocessing/RenderPass.js', './vendor/three/addons/postprocessing/UnrealBloomPass.js',
   './vendor/three/addons/postprocessing/OutputPass.js', './vendor/three/addons/postprocessing/ShaderPass.js', './vendor/three/addons/postprocessing/MaskPass.js', './vendor/three/addons/postprocessing/Pass.js',
