@@ -130,7 +130,7 @@ export class Game {
         this.addScore(2500 * this.mult, obj.cx, obj.cy);
         if (this.drops.every(Boolean)) {
           this.addScore(25000);
-          this.mysteryLit = true; this.kick.R = true;
+          this.mysteryLit = true; this.kick.L = this.kick.R = true; // re-arm the outlane save on both sides
           this.ui.message('מגני הנסיך נפלו!', 'חור המסתורין דולק', '#9fb8ff', 1.8);
           this.sound.play('magic');
           this.later(1.4, () => this.resetDrops());

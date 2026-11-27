@@ -39,3 +39,14 @@ for (const [side, x] of [['left', 72], ['right', 650]]) {
     assert.equal(g.ballNum, ballBefore);
   });
 }
+
+test('dropping all drop targets re-arms the save on BOTH sides', () => {
+  const p = new Physics(); const g = new Game(p, world, sound, ui);
+  g.startGame(); g.ballSave = 0;
+  g.kick.L = g.kick.R = false;                       // save already used
+  for (const d of L.dropTargets) g.onHit('drop', p.balls[0], d, 500);
+  assert.equal(g.kick.L, true, 'left save re-armed');
+  assert.equal(g.kick.R, true, 'right save re-armed');
+  const r = dropInto(p, g, 72);                      // and the left one really saves the ball
+  assert.equal(r.drained, false);
+});
