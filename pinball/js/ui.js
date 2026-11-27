@@ -77,7 +77,8 @@ export class UI {
     if (this.ballsEl.dataset.v !== bl) { this.ballsEl.dataset.v = bl; this.ballsEl.innerHTML = [1, 2, 3].map((i) => `<i class="${i < game.ballNum ? 'used' : i === game.ballNum ? 'cur' : ''}"></i>`).join(''); }
     const mt = `x${game.mult}${game.bonusX > 1 ? ` · בונוס x${game.bonusX}` : ''}`;
     if (this.multEl.textContent !== mt) this.multEl.textContent = mt;
-    const ct = game.combo >= 2 && game.time - game.lastShotT < 5 ? `קומבו x${game.combo}` : '';
+    const saveLeft = game.state === 'playing' && game.ballSave > 0 ? Math.ceil(game.ballSave) : 0;
+    const ct = game.combo >= 2 && game.time - game.lastShotT < 5 ? `קומבו x${game.combo}` : saveLeft ? `🛡 הצלת כדור ${saveLeft}` : '';
     if (this.comboEl.textContent !== ct) this.comboEl.textContent = ct;
     // popups follow their world position
     const msgBox = this.msgEl.classList.contains('show') ? this.msgEl.getBoundingClientRect() : null;

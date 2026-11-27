@@ -1,5 +1,5 @@
 // Forest & Castle Pinball – offline cache (stale-while-revalidate, scoped to /pinball/).
-const VERSION = 'fcp-v8';
+const VERSION = 'fcp-v9';
 const SHELL = [
   './', './index.html', './manifest.json', './css/style.css',
   './js/main.js', './js/world.js', './js/physics.js', './js/layout.js', './js/textures.js', './js/game.js', './js/audio.js', './js/ui.js', './js/camera.js',

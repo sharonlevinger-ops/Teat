@@ -23,10 +23,11 @@ function runGame(seedBot, forceModes) {
   while (g.state === 'playing' && t < 1200) {
     for (const f of p.flippers) {
       const c = f.cfg;
-      const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 60 && o.vy > 40);
-      p.setFlipper(f.side, near);
+      const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 60 && (o.vy > 40 || Math.hypot(o.vx, o.vy) < 15));
+      p.setFlipper(f.side, near && t < 300); // the bot stops playing after 5 minutes so every game reaches game over
     }
     if (g.ballInLane()) g.plungerLaunch(0.5 + Math.random() * 0.5);
+    if (t > 300) for (const c of p.circles) if (c.x === L.CENTER_POST.x && c.y === L.CENTER_POST.y) c.enabled = false; // let resting balls drain
     if (forceModes && !forced && t > 5) {
       forced = true;
       g.openGate();

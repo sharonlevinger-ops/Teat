@@ -46,7 +46,7 @@ test('soak: no escapes, features reachable', () => {
       // bot: flip when a ball is near a flipper
       for (const f of p.flippers) {
         const c = f.cfg;
-        const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 55 + rnd() * 20 && o.vy > 40);
+        const near = p.balls.some((o) => o.mode === 'field' && Math.hypot(o.x - (c.x + Math.cos(c.rest) * c.len * 0.6), o.y - (c.y + Math.sin(c.rest) * c.len * 0.6)) < 55 + rnd() * 20 && (o.vy > 40 || Math.hypot(o.vx, o.vy) < 15));
         p.setFlipper(f.side, near || (f.pressed && rnd() < 0.8));
       }
       p.step(dt); t += dt; stats.sec += dt;

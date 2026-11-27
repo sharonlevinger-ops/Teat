@@ -56,7 +56,11 @@ poly([SLING_R[0], SLING_R[1], SLING_R[2]]);
 poly([[100, 875], [100, 1040], [228, 1111]]);               // left inlane guide + MA strip
 poly([[618, 945], [618, 1040], [492, 1111]]);               // right inlane guide + GE strip
 
+// short rubber post between the lower flippers (like a real machine's centre post):
+// a ball straight down the middle bounces onto a flipper instead of draining
+export const CENTER_POST = { x: CX, y: 1194, r: 9 }; // gap to each flipper tip < ball: it rests there until flipped
 export const posts = [
+  CENTER_POST,
   { x: 100, y: 875, r: 6 }, { x: 618, y: 945, r: 6 },
   { x: 162, y: 896, r: 7 }, { x: 212, y: 1032, r: 6 }, { x: SLING_R[0][0], y: SLING_R[0][1], r: 7 }, { x: mv('shield', [m(212), 1032])[0], y: mv('shield', [m(212), 1032])[1], r: 6 },
   { x: 284, y: 532, r: 5 }, { x: 398, y: 538, r: 5 }, { x: 655, y: 605, r: 6 },
@@ -82,8 +86,8 @@ export const MUSH_SPRITES = [
 // ---- flippers: lower pair + upper-left (right-middle and castle flippers removed) ---------
 const deg = Math.PI / 180;
 export const flippers = [
-  { id: 'LL', side: 'L', x: 239, y: 1135, len: 86, r0: 14, r1: 9, rest: 31.6 * deg, up: -28 * deg },
-  { id: 'LR', side: 'R', x: m(239), y: 1135, len: 86, r0: 14, r1: 9, rest: Math.PI - 31.6 * deg, up: Math.PI + 28 * deg },
+  { id: 'LL', side: 'L', x: 239, y: 1135, len: 91, r0: 14, r1: 9, rest: 31.6 * deg, up: -28 * deg },
+  { id: 'LR', side: 'R', x: m(239), y: 1135, len: 91, r0: 14, r1: 9, rest: Math.PI - 31.6 * deg, up: Math.PI + 28 * deg },
   { id: 'UL', side: 'L', x: 185, y: 619, len: 70, r0: 12, r1: 8, rest: 27 * deg, up: -25 * deg },
 ];
 

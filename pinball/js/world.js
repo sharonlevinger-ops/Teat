@@ -122,6 +122,7 @@ export class World {
     this.ringFx = [];
     this.buildFlippers();
     this.buildSpinner();
+    this.buildCenterPost();
     this.particles = new Particles(this.table);
     this.buildBalls();
     this.setMood('normal', true);
@@ -318,6 +319,17 @@ export class World {
   }
 
   // ---------------- spinner plate over the drawn gold gate ----------------
+  // chrome post with a white rubber ring between the lower flippers
+  buildCenterPost() {
+    const p = L.CENTER_POST;
+    const g = new THREE.Group(); g.position.copy(V(p.x, p.y));
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(p.r * 0.55 * S, p.r * 0.65 * S, 22 * S, 16), this.mats.chrome); post.position.y = 11 * S; post.castShadow = true; g.add(post);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(p.r * 0.85 * S, 2.6 * S, 10, 24).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xf1ede2, roughness: 0.55 }));
+    ring.position.y = 9 * S; ring.castShadow = true; g.add(ring);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(p.r * 0.6 * S, 14, 10), this.mats.chrome); cap.position.y = 22 * S; g.add(cap);
+    this.add(g);
+  }
+
   buildSpinner() {
     const sp = L.spinner;
     const g = new THREE.Group(); g.position.copy(V(sp.x + 12, sp.y - 3, 10));

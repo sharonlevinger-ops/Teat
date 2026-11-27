@@ -2,6 +2,7 @@
 import * as L from './layout.js';
 
 const BEST_KEY = 'fcp_best_v1';
+export const BALL_SAVE_SECONDS = 15; // a ball lost this soon after launch comes back
 const fmt = (n) => Math.round(n).toLocaleString('en-US');
 
 export function loadBest() {
@@ -236,7 +237,7 @@ export class Game {
   }
 
   onLaunched() {
-    if (this.ballSaveArmed) { this.ballSave = 12; this.ballSaveArmed = false; }
+    if (this.ballSaveArmed) { this.ballSave = BALL_SAVE_SECONDS; this.ballSaveArmed = false; }
     this.skillWindow = 4;
   }
 
@@ -509,7 +510,8 @@ export class Game {
       else if (b.mode === 'field') {
         const sp = Math.hypot(b.vx, b.vy);
         const inLane = b.x > L.FIELD.laneIn && b.y > 1150;
-        if (sp < 12 && !inLane) { b.still += dt; if (b.still > 2.2) { b.vx = (Math.random() - 0.5) * 600; b.vy = -500 - Math.random() * 300; b.still = 0; } } else b.still = 0;
+        const restingOnFlippers = b.y > 1100 && b.x > 215 && b.x < 505; // the player can flip it: no auto-nudge
+        if (sp < 12 && !inLane && !restingOnFlippers) { b.still += dt; if (b.still > 2.2) { b.vx = (Math.random() - 0.5) * 600; b.vy = -500 - Math.random() * 300; b.still = 0; } } else b.still = 0;
       }
     }
     // rolling sound
